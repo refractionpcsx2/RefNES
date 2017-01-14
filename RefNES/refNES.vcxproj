@@ -146,7 +146,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="memory.cpp" />
     <ClCompile Include="ppu.cpp" />
-    <ClCompile Include="romhander.cpp" />
+    <ClCompile Include="romhandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h" />
