@@ -5,5 +5,18 @@
 
 void LoadRomToMemory(FILE * RomFile, long lSize);
 
+/*CPU Memory Reads*/
+unsigned char memRead();
+unsigned short memReadPC(unsigned short address);
+unsigned char memReadOpcode(unsigned short address);
 
+/*CPU Memory Writes*/
+
+/*PPU Memory Reads*/
+
+/*PPU Memory Writes*/
+
+/*SPR Memory Reads*/
+
+/*SPR Memory Writes*/
 #endif

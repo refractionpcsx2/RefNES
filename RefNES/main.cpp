@@ -23,7 +23,7 @@
 #include "resource.h"
 #include <stdio.h>
 #include "main.h"
-
+#include "cpu.h"
 /*#define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>*/
@@ -378,6 +378,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 					//InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	
 					
 					//v_cycle = SDL_GetTicks();
+					CPUReset();
 					prev_v_cycle = v_cycle;
 					counter = time(NULL);
 				}
