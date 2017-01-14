@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include "main.h"
 #include "cpu.h"
+#include "memory.h"
 /*#define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>*/
@@ -62,6 +63,7 @@ RECT        rc;
 void CleanupRoutine()
 {
 	//Clean up XAudio2
+	CleanUpMem();
 }
 
 int SaveIni(){

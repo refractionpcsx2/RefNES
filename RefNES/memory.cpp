@@ -9,12 +9,22 @@ unsigned char PPUMemory[0x4000]; //16kb memory for PPU VRAM (0x4000-0xffff is mi
 unsigned char SPRMemory[0x100]; //256byte memory for Sprite RAM
 char* ROMCart;
 
+void CleanUpMem() {
+	if (ROMCart != NULL) {
+		free(ROMCart);
+	}
+}
 void MemReset() {
 	memset(&CPUMemory[0x2000], 0, 0x2020); //Reset only IO registers, everything else is "indetermined" just in case a game resets.
 }
 
 void LoadRomToMemory(FILE * RomFile, long lSize) {
-	ROMCart = (char*) malloc(lSize);
+	if (ROMCart == NULL) {
+		ROMCart = (char*)malloc(lSize);
+	}
+	else {
+		realloc(ROMCart, lSize);
+	}
 	fread(ROMCart, 1, lSize, RomFile);
 	memcpy(&CPUMemory, ROMCart, 0x2000);
 }

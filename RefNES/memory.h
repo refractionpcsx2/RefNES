@@ -4,6 +4,7 @@
 #include "common.h"
 
 void LoadRomToMemory(FILE * RomFile, long lSize);
+void CleanUpMem();
 
 /*CPU Memory Reads*/
 unsigned char memRead();
