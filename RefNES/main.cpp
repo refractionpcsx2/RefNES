@@ -57,8 +57,6 @@ unsigned short SCREEN_WIDTH = 320;
 unsigned short SCREEN_HEIGHT = 240;
 RECT        rc;
 
-//#define FPS_LOG __Log2
-#define CPU_LOG __Log
 
 void CleanupRoutine()
 {
@@ -472,7 +470,7 @@ void OpenLog()
 }
 
 void __Log(char *fmt, ...) {
-	//#ifdef LOGGINGENABLED
+	#ifdef LOGGINGENABLED
 	va_list list;
 
 
@@ -481,5 +479,5 @@ void __Log(char *fmt, ...) {
 	va_start(list, fmt);
 	vfprintf_s(LogFile, fmt, list);
 	va_end(list);
-	//#endif
+	#endif
 }

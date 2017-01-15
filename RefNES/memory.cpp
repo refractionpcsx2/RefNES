@@ -40,6 +40,7 @@ unsigned short MemAddrAbsolute() {
 	unsigned short fulladdress;
 	
 	fulladdress = CPUMemory[PC + 2] << 8 | CPUMemory[PC + 1];
+	CPU_LOG("Absolute Mem Read from %x PC = %x", fulladdress, PC);
 	PC += 3;
 
 	return fulladdress;
@@ -48,7 +49,7 @@ unsigned short MemAddrAbsolute() {
 
 unsigned short MemAddrAbsoluteY() {
 	unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]) + Y;
-
+	CPU_LOG("AbsoluteY Mem Read from %x PC = %x", fulladdress, PC);
 	PC += 3;
 
 	return fulladdress;
@@ -56,7 +57,7 @@ unsigned short MemAddrAbsoluteY() {
 
 unsigned short MemAddrAbsoluteX() {
 	unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]) + X;
-
+	CPU_LOG("AbsoluteX Mem Read from %x PC = %x", fulladdress, PC);
 	PC += 3;
 
 	return fulladdress;
@@ -67,6 +68,7 @@ unsigned short MemAddrPreIndexed() {
 	unsigned short address = CPUMemory[PC + 1] + X;
 
 	fulladdress = (CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF];
+	CPU_LOG("Pre Indexed Mem Read from %x PC = %x", fulladdress, PC);
 	PC += 2;
 
 	return fulladdress;
@@ -77,6 +79,7 @@ unsigned short MemAddrPostIndexed() {
 	unsigned short address = CPUMemory[PC + 1];
 
 	fulladdress = ((CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF]) + Y;
+	CPU_LOG("Post Indexed Mem Read from %x PC = %x", fulladdress, PC);
 	PC += 2;
 
 	return fulladdress;
@@ -85,7 +88,7 @@ unsigned short MemAddrPostIndexed() {
 unsigned short MemAddrImmediate() {
 	//We don't read from memory here, we just read the PC + 1 position value
 	unsigned short fulladdress = PC + 1;
-
+	CPU_LOG("Immediate Read from %x PC = %x", fulladdress, PC);
 	PC += 2;
 
 	return fulladdress;
@@ -93,7 +96,7 @@ unsigned short MemAddrImmediate() {
 
 unsigned short MemAddrZeroPage() {
 	unsigned short fulladdress = CPUMemory[PC + 1];
-
+	CPU_LOG("Zero Page Read from %x PC = %x", fulladdress, PC);
 	PC += 2;
 
 	return fulladdress;
@@ -101,7 +104,7 @@ unsigned short MemAddrZeroPage() {
 
 unsigned short MemAddrZeroPageIndexed() {
 	unsigned short fulladdress = (CPUMemory[PC + 1] + X) & 0xFF;
-
+	CPU_LOG("Zero Page Indexed Read from %x PC = %x", fulladdress, PC);
 	PC += 2;
 
 	return fulladdress;
