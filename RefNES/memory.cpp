@@ -156,18 +156,41 @@ unsigned short memGetAddr() {
 unsigned char memRead() {
 	unsigned short address = memGetAddr();
 	CPU_LOG("Reading from address %x, value %x\n", address, CPUMemory[address]);
+	if (address >= 0x2008 && address < 0x4000) {
+		CPU_LOG("Wrapping PPU reg address %x", 0x2000 + (address & 0x7));
+		address = 0x2000 + (address & 0x7);
+	}
+	if (address >= 0x800 && address < 0x2000) {
+		CPU_LOG("Wrapping CPU mem address %x", address & 0x7FF);
+		address = address & 0x7FF;
+	}
 	return CPUMemory[address];
 }
 
 void memWrite(unsigned char value) {
 	unsigned short address = memGetAddr();
 	CPU_LOG("Writing to address %x, value %x\n", address, value);
+	if (address >= 0x2008 && address < 0x4000) {
+		CPU_LOG("Wrapping PPU reg address %x", 0x2000 + (address & 0x7));
+		address = 0x2000 + (address & 0x7);
+	}
+	if (address >= 0x800 && address < 0x2000) {
+		CPU_LOG("Wrapping CPU mem address %x", address & 0x7FF);
+		address = address & 0x7FF;
+	}
 	CPUMemory[address] = value;
 }
 
 unsigned short memReadPC(unsigned short address) {
 	unsigned short value;
-
+	if (address >= 0x2008 && address < 0x4000) {
+		CPU_LOG("Wrapping PPU reg address %x", 0x2000 + (address & 0x7));
+		address = 0x2000 + (address & 0x7);
+	}
+	if (address >= 0x800 && address < 0x2000) {
+		CPU_LOG("Wrapping CPU mem address %x", address & 0x7FF);
+		address = address & 0x7FF;
+	}
 	value = (CPUMemory[address + 1] << 8) | CPUMemory[address];
 	return value;
 
@@ -178,16 +201,44 @@ unsigned short memReadPCIndirect() {
 	unsigned short value;
 
 	address = (CPUMemory[PC + 2] << 8) | CPUMemory[PC + 1];
+
+	if (address >= 0x2008 && address < 0x4000) {
+		CPU_LOG("Wrapping PPU reg address %x", 0x2000 + (address & 0x7));
+		address = 0x2000 + (address & 0x7);
+	}
+	if (address >= 0x800 && address < 0x2000) {
+		CPU_LOG("Wrapping CPU mem address %x", address & 0x7FF);
+		address = address & 0x7FF;
+	}
+
 	value = (CPUMemory[address + 1] << 8) | CPUMemory[address];
 	return value;
 
 }
 
 void memWritePC(unsigned short address, unsigned char value) {
+	if (address >= 0x2008 && address < 0x4000) {
+		CPU_LOG("Wrapping PPU reg address %x", 0x2000 + (address & 0x7));
+		address = 0x2000 + (address & 0x7);
+	}
+	if (address >= 0x800 && address < 0x2000) {
+		CPU_LOG("Wrapping CPU mem address %x", address & 0x7FF);
+		address = address & 0x7FF;
+	}
+
 	CPUMemory[address] = value;
 }
 
 
 unsigned char memReadValue(unsigned short address) {
+	if (address >= 0x2008 && address < 0x4000) {
+		CPU_LOG("Wrapping PPU reg address %x", 0x2000 + (address & 0x7));
+		address = 0x2000 + (address & 0x7);
+	}
+	if (address >= 0x800 && address < 0x2000) {
+		CPU_LOG("Wrapping CPU mem address %x", address & 0x7FF);
+		address = address & 0x7FF;
+	}
+
 	return CPUMemory[address];
 }
