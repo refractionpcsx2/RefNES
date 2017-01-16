@@ -26,7 +26,8 @@ void LoadRomToMemory(FILE * RomFile, long lSize) {
 		realloc(ROMCart, lSize);
 	}
 	fread(ROMCart, 1, lSize, RomFile);
-	memcpy(&CPUMemory, ROMCart, 0x2000);
+	memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
+	memcpy(&CPUMemory[0xC000], ROMCart, 0x4000);
 }
 
 
@@ -40,25 +41,26 @@ unsigned short MemAddrAbsolute() {
 	unsigned short fulladdress;
 	
 	fulladdress = CPUMemory[PC + 2] << 8 | CPUMemory[PC + 1];
-	CPU_LOG("Absolute Mem Read from %x PC = %x", fulladdress, PC);
-	PC += 3;
-
+	CPU_LOG("Absolute Mem %x PC = %x\n", fulladdress, PC);
+	PCInc = 3;
+	cycles += 2;
 	return fulladdress;
 
 }
 
 unsigned short MemAddrAbsoluteY() {
 	unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]) + Y;
-	CPU_LOG("AbsoluteY Mem Read from %x PC = %x", fulladdress, PC);
-	PC += 3;
-
+	CPU_LOG("AbsoluteY Mem %x PC = %x\n", fulladdress, PC);
+	PCInc = 3;
+	cycles += 3;
 	return fulladdress;
 }
 
 unsigned short MemAddrAbsoluteX() {
 	unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]) + X;
-	CPU_LOG("AbsoluteX Mem Read from %x PC = %x", fulladdress, PC);
-	PC += 3;
+	CPU_LOG("AbsoluteX Mem %x PC = %x\n", fulladdress, PC);
+	PCInc = 3;
+	cycles += 3;
 
 	return fulladdress;
 }
@@ -68,9 +70,9 @@ unsigned short MemAddrPreIndexed() {
 	unsigned short address = CPUMemory[PC + 1] + X;
 
 	fulladdress = (CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF];
-	CPU_LOG("Pre Indexed Mem Read from %x PC = %x", fulladdress, PC);
-	PC += 2;
-
+	CPU_LOG("Pre Indexed Mem %x PC = %x\n", fulladdress, PC);
+	PCInc = 2;
+	cycles += 3;
 	return fulladdress;
 }
 
@@ -79,34 +81,34 @@ unsigned short MemAddrPostIndexed() {
 	unsigned short address = CPUMemory[PC + 1];
 
 	fulladdress = ((CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF]) + Y;
-	CPU_LOG("Post Indexed Mem Read from %x PC = %x", fulladdress, PC);
-	PC += 2;
-
+	CPU_LOG("Post Indexed Mem %x PC = %x\n", fulladdress, PC);
+	PCInc = 2;
+	cycles += 3;
 	return fulladdress;
 }
 
 unsigned short MemAddrImmediate() {
 	//We don't read from memory here, we just read the PC + 1 position value
 	unsigned short fulladdress = PC + 1;
-	CPU_LOG("Immediate Read from %x PC = %x", fulladdress, PC);
-	PC += 2;
+	CPU_LOG("Immediate %x PC = %x\n", fulladdress, PC);
+	PCInc = 2;
 
 	return fulladdress;
 }
 
 unsigned short MemAddrZeroPage() {
 	unsigned short fulladdress = CPUMemory[PC + 1];
-	CPU_LOG("Zero Page Read from %x PC = %x", fulladdress, PC);
-	PC += 2;
-
+	CPU_LOG("Zero Page %x PC = %x\n", fulladdress, PC);
+	PCInc = 2;
+	cycles += 1;
 	return fulladdress;
 }
 
 unsigned short MemAddrZeroPageIndexed() {
 	unsigned short fulladdress = (CPUMemory[PC + 1] + X) & 0xFF;
-	CPU_LOG("Zero Page Indexed Read from %x PC = %x", fulladdress, PC);
-	PC += 2;
-
+	CPU_LOG("Zero Page Indexed %x PC = %x\n", fulladdress, PC);
+	PCInc = 2;
+	cycles += 2;
 	return fulladdress;
 }
 
@@ -152,11 +154,15 @@ unsigned short memGetAddr() {
 
 /* Generic Interfaces */
 unsigned char memRead() {
-	return CPUMemory[memGetAddr()];	
+	unsigned short address = memGetAddr();
+	CPU_LOG("Reading from address %x, value %x\n", address, CPUMemory[address]);
+	return CPUMemory[address];
 }
 
 void memWrite(unsigned char value) {
-	CPUMemory[memGetAddr()] = value;
+	unsigned short address = memGetAddr();
+	CPU_LOG("Writing to address %x, value %x\n", address, value);
+	CPUMemory[address] = value;
 }
 
 unsigned short memReadPC(unsigned short address) {
@@ -167,6 +173,21 @@ unsigned short memReadPC(unsigned short address) {
 
 }
 
-unsigned char memReadOpcode(unsigned short address) {
+unsigned short memReadPCIndirect() {
+	unsigned short address;
+	unsigned short value;
+
+	address = (CPUMemory[PC + 2] << 8) | CPUMemory[PC + 1];
+	value = (CPUMemory[address + 1] << 8) | CPUMemory[address];
+	return value;
+
+}
+
+void memWritePC(unsigned short address, unsigned char value) {
+	CPUMemory[address] = value;
+}
+
+
+unsigned char memReadValue(unsigned short address) {
 	return CPUMemory[address];
 }

@@ -12,6 +12,10 @@ int LoadRom(const char *Filename) {
 	long lSize;   //Need a variable to tell us the size
 	unsigned char ROMHeader[16];
 	unsigned int inesIdent;
+	unsigned char prgsize;
+	unsigned char chrsize;
+	unsigned char flags6;
+	unsigned char flags10;
 
 	fopen_s(&pFile, Filename, "rb");     //Open the file, args r = read, b = binary
 
@@ -24,19 +28,20 @@ int LoadRom(const char *Filename) {
 		fread(&ROMHeader, 1, 16, pFile); //Read in the file
 		inesIdent = (ROMHeader[0] + (ROMHeader[1] << 8) + (ROMHeader[2] << 16) + (ROMHeader[3] << 24));
 
-		if (inesIdent != 0x53454E)
+
+		if (inesIdent != 0x1A53454E)
 		{
-			CPU_LOG("Header not on ROM file. MagicNumber = %x", inesIdent);
+			CPU_LOG("Header not on ROM file. MagicNumber = %x\n", inesIdent);
 			fclose(pFile); //Close the file
 		}
 		else
 		{
-			CPU_LOG("Rom Spec Version %d.%d\n", (ROMHeader[5] >> 4) & 0xF, ROMHeader[5] & 0xF);
-			//Check the spec isnt newer than what is currently implemented!
-			if (ROMHeader[5] > 0x13)
-			{
-				return 2;
-			}
+			prgsize = ROMHeader[4];
+			chrsize = ROMHeader[5];
+			flags6 = ROMHeader[6];
+			flags10 = ROMHeader[10];
+
+			CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags10=%x\n", prgsize, chrsize, flags6, flags10);
 			fseek(pFile, 16, SEEK_SET); //Point it past the header
 			LoadRomToMemory(pFile, lSize);
 			//fread(CPUMemory, 1, lSize, pFile); //Read in the file

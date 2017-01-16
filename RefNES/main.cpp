@@ -25,6 +25,7 @@
 #include "main.h"
 #include "cpu.h"
 #include "memory.h"
+#include "romhandler.h"
 /*#define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>*/
@@ -51,7 +52,10 @@ char MenuScale = 1;
 char LoggingEnable = 0;
 int prev_v_cycle = 0;
 unsigned int v_cycle = prev_v_cycle;
+unsigned int nextCpuCycle = 0;
 time_t counter;
+bool Running = false;
+unsigned int nextsecond = (unsigned int)masterClock / 12;
 
 unsigned short SCREEN_WIDTH = 320;
 unsigned short SCREEN_HEIGHT = 240;
@@ -200,15 +204,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	{
 		RomName = strstr(lpCmdLine, "-r") + 3;
 		
-		//LoadSuccess = LoadRom(RomName);
+		LoadSuccess = LoadRom(RomName);
 		if(LoadSuccess == 1) MessageBox(hWnd, "Error Loading Game", "Error!", 0);
 		else if(LoadSuccess == 2) MessageBox(hWnd, "Error Loading Game - Spec too new, please check for update", "Error!",0);
 		else 
 		{
 //			refNESRecCPU->ResetRecMem();
-			/*Running = true;
+			Running = true;
 			//InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
-			nextsecond = 0;
+			/*nextsecond = 0;
 			fps = 0;
 			cycles = 0;*/
 		}		
@@ -227,6 +231,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					DispatchMessage(&msg);
 				}
 
+				if (Running == true) {
+					masterCycles++;
+					if (masterCycles - nextCpuCycle >= 12) {
+						if (cycles >= nextsecond) //We have a VBlank!
+						{
+							memWritePC(0x2002, 0x80);
+							CPU_LOG("VBLANK\n");
+							if (memReadPC(0x2000) & 0x80) {
+								CPU_LOG("Executing NMI\n");
+								CPUPushAllStack();
+								memReadPC(0xFFFA);
+							}
+							if (nextsecond > 10000000) {
+								cycles -= 10000000;
+								masterCycles -= 10000000 * 12;
+								nextsecond -= 10000000;
+							}
+							nextsecond += (unsigned int)masterClock / 12;
+						}
+						CPULoop();
+						nextCpuCycle += cycles * 12;
+					}
+				}
 				/*if(Running == true)
 				{
 
@@ -293,8 +320,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define     ID_RESET	   1001
 #define     ID_EXIT        1002
 #define		ID_ABOUT	   1003
+#define     ID_LOGGING	   1004
 
+void ToggleLogging(HWND hWnd)
+{
+	HMENU hmenuBar = GetMenu(hWnd);
+	MENUITEMINFO mii;
 
+	memset(&mii, 0, sizeof(MENUITEMINFO));
+	mii.cbSize = sizeof(MENUITEMINFO);
+	mii.fMask = MIIM_STATE;    // information to get 
+							   //Grab Logging state
+	GetMenuItemInfo(hSubMenu2, ID_LOGGING, FALSE, &mii);
+	// Toggle the checked state. 
+	LoggingEnable = !LoggingEnable;
+	mii.fState ^= MFS_CHECKED;
+	// Write the new state to the Logging flag.
+	SetMenuItemInfo(hSubMenu2, ID_LOGGING, FALSE, &mii);
+
+	if (LoggingEnable == 1)
+		OpenLog();
+	else
+		fclose(LogFile);
+}
 
 // this is the main message handler for the program
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -320,8 +368,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 		  /*AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 1 ? MF_CHECKED : 0), ID_WINDOWX1, "WindowScale 320x240 (x&1)");
 		  AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 2 ? MF_CHECKED : 0), ID_WINDOWX2, "WindowScale 640x480 (x&2)");
 		  AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 3 ? MF_CHECKED : 0), ID_WINDOWX3, "WindowScale 960x720 (x&3)");
-		  AppendMenu(hSubMenu2, MF_STRING| (LoggingEnable == 1 ? MF_CHECKED : 0), ID_LOGGING, "Enable Logging");
+		  
 		 */
+		 AppendMenu(hSubMenu2, MF_STRING| (LoggingEnable == 1 ? MF_CHECKED : 0), ID_LOGGING, "Enable Logging");
 		  InsertMenu(hMenu, 0, MF_POPUP | MF_BYPOSITION, (UINT_PTR)hSubMenu, "File");
 		  InsertMenu(hMenu, 1, MF_POPUP | MF_BYPOSITION, (UINT_PTR)hSubMenu2, "Settings");
 		  InsertMenu(hMenu, 2, MF_STRING, ID_ABOUT, "&About");
@@ -358,7 +407,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			ofn.lpstrFile = szFileName ;
 			ofn.lpstrFile[0] = '\0';
 			ofn.nMaxFile = sizeof( szFileName );
-			ofn.lpstrFilter = "c16 Rom\0*.c16\0";
+			ofn.lpstrFilter = "NES Rom\0*.nes\0";
 			ofn.nFilterIndex =1;
 			ofn.lpstrFileTitle = NULL ;
 			ofn.nMaxFileTitle = 0 ;
@@ -367,14 +416,14 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			
 			if(GetOpenFileName(&ofn)) 
 			{
-				//LoadSuccess = LoadRom(ofn.lpstrFile);
+				LoadSuccess = LoadRom(ofn.lpstrFile);
 				if(LoadSuccess == 1) MessageBox(hWnd, "Error Loading Game", "Error!", 0);
 				else if(LoadSuccess == 2) MessageBox(hWnd, "Error Loading Game - Spec too new, please check for update", "Error!",0);
 				else 
 				{
 					strcpy_s(CurFilename, szFileName);
 					//refNESRecCPU->ResetRecMem();
-					//Running = true;
+					Running = true;
 					//InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	
 					
 					//v_cycle = SDL_GetTicks();
@@ -402,9 +451,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			 }*/
 			 break;
 		 
-		/*  case ID_LOGGING:
+		  case ID_LOGGING:
 			  ToggleLogging(hWnd);
-			  break;*/
+			  break;
 		  case ID_ABOUT:
 				 MessageBox(hWnd, "refNES V1.0 Written by Refraction", "refNES", 0);			 
 			 break;

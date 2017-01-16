@@ -8,8 +8,12 @@ void CleanUpMem();
 
 /*CPU Memory Reads*/
 unsigned char memRead();
+void memWrite(unsigned char value);
+
 unsigned short memReadPC(unsigned short address);
-unsigned char memReadOpcode(unsigned short address);
+void memWritePC(unsigned short address, unsigned char value);
+unsigned short memReadPCIndirect();
+unsigned char memReadValue(unsigned short address);
 
 /*CPU Memory Writes*/
 
