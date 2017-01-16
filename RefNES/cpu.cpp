@@ -956,7 +956,12 @@ void cpuROR() {
 }
 
 void cpuSHX() {
-	CPU_LOG("SHX Not Implemented\n");
+	unsigned char value = memReadValue(PC + 2);
+
+	value &= X;
+
+	memWrite(value);
+	CPU_LOG("SHX Result=%x\n", value);
 	PC += PCInc;
 }
 
@@ -1106,6 +1111,9 @@ void CPULoop() {
 			CPURWM[Opcode >> 2]();
 			break;
 		case 0x3:
+			memRead();
+			PC += PCInc;
+			CPU_LOG("UNDOCUMENTED OPCODE\n");
 			//TODO undocumented opcodes
 			break;
 	}
