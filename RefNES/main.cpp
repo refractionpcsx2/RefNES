@@ -50,14 +50,17 @@ char headingstr [128];
 char inisettings[5];
 char MenuScale = 1;
 char LoggingEnable = 0;
+char MenuVSync = 1;
 int prev_v_cycle = 0;
 unsigned int v_cycle = prev_v_cycle;
 unsigned int nextCpuCycle = 0;
+unsigned int nextPPUCycle = 0;
+unsigned int fps = 0;
 time_t counter;
 bool Running = false;
 unsigned int nextsecond = (unsigned int)masterClock / 12;
 
-unsigned short SCREEN_WIDTH = 320;
+unsigned short SCREEN_WIDTH = 256;
 unsigned short SCREEN_HEIGHT = 240;
 RECT        rc;
 
@@ -76,6 +79,7 @@ int SaveIni(){
 	if (iniFile!=NULL)  //If the file exists
 	{
 		//inisettings[0] = Recompiler;
+		inisettings[1] = MenuVSync;
 		inisettings[2] = MenuScale;
 		inisettings[3] = LoggingEnable;
 		
@@ -114,21 +118,22 @@ int LoadIni(){
 		if(ftell (iniFile) > 0) // Identify if the inifile has just been created
 		{
 			//Recompiler = inisettings[0];
+			MenuVSync = inisettings[1];
 			MenuScale = inisettings[2];
 			LoggingEnable = inisettings[3];
 
 			switch(MenuScale)
 			{
 			case 1:
-				SCREEN_WIDTH = 320;
+				SCREEN_WIDTH = 256;
 				SCREEN_HEIGHT = 240;
 				break;
 			case 2:
-				SCREEN_WIDTH = 640;
+				SCREEN_WIDTH = 512;
 				SCREEN_HEIGHT = 480;
 				break;
 			case 3:
-				SCREEN_WIDTH = 960;
+				SCREEN_WIDTH = 768;
 				SCREEN_HEIGHT = 720;
 				break;
 			}
@@ -137,6 +142,7 @@ int LoadIni(){
 		{
 			//Defaults
 			//Recompiler = 1;
+			MenuVSync = 1;
 			MenuScale = 1;
 			LoggingEnable = 0;
 			SCREEN_WIDTH = 320;
@@ -211,10 +217,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 //			refNESRecCPU->ResetRecMem();
 			Running = true;
-			//InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
-			/*nextsecond = 0;
+			InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
+			nextsecond = 0;
 			fps = 0;
-			cycles = 0;*/
+			cpuCycles = 0;
 		}		
 	}
 
@@ -233,84 +239,53 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 				if (Running == true) {
 					masterCycles++;
-					if (masterCycles - nextCpuCycle >= 12) {
-						if (cycles >= nextsecond) //We have a VBlank!
+					//PPU Loop
+					
+					if (masterCycles - nextPPUCycle >= 4) { //Scanline
+						
+						if (dotCycles >= nextsecond)
 						{
-							memWritePC(0x2002, 0x80);
-							CPU_LOG("VBLANK\n");
-							if (memReadPC(0x2000) & 0x80) {
-								CPU_LOG("Executing NMI\n");
-								CPUPushAllStack();
-								memReadPC(0xFFFA);
-							}
+
 							if (nextsecond > 10000000) {
-								cycles -= 10000000;
+								cpuCycles -= 10000000;
 								masterCycles -= 10000000 * 12;
 								nextsecond -= 10000000;
 							}
-							nextsecond += (unsigned int)masterClock / 12;
+							nextsecond += (unsigned int)ppuClock;
+						}
+
+						PPULoop();
+
+						if (scanline == 0) {
+							fps2++;
+							
+						}
+						nextPPUCycle = dotCycles * 4;
+					}
+					//CPU Loop
+					
+					if (masterCycles - nextCpuCycle >= 12) {
+						if (cpuCycles >= nextsecond) //We have a VBlank!
+						{
+							if (nextsecond > 10000000) {
+								cpuCycles -= 10000000;
+								masterCycles -= 10000000 * 12;
+								nextsecond -= 10000000;
+							}
+							nextsecond += (unsigned int)cpuClock;
 						}
 						CPULoop();
-						nextCpuCycle += cycles * 12;
+						nextCpuCycle = cpuCycles * 12;
+					}
+					if (counter < time(NULL))
+					{
+						UpdateTitleBar(hWnd);
+						UpdateWindow(hWnd);
+						counter = time(NULL);
+						fps2 = 0;
 					}
 				}
-				/*if(Running == true)
-				{
-
-					if (cycles >= (nextsecond + ((1000000.0f / 60.0f) * fps))) //We have a VBlank!
-					{
-
-						VBlank = 1;
-
-						//Ignore controls if the user isnt pointing at this window
-						if (GetActiveWindow() == hWnd || GetActiveWindow() == hwndSDL)
-							refNESInput->UpdateControls();
-
-						fps++;
-						fps2++;
-
-						StartDrawing();
-						RedrawLastScreen();
-
-						nextsecond += 1000000;
-
-						//Prevent variable overflow
-						if (nextsecond > 10000000) {
-							cycles -= 10000000;
-							nextsecond -= 10000000;
-						}
-						fps = 0;
-						EndDrawing();
-					}
-					else
-					{
-						VBlank = 0;
-					}
-
-					if(counter < time(NULL))
-						{
-							UpdateTitleBar(hWnd);
-							UpdateWindow(hWnd);
-							counter = time(NULL);
-							fps2 = 0;
-						}
-						*/
-					/*if(Recompiler == 1)
-					{
-						if(StackPTR < 0xFDF0) //CPU_LOG("Stack Underflow! Recompiler StackPTR = %x", StackPTR);
-						if(StackPTR > 0xFFF0) //CPU_LOG("Stack Overflow! Recompiler StackPTR = %x", StackPTR);
-						refNESRecCPU->EnterRecompiledCode();
-					}
-					else
-					{
-						cycles += 1;
-						CPULoop();
-						
-					}
-				}	
-				else Sleep(100);*/
-		
-	
+				else Sleep(100);	
 	}
 	CleanupRoutine();
 	return (int)msg.wParam;
@@ -321,6 +296,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define     ID_EXIT        1002
 #define		ID_ABOUT	   1003
 #define     ID_LOGGING	   1004
+#define		ID_VSYNC	   1005
+
+void ToggleVSync(HWND hWnd)
+{
+	HMENU hmenuBar = GetMenu(hWnd);
+	MENUITEMINFO mii;
+
+	memset(&mii, 0, sizeof(MENUITEMINFO));
+	mii.cbSize = sizeof(MENUITEMINFO);
+	mii.fMask = MIIM_STATE;    // information to get 
+							   //Grab Vsync state
+	GetMenuItemInfo(hSubMenu2, ID_VSYNC, FALSE, &mii);
+	// Toggle the checked state. 
+	MenuVSync = !MenuVSync;
+	mii.fState ^= MFS_CHECKED;
+	// Write the new state to the VSync flag.
+	SetMenuItemInfo(hSubMenu2, ID_VSYNC, FALSE, &mii);
+
+	if (Running == true)
+	{
+		DestroyDisplay();
+		InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
+	}
+}
 
 void ToggleLogging(HWND hWnd)
 {
@@ -364,12 +363,13 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 //		  AppendMenu(hSubMenu2, MF_STRING| (Recompiler == 0 ? MF_CHECKED : 0), ID_INTERPRETER, "Enable &Interpreter");
 		//  AppendMenu(hSubMenu2, MF_STRING| (Recompiler == 1 ? MF_CHECKED : 0), ID_RECOMPILER, "Enable &Recompiler");
 		 /* AppendMenu(hSubMenu2, MF_STRING| (Smoothing == 1 ? MF_CHECKED : 0), ID_SMOOTHING, "Graphics &Filtering");
-		  AppendMenu(hSubMenu2, MF_STRING| (MenuVSync == 1 ? MF_CHECKED : 0), ID_VSYNC, "&Vertical Sync");*/
+		 */
 		  /*AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 1 ? MF_CHECKED : 0), ID_WINDOWX1, "WindowScale 320x240 (x&1)");
 		  AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 2 ? MF_CHECKED : 0), ID_WINDOWX2, "WindowScale 640x480 (x&2)");
 		  AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 3 ? MF_CHECKED : 0), ID_WINDOWX3, "WindowScale 960x720 (x&3)");
 		  
 		 */
+		  AppendMenu(hSubMenu2, MF_STRING | (MenuVSync == 1 ? MF_CHECKED : 0), ID_VSYNC, "&Vertical Sync");
 		 AppendMenu(hSubMenu2, MF_STRING| (LoggingEnable == 1 ? MF_CHECKED : 0), ID_LOGGING, "Enable Logging");
 		  InsertMenu(hMenu, 0, MF_POPUP | MF_BYPOSITION, (UINT_PTR)hSubMenu, "File");
 		  InsertMenu(hMenu, 1, MF_POPUP | MF_BYPOSITION, (UINT_PTR)hSubMenu2, "Settings");
@@ -424,9 +424,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 					strcpy_s(CurFilename, szFileName);
 					//refNESRecCPU->ResetRecMem();
 					Running = true;
-					//InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	
+					InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	
 					
-					//v_cycle = SDL_GetTicks();
+					v_cycle = SDL_GetTicks();
 					CPUReset();
 					prev_v_cycle = v_cycle;
 					counter = time(NULL);
@@ -434,23 +434,24 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			}			
 			break;
 		  case ID_RESET:
-			/* if(Running == true)
+			 if(Running == true)
 			 {
 				 LoadSuccess = LoadRom(CurFilename);
 				 if(LoadSuccess == 1) MessageBox(hWnd, "Error Loading Game", "Error!", 0);
 				 else if(LoadSuccess == 2) MessageBox(hWnd, "Error Loading Game - Spec too new, please check for update", "Error!",0);
 				 else 
-				 {*/
-					 /*refNESRecCPU->ResetRecMem();
-					 InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	*/
-				 	
-					// v_cycle = SDL_GetTicks();
-				/*	 prev_v_cycle = v_cycle;
-					 counter = time(NULL);
+				 {
+					 /*refNESRecCPU->ResetRecMem();*/
+					 InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	
+					 CPUReset();
+					 v_cycle = SDL_GetTicks();
+					 prev_v_cycle = v_cycle;
 				 }
-			 }*/
+			 }
 			 break;
-		 
+		  case ID_VSYNC:
+			  ToggleVSync(hWnd);
+			  break;
 		  case ID_LOGGING:
 			  ToggleLogging(hWnd);
 			  break;
@@ -487,7 +488,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 		} 
 		break;
 	}
-	//prev_v_cycle = SDL_GetTicks() - (int)((float)(1000.0f / 60.0f) * fps);
+	prev_v_cycle = SDL_GetTicks() - (int)((float)(1000.0f / 60.0f) * fps);
 	return DefWindowProc (hWnd, message, wParam, lParam);
 }
 

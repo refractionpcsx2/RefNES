@@ -147,6 +147,7 @@
     <ClCompile Include="memory.cpp" />
     <ClCompile Include="ppu.cpp" />
     <ClCompile Include="romhandler.cpp" />
+    <ClCompile Include="SDLInterface.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h" />
@@ -156,6 +157,7 @@
     <ClInclude Include="ppu.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="romhandler.h" />
+    <ClInclude Include="SDLInterface.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="refNES.rc" />

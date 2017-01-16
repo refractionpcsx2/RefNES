@@ -3,7 +3,8 @@
 #define COMMON_H
 
 #include "main.h"
-
+#include "ppu.h"
+#include "SDLInterface.h"
 
 #include <stdlib.h>
 #include <stdio.h>

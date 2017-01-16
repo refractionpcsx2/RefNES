@@ -11,9 +11,15 @@ unsigned char Y;
 unsigned char A;
 unsigned char P;
 unsigned char Opcode;
-unsigned int cycles = 0;
+unsigned int cpuCycles = 0;
+unsigned int dotCycles = 0; //PPU clock
 unsigned int masterCycles = 0;
+unsigned int scanlinesperframe = 262;
+unsigned int vBlankInterval = 20;
 float masterClock = 21477270;
+float cpuClock = (masterClock / 12);
+float ppuClock = (masterClock / 4);
+
 
 typedef void(*JumpTable)(void);
 
@@ -77,10 +83,10 @@ void cpuBCC() {
 
 	if (!(P & CARRY_FLAG)) {
 		if ((newPC & 0xff00) != ((PC+2) & 0xff00)) {
-			cycles += 2;
+			cpuCycles += 2;
 		}
 		else {
-			cycles += 1;
+			cpuCycles += 1;
 		}
 		PC = newPC;
 	}
@@ -95,10 +101,10 @@ void cpuBCS() {
 
 	if ((P & CARRY_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-			cycles += 2;
+			cpuCycles += 2;
 		}
 		else {
-			cycles += 1;
+			cpuCycles += 1;
 		}
 		PC = newPC;
 	}
@@ -113,10 +119,10 @@ void cpuBEQ() {
 
 	if ((P & ZERO_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-			cycles += 2;
+			cpuCycles += 2;
 		}
 		else {
-			cycles += 1;
+			cpuCycles += 1;
 		}
 		PC = newPC;
 	}
@@ -147,10 +153,10 @@ void cpuBMI() {
 
 	if ((P & NEGATIVE_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-			cycles += 2;
+			cpuCycles += 2;
 		}
 		else {
-			cycles += 1;
+			cpuCycles += 1;
 		}
 		PC = newPC;
 	}
@@ -165,10 +171,10 @@ void cpuBNE() {
 
 	if (!(P & ZERO_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-			cycles += 2;
+			cpuCycles += 2;
 		}
 		else {
-			cycles += 1;
+			cpuCycles += 1;
 		}
 		PC = newPC;
 	}
@@ -183,10 +189,10 @@ void cpuBPL() {
 
 	if (!(P & NEGATIVE_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-			cycles += 2;
+			cpuCycles += 2;
 		}
 		else {
-			cycles += 1;
+			cpuCycles += 1;
 		}
 		PC = newPC;
 	}
@@ -209,10 +215,10 @@ void cpuBVC() {
 
 	if (!(P & OVERFLOW_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-			cycles += 2;
+			cpuCycles += 2;
 		}
 		else {
-			cycles += 1;
+			cpuCycles += 1;
 		}
 		PC = newPC;
 	}
@@ -227,10 +233,10 @@ void cpuBVS() {
 
 	if ((P & OVERFLOW_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-			cycles += 2;
+			cpuCycles += 2;
 		}
 		else {
-			cycles += 1;
+			cpuCycles += 1;
 		}
 		PC = newPC;
 	}
@@ -1119,7 +1125,7 @@ JumpTable CPURWM[64]	= { cpuSTP, cpuASL, cpuASL, cpuASL, cpuSTP, cpuASL, cpuNOP,
 void CPULoop() {
 	Opcode = memReadValue(PC);
 	PCInc = 1;
-	cycles += 2;
+	cpuCycles += 2;
 	//CPU_LOG("Running Opcode %x PC = %x\n", Opcode, PC);
 	switch (Opcode & 0x3) {
 		case 0x0: //Control Instructions
