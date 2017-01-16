@@ -145,7 +145,7 @@ int LoadIni(){
 			MenuVSync = 1;
 			MenuScale = 1;
 			LoggingEnable = 0;
-			SCREEN_WIDTH = 320;
+			SCREEN_WIDTH = 256;
 			SCREEN_HEIGHT = 240;
 			//CPU_LOG("Defaults loaded, new ini\n");
 		}
@@ -243,47 +243,39 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					
 					if (masterCycles - nextPPUCycle >= 4) { //Scanline
 						
-						if (dotCycles >= nextsecond)
-						{
-
-							if (nextsecond > 10000000) {
-								cpuCycles -= 10000000;
-								masterCycles -= 10000000 * 12;
-								nextsecond -= 10000000;
-							}
-							nextsecond += (unsigned int)ppuClock;
-						}
-
+						
 						PPULoop();
-
+						
 						if (scanline == 0) {
-							fps2++;
-							
+							fps2++;							
 						}
-						nextPPUCycle = dotCycles * 4;
+
+						if (counter < time(NULL))
+						{
+							UpdateTitleBar(hWnd);
+							UpdateWindow(hWnd);
+							counter = time(NULL);
+							fps2 = 0;
+						}
+						nextPPUCycle += dotCycles * 4;
 					}
 					//CPU Loop
 					
 					if (masterCycles - nextCpuCycle >= 12) {
-						if (cpuCycles >= nextsecond) //We have a VBlank!
+						if (masterCycles >= nextsecond) //We have a VBlank!
 						{
-							if (nextsecond > 10000000) {
-								cpuCycles -= 10000000;
-								masterCycles -= 10000000 * 12;
-								nextsecond -= 10000000;
+							if (nextsecond > masterClock) {
+								cpuCycles -= (unsigned int)masterClock / 12;
+								nextPPUCycle -= (unsigned int)masterClock / 4;
+								masterCycles -= (unsigned int)masterClock;
+								nextsecond -= (unsigned int)masterClock;
 							}
-							nextsecond += (unsigned int)cpuClock;
+							nextsecond += (unsigned int)masterClock;
 						}
 						CPULoop();
-						nextCpuCycle = cpuCycles * 12;
+						nextCpuCycle += cpuCycles * 12;
 					}
-					if (counter < time(NULL))
-					{
-						UpdateTitleBar(hWnd);
-						UpdateWindow(hWnd);
-						counter = time(NULL);
-						fps2 = 0;
-					}
+					
 				}
 				else Sleep(100);	
 	}
@@ -297,6 +289,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define		ID_ABOUT	   1003
 #define     ID_LOGGING	   1004
 #define		ID_VSYNC	   1005
+#define     ID_WINDOWX1    1006
+#define     ID_WINDOWX2    1007
+#define     ID_WINDOWX3    1008
 
 void ToggleVSync(HWND hWnd)
 {
@@ -343,6 +338,53 @@ void ToggleLogging(HWND hWnd)
 		fclose(LogFile);
 }
 
+void ChangeScale(HWND hWnd, int ID)
+{
+	HMENU hmenuBar = GetMenu(hWnd);
+	MENUITEMINFO mii;
+
+	memset(&mii, 0, sizeof(MENUITEMINFO));
+	mii.cbSize = sizeof(MENUITEMINFO);
+	mii.fMask = MIIM_STATE;    // information to get 
+							   //Grab Recompiler state
+	GetMenuItemInfo(hSubMenu2, 1005 + MenuScale, FALSE, &mii);
+	// Move this state to the Interpreter flag
+	SetMenuItemInfo(hSubMenu2, ID, FALSE, &mii);
+	// Toggle the checked state. 
+	mii.fState ^= MFS_CHECKED;
+	// Move this state to the Recompiler flag
+	SetMenuItemInfo(hSubMenu2, 1005 + MenuScale, FALSE, &mii);
+	MenuScale = ID - 1005;
+
+	switch (MenuScale)
+	{
+	case 1:
+		SCREEN_WIDTH = 256;
+		SCREEN_HEIGHT = 240;
+		break;
+	case 2:
+		SCREEN_WIDTH = 512;
+		SCREEN_HEIGHT = 480;
+		break;
+	case 3:
+		SCREEN_WIDTH = 768;
+		SCREEN_HEIGHT = 720;
+		break;
+	}
+
+	RECT wr = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };    // set the size, but not the position
+	AdjustWindowRect(&wr, WS_CAPTION | WS_MINIMIZE | WS_SYSMENU, TRUE);    // adjust the size
+
+	SetWindowPos(hWnd, 0, 100, 100, wr.right - wr.left, wr.bottom - wr.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+	if (Running == true)
+	{
+		DestroyDisplay();
+		InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
+	}
+}
+
+
 // this is the main message handler for the program
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -364,11 +406,11 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 		//  AppendMenu(hSubMenu2, MF_STRING| (Recompiler == 1 ? MF_CHECKED : 0), ID_RECOMPILER, "Enable &Recompiler");
 		 /* AppendMenu(hSubMenu2, MF_STRING| (Smoothing == 1 ? MF_CHECKED : 0), ID_SMOOTHING, "Graphics &Filtering");
 		 */
-		  /*AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 1 ? MF_CHECKED : 0), ID_WINDOWX1, "WindowScale 320x240 (x&1)");
+		  AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 1 ? MF_CHECKED : 0), ID_WINDOWX1, "WindowScale 320x240 (x&1)");
 		  AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 2 ? MF_CHECKED : 0), ID_WINDOWX2, "WindowScale 640x480 (x&2)");
 		  AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 3 ? MF_CHECKED : 0), ID_WINDOWX3, "WindowScale 960x720 (x&3)");
 		  
-		 */
+		 
 		  AppendMenu(hSubMenu2, MF_STRING | (MenuVSync == 1 ? MF_CHECKED : 0), ID_VSYNC, "&Vertical Sync");
 		 AppendMenu(hSubMenu2, MF_STRING| (LoggingEnable == 1 ? MF_CHECKED : 0), ID_LOGGING, "Enable Logging");
 		  InsertMenu(hMenu, 0, MF_POPUP | MF_BYPOSITION, (UINT_PTR)hSubMenu, "File");
@@ -454,6 +496,15 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			  break;
 		  case ID_LOGGING:
 			  ToggleLogging(hWnd);
+			  break;
+		  case ID_WINDOWX1:
+			  ChangeScale(hWnd, ID_WINDOWX1);
+			  break;
+		  case ID_WINDOWX2:
+			  ChangeScale(hWnd, ID_WINDOWX2);
+			  break;
+		  case ID_WINDOWX3:
+			  ChangeScale(hWnd, ID_WINDOWX3);
 			  break;
 		  case ID_ABOUT:
 				 MessageBox(hWnd, "refNES V1.0 Written by Refraction", "refNES", 0);			 

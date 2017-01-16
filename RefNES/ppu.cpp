@@ -18,7 +18,7 @@ unsigned int scanline;
 
 void PPUWriteReg(unsigned short address, unsigned char value) {
 
-	CPU_LOG("PPU Reg Write %x value %x", 0x2000 + (address & 0x7), value);
+	CPU_LOG("PPU Reg Write %x value %x\n", 0x2000 + (address & 0x7), value);
 	switch (address & 0x7) {
 		case 0x00: //PPU Control
 			PPUCtrl = value;
@@ -89,13 +89,38 @@ unsigned char PPUReadReg(unsigned short address) {
 		//the upper 2 bits are pallate values. Lets just return the status reg unless we get problems.
 		break;	
 	}
-	CPU_LOG("PPU Reg Read %x value %x", 0x2000 + (address & 0x7), value);
+	CPU_LOG("PPU Reg Read %x value %x\n", 0x2000 + (address & 0x7), value);
 	return value;
 }
 
+char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
+	unsigned char patternTableBaseAddress;
+	unsigned char offset = YPos & 0x1;
+
+	patternTableBaseAddress = (PPUCtrl & 0x10) ? 0x1000 : 0x0000;
+	
+	
+CPU_LOG("Scanline %d:", YPos);
+	for (int i = 0; i < 32; i++) {
+		CPU_LOG("%x", PPUMemory[2000 + i + (scanline * 32)]);
+	}
+	CPU_LOG("\n");
+
+
+
+	return 0;
+}
+void PPUDrawScanline() {
+	unsigned char nameTableValue;
+	//Background
+	//for (int i = 0; i < 256; i++) {
+		nameTableValue = PPUGetNameTableEntry(scanline, 0);
+	//}
+	//Sprites
+}
 void PPULoop() {
-	scanline++;
-	if (scanline == 1) {
+	
+	if (scanline == 0) {
 		StartDrawing();
 	}
 	dotCycles += 341;
@@ -105,20 +130,24 @@ void PPULoop() {
 		if (memReadPC(0x2000) & 0x80) {
 			CPU_LOG("Executing NMI\n");
 			CPUPushAllStack();
-			memReadPC(0xFFFA);
+			PC = memReadPC(0xFFFA);
 		}
 	} else
 	if (scanline < (scanlinesperframe - (vBlankInterval + 1))) {
-		DrawScanline(scanline);
+		//DrawScanline(scanline);
+		PPUDrawScanline();
 	}
+	
 	if (scanline == (scanlinesperframe - 1))
 	{
 		CPU_LOG("VBLANK End\n");
 		PPUStatus &= ~0x80;
 	}
+	scanline++;
 	if (scanline == scanlinesperframe) {
 		scanline = 0;	
 		EndDrawing();
 	}
+	
 }
 

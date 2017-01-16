@@ -28,49 +28,53 @@ void CPUReset() {
 	PC = memReadPC(0xFFFC);
 	SP = 0x1FD;
 	P = 0x34;
+
 	CPU_LOG("CPU Reset start PC set to %x\n", PC);
 }
 
 void CPUPushAllStack() {
-	memWritePC(SP, (PC & 0xff));
-	memWritePC(SP + 1, PC >> 8);	
-	memWritePC(SP + 2, P);
-	SP -= 3;
+	memWritePC(SP--, PC >> 8);
+	memWritePC(SP--, (PC & 0xff));
+	memWritePC(SP--, P);
+	
 	CPU_LOG("Pushed all to stack, SP = %x\n", SP);
 }
 
 void CPUPopAllStack() {
-	SP += 3;
-	PC = memReadPC(SP);
-	P = memReadValue(SP + 2);	
+	P = memReadValue(++SP);
+	PC = memReadPC(++SP);
+	SP += 1;
+		
+
 
 	CPU_LOG("Popped all from stack, SP = %x\n", SP);
 }
 
 void CPUPushPCStack() {	
-	memWritePC(SP + 1, PC >> 8);
-	memWritePC(SP, (PC & 0xff));
-	SP -= 2;
-
+	memWritePC(SP--, PC >> 8);
+	memWritePC(SP--, (PC & 0xff));
+	
 	CPU_LOG("Pushed PC to stack, SP = %x\n", SP);
 }
 
 void CPUPopPCStack() {
-	SP += 2;
-	PC = memReadPC(SP);
+	
+	PC = memReadPC(++SP);
+	SP += 1;
+
 	CPU_LOG("Popped PC from stack, SP = %x\n", SP);
 }
 
 void CPUPushSingleStack(unsigned char value) {
-	memWritePC(SP, value);
-	SP -= 1;
+	memWritePC(SP--, value);
+	
 	CPU_LOG("Pushed Single to stack, SP = %x\n", SP);
 }
 
 unsigned char CPUPopSingleStack() {
 	unsigned char value;
-	SP += 1;
-	value = memReadValue(SP);
+	
+	value = memReadValue(++SP);
 	CPU_LOG("Popped Single from stack, SP = %x\n", SP);
 	return value;
 }
