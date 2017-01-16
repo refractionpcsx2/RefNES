@@ -261,7 +261,7 @@ void cpuCLV() {
 void cpuCPX() {
 	unsigned char memvalue = memRead();
 
-	if (X >= memvalue) {
+	if (X < memvalue) {
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -291,7 +291,7 @@ void cpuCPX() {
 void cpuCPY() {
 	unsigned char memvalue = memRead();
 
-	if (Y >= memvalue) {
+	if (Y < memvalue) {
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -318,19 +318,17 @@ void cpuCPY() {
 
 	CPU_LOG("CPY A=%x Mem=%x A=%x Flags=%x\n", memvalue, Y, P);
 }
-void cpuDEY() {
-	unsigned char memvalue = Y;
+void cpuDEY() {	
+	Y -= 1;
 
-	if (memvalue == 1) {
+	if (Y == 0) {
 		P |= ZERO_FLAG;
 	}
 	else {
 		P &= ~ZERO_FLAG;
 	}
 
-	Y -= 1;
-
-	if (Y >= 0x7F) {
+	if (Y & 0x80) {
 		P |= NEGATIVE_FLAG;
 	}
 	else {
@@ -341,12 +339,10 @@ void cpuDEY() {
 
 	PC += PCInc;
 }
-void cpuINX() {
-	unsigned char memvalue = X;
-	
-	X = X + 1;
+void cpuINX() {	
+	X += 1;
 
-	if (X >= 0x7F) {
+	if (X & 0x80) {
 		P |= NEGATIVE_FLAG;
 	}
 	else {
@@ -364,16 +360,16 @@ void cpuINX() {
 	PC += PCInc;
 }
 void cpuINY() {
-	unsigned char memvalue = Y;
 
-	Y = Y + 1;
+	Y += 1;
 
-	if (Y >= 0x7F) {
+	if (Y & 0x80) {
 		P |= NEGATIVE_FLAG;
 	}
 	else {
 		P &= ~NEGATIVE_FLAG;
 	}
+
 	if (Y == 0) {
 		P |= ZERO_FLAG;
 	}
@@ -525,6 +521,7 @@ void cpuADC() {
 		P &= ~ZERO_FLAG;
 	}
 
+	P &= ~NEGATIVE_FLAG;
 	//Negative
 	P |= temp & 0x80;
 
@@ -541,6 +538,7 @@ void cpuADC() {
 	else {
 		P &= ~CARRY_FLAG;
 	}
+
 	CPU_LOG("ADC Flags=%x A=%x Result=%x\n", P, A, temp);
 	A = (unsigned char)temp;
 
@@ -569,7 +567,7 @@ void cpuAND() {
 
 void cpuCMP() {
 	unsigned char memvalue = memRead();
-	if (A >= memvalue) {
+	if (A < memvalue) { //Could be A >= memvalue?
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -750,18 +748,17 @@ void cpuASL() {
 
 void cpuDEC() {
 	unsigned char memvalue = memRead();
-
 	
-	if (memvalue == 1) {
+	memvalue -= 1;
+
+	if (memvalue == 0) {
 		P |= ZERO_FLAG;
 	}
 	else {
 		P &= ~ZERO_FLAG;
 	}
 
-	memvalue -= 1;
-
-	if (memvalue >= 0x7F) {
+	if (memvalue & 0x80) {
 		P |= NEGATIVE_FLAG;
 	}
 	else {
@@ -776,20 +773,16 @@ void cpuDEC() {
 }
 
 void cpuDEX() {
-	unsigned char memvalue = X;
+	X -= 1;
 
-	
-
-	if (memvalue == 1) {
+	if (X == 0) {
 		P |= ZERO_FLAG;
 	}
 	else {
 		P &= ~ZERO_FLAG;
 	}
 
-	X -= 1;
-
-	if (X >= 0x7F) {
+	if (X & 0x80) {
 		P |= NEGATIVE_FLAG;
 	}
 	else {
@@ -806,7 +799,7 @@ void cpuINC() {
 
 	memvalue += 1;
 
-	if (memvalue >= 0x7F) {
+	if (memvalue & 0x80) {
 		P |= NEGATIVE_FLAG;
 	}
 	else {
@@ -872,7 +865,7 @@ void cpuLSR() {
 	}
 
 	//Negative
-	P &= ~0x80;
+	P &= ~NEGATIVE_FLAG;
 
 	CPU_LOG("LSR Result=%x Flags=%x\n", source, P);
 
@@ -902,20 +895,34 @@ void cpuROL() {
 		source = memRead();
 	}
 	//Grab carry bit and clear flag
-	carrybit = (P & 0x1);
+	carrybit = (P & CARRY_FLAG);
 	P &= ~CARRY_FLAG;
 
 	//Rotate end bit in to carry flag
-	P |= (source >> 7) & 0x1;
+	P |= (source >> 7) & CARRY_FLAG;
 	source <<= 1;
 	//Put carry flag (borrowed bit) in to bit 0 of the source
 	source |= carrybit;
 
-	if (Opcode == 0x2A) {
-		A = (char)source;
+	if (!source) {
+		P |= ZERO_FLAG;
 	}
 	else {
-		memWrite((char)source);
+		P &= ~ZERO_FLAG;
+	}
+
+	if (source & 0x80) {
+		P |= NEGATIVE_FLAG;
+	}
+	else {
+		P &= ~NEGATIVE_FLAG;
+	}
+
+	if (Opcode == 0x2A) {
+		A = source;
+	}
+	else {
+		memWrite(source);
 	}
 
 	CPU_LOG("ROL Result=%x Flags=%x\n", source, P);
@@ -934,14 +941,28 @@ void cpuROR() {
 		source = memRead();
 	}
 	//Grab carry bit and clear flag
-	carrybit = (P & 0x1);
+	carrybit = (P & CARRY_FLAG);
 	P &= ~CARRY_FLAG;
 
 	//Rotate bit 0 in to carry flag
-	P |= source & 0x1;
+	P |= source & CARRY_FLAG;
 	source >>= 1;
 	//Put carry flag (borrowed bit) in to bit 7 of the source
 	source |= carrybit << 7;
+
+	if (!source) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	if (source & 0x80) {
+		P |= NEGATIVE_FLAG;
+	}
+	else {
+		P &= ~NEGATIVE_FLAG;
+	}
 
 	if (Opcode == 0x6A) {
 		A = (char)source;
