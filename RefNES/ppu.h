@@ -8,5 +8,5 @@ unsigned char PPUReadReg(unsigned short address);
 void PPULoop();
 
 extern unsigned int scanline;
-
+extern unsigned char PPUMemory[0x4000];
 #endif

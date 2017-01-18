@@ -4,7 +4,11 @@
 #include "memory.h"
 #include <stdio.h>
 
-
+unsigned char prgsize;
+unsigned char chrsize;
+unsigned char flags6;
+unsigned char flags10;
+unsigned char mapper;
 
 
 int LoadRom(const char *Filename) {
@@ -12,10 +16,7 @@ int LoadRom(const char *Filename) {
 	long lSize;   //Need a variable to tell us the size
 	unsigned char ROMHeader[16];
 	unsigned int inesIdent;
-	unsigned char prgsize;
-	unsigned char chrsize;
-	unsigned char flags6;
-	unsigned char flags10;
+	
 
 	fopen_s(&pFile, Filename, "rb");     //Open the file, args r = read, b = binary
 
@@ -40,6 +41,7 @@ int LoadRom(const char *Filename) {
 			chrsize = ROMHeader[5];
 			flags6 = ROMHeader[6];
 			flags10 = ROMHeader[10];
+			mapper = ((ROMHeader[6] >> 4) & 0xF) | (ROMHeader[7] & 0xF0);
 
 			CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags10=%x\n", prgsize, chrsize, flags6, flags10);
 			fseek(pFile, 16, SEEK_SET); //Point it past the header

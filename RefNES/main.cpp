@@ -72,13 +72,12 @@ void CleanupRoutine()
 }
 
 int SaveIni(){
-	
 	fopen_s(&iniFile, "./refNES.ini", "w+b");     //Open the file, args r = read, b = binary
 	
 
 	if (iniFile!=NULL)  //If the file exists
 	{
-		//inisettings[0] = Recompiler;
+		inisettings[0] = 0;
 		inisettings[1] = MenuVSync;
 		inisettings[2] = MenuScale;
 		inisettings[3] = LoggingEnable;
@@ -86,12 +85,12 @@ int SaveIni(){
 		rewind (iniFile);
 		
 		/////CPU_LOG("Saving Ini %x and %x and %x pos %d\n", Recompiler, MenuVSync, MenuScale, ftell(iniFile));
-		fwrite(&inisettings,1,5,iniFile); //Read in the file
+		fwrite(&inisettings,1,4,iniFile); //Read in the file
 		////CPU_LOG("Rec %d, Vsync %d, Scale %d, pos %d\n", Recompiler, MenuVSync, MenuScale, ftell(iniFile));
 		fclose(iniFile); //Close the file
 
-		if(LoggingEnable)
-			fclose(LogFile); 
+		//if(LoggingEnable)
+		//	fclose(LogFile); 
 
 		return 0;
 	} 
@@ -99,8 +98,8 @@ int SaveIni(){
 	{
 		//CPU_LOG("Error Saving Ini\n");
 		//User cancelled, either way, do nothing.
-		if(LoggingEnable)
-			fclose(LogFile);
+		//if(LoggingEnable)
+			//fclose(LogFile);
 
 		return 1;
 	}	
@@ -113,7 +112,7 @@ int LoadIni(){
 	if (iniFile!=NULL)  //If the file exists
 	{
 		
-		fread (&inisettings,1,5,iniFile); //Read in the file
+		fread (&inisettings,1,4,iniFile); //Read in the file
 		//fclose (iniFile); //Close the file
 		if(ftell (iniFile) > 0) // Identify if the inifile has just been created
 		{
@@ -158,7 +157,7 @@ int LoadIni(){
 	else
 	{
 		//CPU_LOG("Error Loading Ini\n");
-		fopen_s(&iniFile, "./refNES.ini","r+b");     //Open the file, args r+ = read, b = binary
+		//fopen_s(&iniFile, "./refNES.ini","r+b");     //Open the file, args r+ = read, b = binary
 		//User cancelled, either way, do nothing.
 		return 1;
 	}	
@@ -227,8 +226,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// enter the main loop:
 	MSG msg;
 	ZeroMemory(&msg, sizeof(msg));
-	
-	
+	unsigned int totalvblanks = 0;
+	masterCycles = 0;
+	nextPPUCycle = 0;
+	nextCpuCycle = 0;
+	scanline = 0;
+
 	while(msg.message != WM_QUIT)
 	{		
 				while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -238,46 +241,50 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 
 				if (Running == true) {
-					masterCycles++;
-					//PPU Loop
+					//masterCycles++;
 					
-					if (masterCycles - nextPPUCycle >= 4) { //Scanline
-						
-						
-						PPULoop();
-						
-						if (scanline == 0) {
-							fps2++;							
-						}
-
-						if (counter < time(NULL))
-						{
-							UpdateTitleBar(hWnd);
-							UpdateWindow(hWnd);
-							counter = time(NULL);
-							fps2 = 0;
-						}
-						nextPPUCycle += dotCycles * 4;
-					}
+					
+					//if (nextPPUCycle - masterCycles < 1) 
 					//CPU Loop
 					
-					if (masterCycles - nextCpuCycle >= 12) {
-						if (masterCycles >= nextsecond) //We have a VBlank!
-						{
-							if (nextsecond > masterClock) {
-								cpuCycles -= (unsigned int)masterClock / 12;
-								nextPPUCycle -= (unsigned int)masterClock / 4;
-								masterCycles -= (unsigned int)masterClock;
-								nextsecond -= (unsigned int)masterClock;
-							}
-							nextsecond += (unsigned int)masterClock;
-						}
+					if (dotCycles > nextCpuCycle ) {
+						
 						CPULoop();
-						nextCpuCycle += cpuCycles * 12;
+						nextCpuCycle = cpuCycles * 3;
+					} else { //Scanline
+
+							 //PPU Loop
+						PPULoop();
+
+						if (scanline == 0) {
+							fps2++;
+							totalvblanks++;
+							//CPU_LOG("VBLN K%d masterCycles=%d\n", totalvblanks, masterCycles);
+						}
+
+
+						nextPPUCycle = dotCycles;
+						//CPU_LOG("Master: %x, Next PPU at %x", dotCycles, nextCpuCycle);
+					}
+
+					if (counter < time(NULL))
+					{
+						UpdateTitleBar(hWnd);
+						UpdateWindow(hWnd);
+						counter = time(NULL);
+						fps2 = 0;
+					} 
+
+					if (dotCycles > 1000000) {
+						CPU_LOG("totalvblanks=%d NEXTCPU=%x DOTCYCLES=%x CPUCYCLES=%x\n", totalvblanks, nextCpuCycle, dotCycles, cpuCycles);
+						totalvblanks = 0;
+						nextCpuCycle -= 500000;
+						dotCycles -= 500000;
+						cpuCycles -= 500000 / 3;
 					}
 					
 				}
-				else Sleep(100);	
+				else Sleep(1);	
 	}
 	CleanupRoutine();
 	return (int)msg.wParam;
@@ -309,6 +316,8 @@ void ToggleVSync(HWND hWnd)
 	// Write the new state to the VSync flag.
 	SetMenuItemInfo(hSubMenu2, ID_VSYNC, FALSE, &mii);
 
+	SaveIni();
+
 	if (Running == true)
 	{
 		DestroyDisplay();
@@ -331,6 +340,8 @@ void ToggleLogging(HWND hWnd)
 	mii.fState ^= MFS_CHECKED;
 	// Write the new state to the Logging flag.
 	SetMenuItemInfo(hSubMenu2, ID_LOGGING, FALSE, &mii);
+
+	SaveIni();
 
 	if (LoggingEnable == 1)
 		OpenLog();
@@ -376,6 +387,8 @@ void ChangeScale(HWND hWnd, int ID)
 	AdjustWindowRect(&wr, WS_CAPTION | WS_MINIMIZE | WS_SYSMENU, TRUE);    // adjust the size
 
 	SetWindowPos(hWnd, 0, 100, 100, wr.right - wr.left, wr.bottom - wr.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+	SaveIni();
 
 	if (Running == true)
 	{
@@ -510,7 +523,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 				 MessageBox(hWnd, "refNES V1.0 Written by Refraction", "refNES", 0);			 
 			 break;
 		  case ID_EXIT:
-			  //DestroyDisplay();
+			  Running = false;
+			  DestroyDisplay();
 			 DestroyWindow(hWnd);
 			 return 0;
 			 break;
@@ -521,7 +535,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			{		
 				case VK_ESCAPE:
 				{
-					//DestroyDisplay();
+					Running = false;
+					DestroyDisplay();
 					DestroyWindow(hWnd);
 					return 0;
 				}
@@ -533,8 +548,11 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 
 		case WM_DESTROY:
 		{
-			PostQuitMessage(0);
-			SaveIni();
+			//SaveIni();
+			Running = false;
+			if(LoggingEnable)
+				fclose(LogFile);
+			PostQuitMessage(0);			
 			return 0;
 		} 
 		break;
@@ -567,7 +585,7 @@ void Reset()
 void OpenLog()
 {
 	fopen_s(&LogFile, ".\\c16Log.txt", "w");
-	//setbuf( LogFile, NULL );
+	setbuf( LogFile, NULL );
 }
 
 void __Log(char *fmt, ...) {
@@ -575,7 +593,7 @@ void __Log(char *fmt, ...) {
 	va_list list;
 
 
-	if (LogFile == NULL) return;
+	if (!LoggingEnable || LogFile == NULL) return;
 
 	va_start(list, fmt);
 	vfprintf_s(LogFile, fmt, list);

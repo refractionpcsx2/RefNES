@@ -13,12 +13,12 @@ unsigned char P;
 unsigned char Opcode;
 unsigned int cpuCycles = 0;
 unsigned int dotCycles = 0; //PPU clock
-unsigned int masterCycles = 0;
+int masterCycles = 0;
 unsigned int scanlinesperframe = 262;
 unsigned int vBlankInterval = 20;
-float masterClock = 21477270;
-float cpuClock = (masterClock / 12);
-float ppuClock = (masterClock / 4);
+unsigned int masterClock = 21477270;
+unsigned int cpuClock = (masterClock / 12);
+unsigned int ppuClock = (masterClock / 4);
 
 
 typedef void(*JumpTable)(void);
@@ -36,46 +36,47 @@ void CPUPushAllStack() {
 	memWritePC(SP--, PC >> 8);
 	memWritePC(SP--, (PC & 0xff));
 	memWritePC(SP--, P);
-	
-	CPU_LOG("Pushed all to stack, SP = %x\n", SP);
+	//SP = 0x100 + (SP & 0xFF);
+	CPU_LOG("Pushed all to stack, PC = %x, SP = %x\n", PC, SP);
 }
 
 void CPUPopAllStack() {
 	P = memReadValue(++SP);
 	PC = memReadPC(++SP);
 	SP += 1;
-		
+	//SP = 0x100 + (SP & 0xFF);
 
 
-	CPU_LOG("Popped all from stack, SP = %x\n", SP);
+	CPU_LOG("Popped all from stack, PC = %x, SP = %x\n", PC, SP);
 }
 
 void CPUPushPCStack() {	
 	memWritePC(SP--, PC >> 8);
 	memWritePC(SP--, (PC & 0xff));
-	
-	CPU_LOG("Pushed PC to stack, SP = %x\n", SP);
+	//SP = 0x100 + (SP & 0xFF);
+	CPU_LOG("Pushed PC to stack, PC = %x, SP = %x\n", PC, SP);
 }
 
 void CPUPopPCStack() {
 	
 	PC = memReadPC(++SP);
 	SP += 1;
-
-	CPU_LOG("Popped PC from stack, SP = %x\n", SP);
+	//SP = 0x100 + (SP & 0xFF);
+	CPU_LOG("Popped PC from stack, PC = %x, SP = %x\n", PC, SP);
 }
 
 void CPUPushSingleStack(unsigned char value) {
 	memWritePC(SP--, value);
-	
-	CPU_LOG("Pushed Single to stack, SP = %x\n", SP);
+	//SP = 0x100 + (SP & 0xFF);
+	CPU_LOG("Pushed Single to stack, PC = %x, SP = %x\n", PC, SP);
 }
 
 unsigned char CPUPopSingleStack() {
 	unsigned char value;
 	
 	value = memReadValue(++SP);
-	CPU_LOG("Popped Single from stack, SP = %x\n", SP);
+	//SP = 0x100 + (SP & 0xFF);
+	CPU_LOG("Popped Single from stack, PC = %x, SP = %x\n", PC, SP);
 	return value;
 }
 /* Control Instruction */
@@ -134,22 +135,7 @@ void cpuBEQ() {
 		PC += 2;
 	}
 }
-void cpuBIT() {
-	unsigned char value = memRead();
-	
-	
-	P &= ~0xC0;
-	P |= value & 0xC0;
-	if (!(value & A)) {
-		P |= ZERO_FLAG;
-	}
-	else {
-		P &= ~ZERO_FLAG;
-	}
 
-	PC += PCInc;
-	CPU_LOG("BITS PC=%x Flags=%x\n", PC, P);
-}
 void cpuBMI() {
 	unsigned short newPC = PC + 2 + (char)memReadValue(PC + 1);
 
@@ -204,12 +190,32 @@ void cpuBPL() {
 		PC += 2;
 	}
 }
+
+void cpuBIT() {
+	unsigned char value = memRead();
+
+
+	P &= ~0xC0;
+	P |= value & 0xC0;
+	if (!(value & A)) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	PC += PCInc;
+	CPU_LOG("BITS PC=%x Flags=%x\n", PC, P);
+}
+
+
 void cpuBRK() {
-	P |= BREAK_FLAG;
+	
 	PC += 1;
 	CPU_LOG("BRK\n");
 	CPUPushAllStack();
-
+	cpuCycles += 5;
+	P |= BREAK_FLAG | INTERRUPT_DISABLE_FLAG;
 	PC = memReadPC(0xFFFE);
 }
 void cpuBVC() {
@@ -271,7 +277,7 @@ void cpuCLV() {
 void cpuCPX() {
 	unsigned char memvalue = memRead();
 
-	if (X < memvalue) {
+	if (X > memvalue) {
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -301,7 +307,7 @@ void cpuCPX() {
 void cpuCPY() {
 	unsigned char memvalue = memRead();
 
-	if (Y < memvalue) {
+	if (Y >= memvalue) {
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -397,10 +403,12 @@ void cpuJMP() {
 	if (Opcode == 0x6c) {	
 		PC = memReadPCIndirect();
 		CPU_LOG("JMP Indirect to %x\n", PC);
+		cpuCycles += 3;
 	}
 	else {
 		PC = memReadPC(PC + 1);
 		CPU_LOG("JMP Absolute to %x\n", PC);
+		cpuCycles += 1;
 	}
 	
 }
@@ -409,6 +417,7 @@ void cpuJSR() {
 	PC += 2;
 	CPUPushPCStack();
 	PC = newPC;
+	cpuCycles += 4;
 	CPU_LOG("JSR\n");
 }
 void cpuLDY() {
@@ -432,29 +441,35 @@ void cpuPHA() {
 	CPUPushSingleStack(A);
 	CPU_LOG("PHA\n");
 	PC += PCInc;
+	cpuCycles += 1;
 }
 void cpuPHP() {
 	CPUPushSingleStack(P);
 	CPU_LOG("PHP\n");
 	PC += PCInc;
+	cpuCycles += 1;
 }
 void cpuPLA() {
 	A = CPUPopSingleStack();
 	CPU_LOG("PLA\n");
 	PC += PCInc;
+	cpuCycles += 2;
 }
 void cpuPLP() {
 	P = CPUPopSingleStack();
 	CPU_LOG("PLP\n");
 	PC += PCInc;
+	cpuCycles += 2;
 }
 void cpuRTI() {
 	CPUPopAllStack();
+	cpuCycles += 4;
 	CPU_LOG("RTI PC=%x Flags=%x\n", PC, P);
 }
 void cpuRTS() {
 	CPUPopPCStack();
 	PC += 1;
+	cpuCycles += 4;
 	CPU_LOG("RTS PC=%x Flags=%x\n", PC, P);
 }
 void cpuSEC() {
@@ -577,7 +592,7 @@ void cpuAND() {
 
 void cpuCMP() {
 	unsigned char memvalue = memRead();
-	if (A < memvalue) { //Could be A >= memvalue?
+	if (A >= memvalue) {
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -685,14 +700,14 @@ void cpuSBC(){
 	//Negative
 	P |= temp & 0x80;
 
-	if (!((A ^ memvalue) & 0x80) && ((A ^ temp) & 0x80)) {
+	if (((A ^ memvalue) & 0x80) && ((A ^ temp) & 0x80)) {
 		P |= OVERFLOW_FLAG;
 	}
 	else {
 		P &= ~OVERFLOW_FLAG;
 	}
 
-	if (A < memvalue) {
+	if (A >= (memvalue + (P & CARRY_FLAG))) {
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -1060,6 +1075,41 @@ void cpuTXS() {
 	PC += PCInc;
 }
 
+/* Undocumented */
+
+void cpuSLO() {
+	unsigned short source;
+
+	source = memRead();
+
+	if (source & 0x80) {
+		P |= CARRY_FLAG;
+	}
+	else {
+		P &= ~CARRY_FLAG;
+	}
+
+	source <<= 1;
+
+	if (!(source & 0xff)) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	P &= ~NEGATIVE_FLAG;
+	//Negative
+	P |= source & 0x80;
+
+	CPU_LOG("UNDOCUMENTED SLO Result=%x Flags=%x\n", source, P);
+
+	memWrite((char)source);
+
+	A |= (char)source;
+
+	PC += PCInc;
+}
 
 /* General Ops and Tables */
 

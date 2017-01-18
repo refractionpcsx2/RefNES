@@ -95,16 +95,30 @@ unsigned char PPUReadReg(unsigned short address) {
 
 char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 	unsigned char patternTableBaseAddress;
-	unsigned char offset = YPos & 0x1;
+	unsigned char nametableTableBaseAddress;
+	unsigned char attributeTableBaseAddress;
 
+	nametableTableBaseAddress = 0x2000 + (0x400 * (PPUCtrl & 0x3));
+	attributeTableBaseAddress = nametableTableBaseAddress + 0x3c0;
 	patternTableBaseAddress = (PPUCtrl & 0x10) ? 0x1000 : 0x0000;
 	
 	
-CPU_LOG("Scanline %d:", YPos);
+//CPU_LOG("Scanline %d VRAM Address = %x\n", YPos, VRAMRamAddress);
 	for (int i = 0; i < 32; i++) {
-		CPU_LOG("%x", PPUMemory[2000 + i + (scanline * 32)]);
+		unsigned int tilenumber = PPUMemory[nametableTableBaseAddress + i + (scanline * 32)];
+		//CPU_LOG("%x", PPUMemory[nametableTableBaseAddress + i + (scanline * 32)]);
+		unsigned int attribute = PPUMemory[attributeTableBaseAddress + (i / 4) + (scanline * 8)];
+		if (!(scanline & 1)) {
+			if (i & 1) attribute = ((attribute & 0xc) >> 2);
+			else attribute &= 0x3;
+		}
+		else {
+			if (i & 1) attribute = ((attribute & 0xc0) >> 6);
+			else attribute = (attribute & 0x30) >> 4;
+		}
+		DrawPixel(YPos, i, PPUMemory[patternTableBaseAddress + (tilenumber * 16)+(YPos % 8)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8)], attribute);
 	}
-	CPU_LOG("\n");
+	//CPU_LOG("\n");
 
 
 
@@ -130,6 +144,7 @@ void PPULoop() {
 		if (memReadPC(0x2000) & 0x80) {
 			CPU_LOG("Executing NMI\n");
 			CPUPushAllStack();
+			P |= INTERRUPT_DISABLE_FLAG;
 			PC = memReadPC(0xFFFA);
 		}
 	} else

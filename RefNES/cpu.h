@@ -9,14 +9,15 @@ extern unsigned char PCInc;
 extern unsigned char Opcode;
 extern unsigned char X;
 extern unsigned char Y;
+extern unsigned char P;
 extern unsigned int cpuCycles;
 extern unsigned int dotCycles;
-extern unsigned int masterCycles;
+extern int masterCycles;
 extern unsigned int scanlinesperframe;
 extern unsigned int vBlankInterval;
-extern float masterClock;
-extern float cpuClock;
-extern float ppuClock;
+extern unsigned int masterClock;
+extern unsigned int cpuClock;
+extern unsigned int ppuClock;
 
 #define CARRY_FLAG (1 << 0)
 #define ZERO_FLAG (1 << 1)
