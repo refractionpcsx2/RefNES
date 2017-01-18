@@ -216,6 +216,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 //			refNESRecCPU->ResetRecMem();
 			Running = true;
+			DestroyDisplay();
 			InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
 			nextsecond = 0;
 			fps = 0;
@@ -242,8 +243,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 				if (Running == true) {
 					//masterCycles++;
-					
-					
+					 
 					//if (nextPPUCycle - masterCycles < 1) 
 					//CPU Loop
 					
@@ -497,6 +497,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 				 else 
 				 {
 					 /*refNESRecCPU->ResetRecMem();*/
+					 DestroyDisplay();
 					 InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	
 					 CPUReset();
 					 v_cycle = SDL_GetTicks();
@@ -585,7 +586,7 @@ void Reset()
 void OpenLog()
 {
 	fopen_s(&LogFile, ".\\c16Log.txt", "w");
-	setbuf( LogFile, NULL );
+//	setbuf( LogFile, NULL );
 }
 
 void __Log(char *fmt, ...) {

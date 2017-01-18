@@ -94,20 +94,21 @@ unsigned char PPUReadReg(unsigned short address) {
 }
 
 char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
-	unsigned char patternTableBaseAddress;
-	unsigned char nametableTableBaseAddress;
-	unsigned char attributeTableBaseAddress;
+	unsigned short patternTableBaseAddress;
+	unsigned short nametableTableBaseAddress;
+	unsigned short attributeTableBaseAddress;
 
 	nametableTableBaseAddress = 0x2000 + (0x400 * (PPUCtrl & 0x3));
+	
 	attributeTableBaseAddress = nametableTableBaseAddress + 0x3c0;
 	patternTableBaseAddress = (PPUCtrl & 0x10) ? 0x1000 : 0x0000;
 	
 	
-//CPU_LOG("Scanline %d VRAM Address = %x\n", YPos, VRAMRamAddress);
+//CPU_LOG("Scanline %d NTBase %x ATBase %x PTBase %x\n", YPos, nametableTableBaseAddress, attributeTableBaseAddress, patternTableBaseAddress);
 	for (int i = 0; i < 32; i++) {
 		unsigned int tilenumber = PPUMemory[nametableTableBaseAddress + i + (scanline * 32)];
-		//CPU_LOG("%x", PPUMemory[nametableTableBaseAddress + i + (scanline * 32)]);
-		unsigned int attribute = PPUMemory[attributeTableBaseAddress + (i / 4) + (scanline * 8)];
+		//CPU_LOG("NAMETABLE %x Tile %x\n", nametableTableBaseAddress + i + (scanline * 32), tilenumber);
+		unsigned int attribute = PPUMemory[attributeTableBaseAddress + (i/4) + (scanline * 8)];
 		if (!(scanline & 1)) {
 			if (i & 1) attribute = ((attribute & 0xc) >> 2);
 			else attribute &= 0x3;
@@ -116,7 +117,8 @@ char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 			if (i & 1) attribute = ((attribute & 0xc0) >> 6);
 			else attribute = (attribute & 0x30) >> 4;
 		}
-		DrawPixel(YPos, i, PPUMemory[patternTableBaseAddress + (tilenumber * 16)+(YPos % 8)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8)], attribute);
+		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
+		DrawPixel(YPos, i, PPUMemory[patternTableBaseAddress + (tilenumber * 16)+(YPos % 8)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8)], /*attribute*/0);
 	}
 	//CPU_LOG("\n");
 

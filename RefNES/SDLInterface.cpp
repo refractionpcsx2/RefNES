@@ -66,7 +66,6 @@ void DrawPixel(int scanline, int xpos, unsigned char value1, unsigned char value
 	
 	SDL_Rect rect;
 	scale = SCREEN_WIDTH / 256;
-	
 	//rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
 	unsigned char curVal = value1;
 	unsigned char curVal2 = value2;

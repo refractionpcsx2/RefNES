@@ -19,6 +19,7 @@ void CleanUpMem() {
 }
 void MemReset() {
 	memset(&CPUMemory[0x2000], 0, 0x2020); //Reset only IO registers, everything else is "indetermined" just in case a game resets.
+	memset(PPUMemory, 0, 0x10000);
 }
 
 void ChangeUpperPRG(unsigned char PRGNum) {
@@ -254,7 +255,7 @@ void memWrite(unsigned char value) {
 		MapperHandler(address, value);
 		return;
 	}else
-	if (address >= 0x2000 && address < 0x4000) {
+	if (address >= 0x2000 && address < 0x4000 || address == 0x4014) {
 		PPUWriteReg(address, value);
 		return;
 	}
