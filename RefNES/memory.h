@@ -9,12 +9,12 @@ void CleanUpMem();
 /*CPU Memory Reads*/
 unsigned char memRead();
 void memWrite(unsigned char value);
-
+void MemReset();
 unsigned short memReadPC(unsigned short address);
 void memWritePC(unsigned short address, unsigned char value);
 unsigned short memReadPCIndirect();
 unsigned char memReadValue(unsigned short address);
-
+void CopyRomToMemory();
 /*CPU Memory Writes*/
 
 /*PPU Memory Reads*/

@@ -9,4 +9,5 @@ void PPULoop();
 
 extern unsigned int scanline;
 extern unsigned char PPUMemory[0x4000];
+void PPUReset();
 #endif

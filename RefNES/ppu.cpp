@@ -12,7 +12,8 @@ unsigned char PPUCtrl; //0x2000
 unsigned char PPUMask; //0x2001
 unsigned char PPUStatus; //0x2002
 unsigned char PPUScroll; //0x2005
-bool firstwrite = true;
+bool firstwritevram = true;
+bool firstwritesram = true;
 
 unsigned int scanline;
 
@@ -21,6 +22,19 @@ unsigned int masterPalette[64] = {  0xff545454, 0xFF001E74, 0xFF081090, 0xFF3000
 									0xFFECEEEC, 0xFF4C9AEC, 0xFF787CEC, 0xFFB062EC, 0xFFE454EC, 0xFFEC58B4, 0xFFEC6A64, 0xFFD48820, 0xFFA0AA00, 0xFF74C400, 0xFF4CD020, 0xFF38CC6C, 0xFF38B4CC, 0xFF3C3C3C, 0xFF000000, 0xFF000000,
 									0xFFECEEEC, 0xFFA8CCEC, 0xFFBCBCEC, 0xFFD4B2EC, 0xFFECAEEC, 0xFFECAED4, 0xFFECB4B0, 0xFFE4C490, 0xFFCCD278, 0xFFB4DE78, 0xFFA8E290, 0xFF98E2B4, 0xFFA0D6E4, 0xFFA0A2A0, 0xFF000000, 0xFF000000 };
 
+
+void PPUReset() {
+	PPUCtrl = 0;
+	VRAMRamAddress = 0;
+	SPRRamAddress = 0;
+	PPUMask = 0;
+	PPUStatus = 0xA0;
+	PPUScroll = 0;
+	memset(PPUMemory, 0, 0x4000);
+	memset(SPRMemory, 0, 0x100);
+	firstwritevram = true;
+	firstwritesram = true;
+}
 
 void PPUWriteReg(unsigned short address, unsigned char value) {
 
@@ -36,28 +50,31 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			CPU_LOG("Attempt to write to status register\n");
 			break;
 		case 0x03: //SPR (OAM) Ram Address
-			if (firstwrite == false) {
+			if (firstwritesram == false) {
 				SPRRamAddress |= value;
+				firstwritesram = true;
 			}
 			else {
 				SPRRamAddress = value << 8;
+				firstwritesram = false;
 			}
-			firstwrite = !firstwrite;
 			break;
 		case 0x04: //OAM Data
 			SPRMemory[SPRRamAddress++] = value;
+			
 			break;
 		case 0x05: //Scroll
 			PPUScroll = value;
 			break;
 		case 0x06: //VRAM Address
-			if (firstwrite == false) {
+			if (firstwritevram == false) {
 				VRAMRamAddress = value | (VRAMRamAddress & 0xFF00);
-				firstwrite = true;
+				firstwritevram = true;
 			}
 			else {
+				
 				VRAMRamAddress = (value << 8) | (VRAMRamAddress & 0xFF);
-				firstwrite = false;
+				firstwritevram = false;
 			}
 			
 			break;
@@ -96,17 +113,37 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 
 unsigned char PPUReadReg(unsigned short address) {
 	unsigned char value;
-	
+	unsigned short vramlocation = VRAMRamAddress;
+
 	switch (address & 0x7) {	
 	case 0x02: //PPU Status 
 		value = PPUStatus;
 		CPU_LOG("Scanling = %d", scanline);
 		break;	
 	case 0x04: //OAM Data
-		value = SPRMemory[SPRRamAddress];
+		value = SPRMemory[SPRRamAddress++];
 		break;
 	case 0x07: //VRAM Data
-		value = PPUMemory[VRAMRamAddress++];
+		if (VRAMRamAddress >= 0x3F20 && VRAMRamAddress < 0x4000)
+		{
+			vramlocation = 0x3F00 | (VRAMRamAddress & 0x1F);
+			CPU_LOG("BANANA Write to VRAM Address %x changed to %x\n", VRAMRamAddress, vramlocation);
+		}
+		else
+			if (VRAMRamAddress >= 0x4000)
+			{
+				vramlocation = (VRAMRamAddress & 0x3FFF);
+			}
+			else
+			{
+				vramlocation = VRAMRamAddress;
+			}
+
+		if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
+			vramlocation = vramlocation - 0x10;
+		}
+		value = PPUMemory[vramlocation];
+		VRAMRamAddress++;
 		if (PPUCtrl & 0x4) { //Increment
 			VRAMRamAddress += 31;
 		}
@@ -208,7 +245,6 @@ void PPULoop() {
 		if (PPUCtrl & 0x80) {
 			CPU_LOG("Executing NMI\n");
 			CPUPushAllStack();
-			P |= INTERRUPT_DISABLE_FLAG;
 			PC = memReadPC(0xFFFA);
 		}
 	} else

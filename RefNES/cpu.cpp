@@ -26,9 +26,9 @@ typedef void(*JumpTable)(void);
 
 void CPUReset() {
 	PC = memReadPC(0xFFFC);
-	SP = 0x1FD;
+	SP = 0x1FF;
 	P = 0x34;
-
+	CPUPushAllStack();
 	CPU_LOG("CPU Reset start PC set to %x\n", PC);
 }
 
@@ -42,6 +42,7 @@ void CPUPushAllStack() {
 
 void CPUPopAllStack() {
 	P = memReadValue(++SP);
+	P |= 0x20;
 	PC = memReadPC(++SP);
 	SP += 1;
 	SP = 0x100 + (SP & 0xFF);
@@ -213,8 +214,9 @@ void cpuBRK() {
 	PC += 1;
 	CPU_LOG("BRK\n");
 	CPUPushAllStack();
+	P |= BREAK_FLAG;
 	cpuCycles += 5;
-	P |= BREAK_FLAG | INTERRUPT_DISABLE_FLAG;
+	
 	PC = memReadPC(0xFFFE);
 }
 void cpuBVC() {
@@ -443,7 +445,9 @@ void cpuPHA() {
 	cpuCycles += 1;
 }
 void cpuPHP() {
+	CPU_LOG("BANANA PHP FLAGS %x", P);
 	CPUPushSingleStack(P);
+	P |= BREAK_FLAG;
 	CPU_LOG("PHP\n");
 	PC += PCInc;
 	cpuCycles += 1;
@@ -467,6 +471,7 @@ void cpuPLA() {
 }
 void cpuPLP() {
 	P = CPUPopSingleStack();
+	P |= 0x20;
 	CPU_LOG("PLP\n");
 	PC += PCInc;
 	cpuCycles += 2;

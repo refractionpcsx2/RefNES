@@ -18,8 +18,8 @@ void CleanUpMem() {
 	}
 }
 void MemReset() {
-	memset(&CPUMemory[0x2000], 0, 0x2020); //Reset only IO registers, everything else is "indetermined" just in case a game resets.
-	memset(PPUMemory, 0, 0x10000);
+	memset(CPUMemory, 0, 0x10000); //Reset only IO registers, everything else is "indetermined" just in case a game resets.
+	
 }
 
 void ChangeUpperPRG(unsigned char PRGNum) {
@@ -42,14 +42,7 @@ void ChangeUpperPRG(unsigned char PRGNum) {
 	
 }
 
-void LoadRomToMemory(FILE * RomFile, long lSize) {
-	if (ROMCart == NULL) {
-		ROMCart = (char*)malloc(lSize);
-	}
-	else {
-		realloc(ROMCart, lSize);
-	}
-	fread(ROMCart, 1, lSize, RomFile);
+void CopyRomToMemory() {
 	if (prgsize > 1) {
 		memcpy(&CPUMemory[0x8000], ROMCart, 0x8000);
 	}
@@ -59,8 +52,21 @@ void LoadRomToMemory(FILE * RomFile, long lSize) {
 	}
 
 	if (chrsize > 0) {
-		memcpy(&PPUMemory[0x0000], ROMCart+(prgsize*16384), 0x2000);
+		memcpy(&PPUMemory[0x0000], ROMCart + (prgsize * 16384), 0x2000);
 	}
+}
+
+void LoadRomToMemory(FILE * RomFile, long lSize) {
+
+	if (ROMCart == NULL) {
+		ROMCart = (char*)malloc(lSize);
+	}
+	else {
+		realloc(ROMCart, lSize);
+	}
+	
+	fread(ROMCart, 1, lSize, RomFile);
+	//CopyRomToMemory();
 }
 
 void MapperHandler(unsigned short address, unsigned short value) {
@@ -169,7 +175,7 @@ unsigned short MemAddrZeroPageIndexed() {
 
 	if ((Opcode & 0xC0) == 0x80 && (Opcode & 0x3) > 1) {		
 		fulladdress = (CPUMemory[PC + 1] + Y) & 0xFF;
-		CPU_LOG("BANANA Zero Page Y Indexed %x PC = %x ", fulladdress, PC);
+		CPU_LOG("BANANA Zero Page Y Indexed %x PC = %x Opcode %x", fulladdress, PC, Opcode);
 	}
 	else {
 		fulladdress = (CPUMemory[PC + 1] + X) & 0xFF;
@@ -220,7 +226,7 @@ unsigned short memGetAddr() {
 		break;
 	case 0x1C://Absolute,X
 		if ((Opcode & 0x3) > 1 && (Opcode & 0xC0) == 0x80) {
-			CPU_LOG("BANANA Reading Absolute Y instead of Absolute X");
+			CPU_LOG("BANANA Reading Absolute Y instead of Absolute X Opcode %x", Opcode);
 			value = MemAddrAbsoluteY();
 		}
 		else {
@@ -351,6 +357,6 @@ unsigned char memReadValue(unsigned short address) {
 		CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
 		address = address & 0x7FF;
 	}
-	CPU_LOG("single value = %x\n", CPUMemory[address]);
+	//CPU_LOG("single value = %x\n", CPUMemory[address]);
 	return CPUMemory[address];
 }

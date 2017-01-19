@@ -201,6 +201,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ShowWindow(hWnd, nCmdShow);
 
 		
+	DestroyDisplay();
+	InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
 	
 	//refNESRecCPU->InitRecMem();
 	
@@ -228,7 +230,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	MSG msg;
 	ZeroMemory(&msg, sizeof(msg));
 	masterCycles = 0;
-	nextPPUCycle = 0;
+	dotCycles = 0;
 	nextCpuCycle = 0;
 	scanline = 0;
 
@@ -468,13 +470,19 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 				else 
 				{
 					strcpy_s(CurFilename, szFileName);
-					//refNESRecCPU->ResetRecMem();
-					Running = true;
-					InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	
-					
-					v_cycle = SDL_GetTicks();
+					MemReset();
+					PPUReset();
 					CPUReset();
-					prev_v_cycle = v_cycle;
+					CopyRomToMemory();
+					//refNESRecCPU->ResetRecMem();
+					//
+					CPUReset();
+					Running = true;
+					
+					
+					//v_cycle = SDL_GetTicks();
+					
+					//prev_v_cycle = v_cycle;
 					counter = time(NULL);
 				}
 			}			
