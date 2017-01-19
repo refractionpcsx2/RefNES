@@ -103,7 +103,7 @@ char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 	unsigned int nametableTableBaseAddress; //1 byte = 1 tile (8x8 pixels)
 	unsigned int attributeTableBaseAddress; //2x2 sprite tiles each
 
-	nametableTableBaseAddress = 0x2000 + (0x400 * (PPUCtrl & 0x3)) + (YPos * 32);
+	nametableTableBaseAddress = 0x2000 + (0x400 * (PPUCtrl & 0x3)) + ((YPos / 8) * 32);
 	/*VRAMRamAddress++;
 	if (PPUCtrl & 0x4) { //Increment
 		VRAMRamAddress += 31;
