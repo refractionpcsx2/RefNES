@@ -10,7 +10,7 @@ SDL_Window *screen = NULL;
 extern HWND hwndSDL;
 extern int prev_v_cycle;
 extern char MenuVSync;
-unsigned char ScreenBuffer[256][240];
+unsigned int ScreenBuffer[256][240];
 
 
 void DestroyDisplay() {
@@ -58,31 +58,33 @@ void InitDisplay(int width, int height, HWND hWnd)
 
 }
 unsigned int xpos = 0;
-void DrawPixel(int ypos, int xpos, unsigned char value1, unsigned char value2, unsigned char value3)
+void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
 {
 	//FPS_LOG("Starting redraw");
-	unsigned short scale = 1; //Used for when the screen is bigger :P
-	unsigned int xposofs = xpos;
 	
-	SDL_Rect rect;
-	scale = SCREEN_WIDTH / 256;
+	//SDL_Rect rect;
+	//scale = SCREEN_WIDTH / 256;
 	//rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
-	unsigned char curVal = value1;
-	unsigned char curVal2 = value2;
-	unsigned char pixel;
-	//SDL_FillRect(SDL_Display, &rect, 0xffff0000);
-	for (unsigned short j = xposofs+8; j > xposofs; j--) {
-			rect = { j*scale,ypos*scale,scale,scale };
-			pixel = (((curVal) & 0x1) | (((curVal2) & 0x1) << 1) | (value3 << 2));
-			//CPU_LOG("Drawing pixels %x", pixel);
-			if (pixel) {
-				SDL_FillRect(SDL_Display, &rect, 0xff000000 | pixel * 0x303030);
-			}
-			curVal >>= 1;
-			curVal2 >>= 1;
-	}
+	//rect = { j*scale,ypos*scale,scale,scale };
+	//SDL_FillRect(SDL_Display, &rect, 0xff000000 | pixel * 0x303030);
+	
+	ScreenBuffer[xpos][ypos] = pixel;	
+	
 	
 	//FPS_LOG("End redraw");
+}
+
+void DrawScreen() {
+	int scale = SCREEN_WIDTH / 256;
+
+	SDL_Rect rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
+	//SDL_FillRect(SDL_Display, &rect, 0xff000000);
+	for (int xpos = 0; xpos < 256; xpos++) {
+		for (int ypos = 0; ypos < 240; ypos++) {
+			rect = { xpos*scale,ypos*scale,scale,scale };
+			SDL_FillRect(SDL_Display, &rect, ScreenBuffer[xpos][ypos]);
+		}
+	}
 }
 
 void EndDrawing()
@@ -104,7 +106,7 @@ void StartDrawing()
 {
 	SDL_Rect rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
 	//rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
-	SDL_FillRect(SDL_Display, &rect, 0xff000000);
+	
 	//CPU_LOG("Start Scene");
 	if (SDL_MUSTLOCK(SDL_Display))
 	{

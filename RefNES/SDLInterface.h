@@ -6,12 +6,13 @@
 
 extern unsigned short SCREEN_WIDTH;
 extern unsigned short SCREEN_HEIGHT;
-extern unsigned char ScreenBuffer[256][240];
+extern unsigned int ScreenBuffer[256][240];
 
 void DestroyDisplay();
 void InitDisplay(int width, int height, HWND hWnd);
-void DrawPixel(int scanline, int xpos, unsigned char value1, unsigned char value2, unsigned char value3);
+void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel);
 void StartDrawing();
 void EndDrawing();
+void DrawScreen();
 
 #endif

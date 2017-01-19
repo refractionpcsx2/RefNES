@@ -16,6 +16,12 @@ bool firstwrite = true;
 
 unsigned int scanline;
 
+unsigned int masterPalette[64] = {  0xff545454, 0xFF001E74, 0xFF081090, 0xFF300088, 0xFF440064, 0xFF5C0030, 0xFF540400, 0xFF3C1800, 0xFF202A00, 0xFF083A00, 0xFF004000, 0xFF003C00, 0xFF00323C, 0xFF000000, 0xFF000000, 0xFF000000,
+									0xFF989698, 0xFF084CC4, 0xFF3032EC, 0xFF5C1EE4, 0xFF8814B0, 0xFFA01464, 0xFF982220, 0xFF783C00, 0xFF545A00, 0xFF287200, 0xFF087C00, 0xFF007628, 0xFF006678, 0xFF000000, 0xFF000000, 0xFF000000,
+									0xFFECEEEC, 0xFF4C9AEC, 0xFF787CEC, 0xFFB062EC, 0xFFE454EC, 0xFFEC58B4, 0xFFEC6A64, 0xFFD48820, 0xFFA0AA00, 0xFF74C400, 0xFF4CD020, 0xFF38CC6C, 0xFF38B4CC, 0xFF3C3C3C, 0xFF000000, 0xFF000000,
+									0xFFECEEEC, 0xFFA8CCEC, 0xFFBCBCEC, 0xFFD4B2EC, 0xFFECAEEC, 0xFFECAED4, 0xFFECB4B0, 0xFFE4C490, 0xFFCCD278, 0xFFB4DE78, 0xFFA8E290, 0xFF98E2B4, 0xFFA0D6E4, 0xFFA0A2A0, 0xFF000000, 0xFF000000 };
+
+
 void PPUWriteReg(unsigned short address, unsigned char value) {
 
 	CPU_LOG("PPU Reg Write %x value %x\n", 0x2000 + (address & 0x7), value);
@@ -58,7 +64,27 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 		case 0x07: //VRAM Data
 			
 			CPU_LOG("PPU Reg Write to VRAM Address %x value %x\n", VRAMRamAddress, value);
-			PPUMemory[VRAMRamAddress++] = value;
+			unsigned short vramlocation = VRAMRamAddress;
+			
+			if (VRAMRamAddress >= 0x3F20 && VRAMRamAddress < 0x4000)
+			{
+				vramlocation = 0x3F00 | (VRAMRamAddress & 0x1F);
+				CPU_LOG("BANANA Write to VRAM Address %x changed to %x\n", VRAMRamAddress, vramlocation);
+			}
+			else
+			if (VRAMRamAddress >= 0x4000)
+			{
+				vramlocation = 0x0000 | (VRAMRamAddress & 0x3FFF);
+			}
+			else
+			{
+				vramlocation = VRAMRamAddress;
+			}
+			if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
+				vramlocation = 0x3f00;
+			}
+			PPUMemory[vramlocation] = value;
+			VRAMRamAddress++;
 			if (PPUCtrl & 0x4) { //Increment
 				VRAMRamAddress += 31;
 			}
@@ -98,11 +124,32 @@ unsigned char PPUReadReg(unsigned short address) {
 	return value;
 }
 
+void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsigned int pixel_ub, unsigned int attribute) {
+	unsigned char curVal = pixel_lb;
+	unsigned char curVal2 = pixel_ub;
+	unsigned int final_pixel;
+	unsigned int pixel;
+	unsigned int curpos = xpos;
+	unsigned short paletteaddr = 0x3F01 + (attribute * 4);
+	unsigned int palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr+1] << 16) | (PPUMemory[paletteaddr+2] << 24);
+
+	//CPU_LOG("Palette is %x\n", palette);
+
+	for (unsigned short j = xpos; j < xpos+8; j++) {
+
+		pixel = (((curVal >> 7) & 0x1) | (((curVal2 >> 7) & 0x1) << 1));
+		curVal <<= 1;
+		curVal2 <<= 1;
+		final_pixel = masterPalette[(palette >> (pixel* 8)) & 0xFF];
+		//CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
+		DrawPixelBuffer(ypos, curpos++, final_pixel);
+	}
+}
 char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 	unsigned int patternTableBaseAddress; //The tiles themselves (8 bytes, each byte is a row of 8 pixels)
 	unsigned int nametableTableBaseAddress; //1 byte = 1 tile (8x8 pixels)
 	unsigned int attributeTableBaseAddress; //2x2 sprite tiles each
-
+	
 	nametableTableBaseAddress = 0x2000 + (0x400 * (PPUCtrl & 0x3)) + ((YPos / 8) * 32);
 	/*VRAMRamAddress++;
 	if (PPUCtrl & 0x4) { //Increment
@@ -119,7 +166,7 @@ char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 	for (int i = 0; i < 32; i++) {
 		unsigned int tilenumber = PPUMemory[nametableTableBaseAddress + i];
 		//CPU_LOG("NAMETABLE %x Tile %x\n", nametableTableBaseAddress + i + (scanline * 32), tilenumber);
-		unsigned int attribute = PPUMemory[attributeTableBaseAddress + (i/2) + (scanline * 8)];
+		unsigned int attribute = PPUMemory[attributeTableBaseAddress + (i/2) + ((scanline/30)*8)];
 		if ((scanline & 1)) {
 			if (i & 1) attribute = ((attribute & 0xc) >> 2);
 			else attribute &= 0x3;
@@ -130,8 +177,9 @@ char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 		}
 		
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
-		DrawPixel(YPos, i*8, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], /*attribute*/0);
+		DrawPixel(i * 8, YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], attribute);
 	}
+	//CPU_LOG("EndScanline\n");
 	//CPU_LOG("\n");
 
 
@@ -170,11 +218,12 @@ void PPULoop() {
 	if (scanline == (scanlinesperframe - 1))
 	{
 		CPU_LOG("VBLANK End\n");
-		PPUStatus &= ~0x80;
+		//PPUStatus &= ~0x80;
 	}
 	scanline++;
 	if (scanline == scanlinesperframe) {
 		scanline = 0;	
+		DrawScreen();
 		EndDrawing();
 	}
 	

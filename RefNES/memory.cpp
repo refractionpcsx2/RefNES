@@ -294,7 +294,7 @@ unsigned short memReadPC(unsigned short address) {
 unsigned short memReadPCIndirect() {
 	unsigned short address;
 	unsigned short value;
-
+	unsigned short masked;
 	address = (CPUMemory[PC + 2] << 8) | CPUMemory[PC + 1];
 	if (address >= 0x2000 && address < 0x4000) {
 		CPU_LOG("Wrapping PPU reg address %x\n", 0x2000 + (address & 0x7));
@@ -304,8 +304,9 @@ unsigned short memReadPCIndirect() {
 		CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
 		address = address & 0x7FF;		
 	}
+	masked = (address & 0xFF00) | ((address+1) & 0xFF);
 	CPU_LOG("Indirect read from %x ", address);
-	value = (CPUMemory[address + 1] << 8) | CPUMemory[address];
+	value = (CPUMemory[masked] << 8) | CPUMemory[address];
 	CPU_LOG("\n");
 	CPU_LOG("returned value %x, values at address upper = %x lower = %x\n", value, CPUMemory[address + 1], CPUMemory[address]);
 	

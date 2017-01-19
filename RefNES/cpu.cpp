@@ -658,7 +658,7 @@ void cpuEOR() {
 void cpuLDA() {
 	A = memRead();
 
-	P &= NEGATIVE_FLAG;
+	P &= ~NEGATIVE_FLAG;
 	P |= A & 0x80;
 
 	if (A == 0) {
@@ -693,8 +693,8 @@ void cpuORA() {
 }
 
 void cpuSBC(){
-	unsigned char memvalue = memRead() ^ 0xFF;
-	unsigned int temp = A + memvalue + (P & CARRY_FLAG);
+	unsigned char memvalue = memRead() ;
+	unsigned int temp = A - memvalue - (1-(P & CARRY_FLAG));
 
 	CPU_LOG("SBC Flags=%x ", P);
 
@@ -773,10 +773,10 @@ void cpuASL() {
 	CPU_LOG("ASL Result=%x Flags=%x\n", source, P);
 
 	if (Opcode == 0x0A) {
-		A = (char)source;
+		A = (unsigned char)source;
 	}
 	else {
-		memWrite((char)source);
+		memWrite((unsigned char)source);
 	}
 	
 	PC += PCInc;
@@ -906,10 +906,10 @@ void cpuLSR() {
 	CPU_LOG("LSR Result=%x Flags=%x\n", source, P);
 
 	if (Opcode == 0x4A) {
-		A = (char)source;
+		A = (unsigned char)source;
 	}
 	else {
-		memWrite((char)source);
+		memWrite((unsigned char)source);
 	}
 
 	PC += PCInc;
@@ -1001,10 +1001,10 @@ void cpuROR() {
 	}
 
 	if (Opcode == 0x6A) {
-		A = (char)source;
+		A = (unsigned char)source;
 	}
 	else {
-		memWrite((char)source);
+		memWrite((unsigned char)source);
 	}
 
 	CPU_LOG("ROR Result=%x Flags=%x\n", source, P);
@@ -1046,7 +1046,7 @@ void cpuTAX() {
 }
 
 void cpuTSX() {
-	X = (char)SP & 0xFF;
+	X = (unsigned char)SP & 0xFF;
 
 	P &= ~NEGATIVE_FLAG;
 	//Negative flag
@@ -1115,9 +1115,9 @@ void cpuSLO() {
 
 	CPU_LOG("UNDOCUMENTED SLO Result=%x Flags=%x\n", source, P);
 
-	memWrite((char)source);
+	memWrite((unsigned char)source);
 
-	A |= (char)source;
+	A |= (unsigned char)source;
 
 	PC += PCInc;
 }
