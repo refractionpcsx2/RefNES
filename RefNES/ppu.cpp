@@ -46,14 +46,18 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			break;
 		case 0x06: //VRAM Address
 			if (firstwrite == false) {
-				VRAMRamAddress |= value;
+				VRAMRamAddress = value | (VRAMRamAddress & 0xFF00);
+				firstwrite = true;
 			}
 			else {
-				VRAMRamAddress = value << 8;
+				VRAMRamAddress = (value << 8) | (VRAMRamAddress & 0xFF);
+				firstwrite = false;
 			}
-			firstwrite = !firstwrite;
+			
 			break;
 		case 0x07: //VRAM Data
+			
+			CPU_LOG("PPU Reg Write to VRAM Address %x value %x\n", VRAMRamAddress, value);
 			PPUMemory[VRAMRamAddress++] = value;
 			if (PPUCtrl & 0x4) { //Increment
 				VRAMRamAddress += 31;
@@ -68,6 +72,7 @@ unsigned char PPUReadReg(unsigned short address) {
 	switch (address & 0x7) {	
 	case 0x02: //PPU Status 
 		value = PPUStatus;
+		CPU_LOG("Scanling = %d", scanline);
 		break;	
 	case 0x04: //OAM Data
 		value = SPRMemory[SPRRamAddress];
@@ -94,22 +99,28 @@ unsigned char PPUReadReg(unsigned short address) {
 }
 
 char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
-	unsigned short patternTableBaseAddress;
-	unsigned short nametableTableBaseAddress;
-	unsigned short attributeTableBaseAddress;
+	unsigned int patternTableBaseAddress; //The tiles themselves (8 bytes, each byte is a row of 8 pixels)
+	unsigned int nametableTableBaseAddress; //1 byte = 1 tile (8x8 pixels)
+	unsigned int attributeTableBaseAddress; //2x2 sprite tiles each
 
-	nametableTableBaseAddress = 0x2000 + (0x400 * (PPUCtrl & 0x3));
-	
+	nametableTableBaseAddress = 0x2000 + (0x400 * (PPUCtrl & 0x3)) + (YPos * 32);
+	/*VRAMRamAddress++;
+	if (PPUCtrl & 0x4) { //Increment
+		VRAMRamAddress += 31;
+	}*/
 	attributeTableBaseAddress = nametableTableBaseAddress + 0x3c0;
-	patternTableBaseAddress = (PPUCtrl & 0x10) ? 0x1000 : 0x0000;
+	if(PPUCtrl & 0x10)
+		patternTableBaseAddress = 0x1000 + (YPos & 0x7);
+	else 
+		patternTableBaseAddress = 0x0000 + (YPos & 0x7);
 	
 	
 //CPU_LOG("Scanline %d NTBase %x ATBase %x PTBase %x\n", YPos, nametableTableBaseAddress, attributeTableBaseAddress, patternTableBaseAddress);
 	for (int i = 0; i < 32; i++) {
-		unsigned int tilenumber = PPUMemory[nametableTableBaseAddress + i + (scanline * 32)];
+		unsigned int tilenumber = PPUMemory[nametableTableBaseAddress + i];
 		//CPU_LOG("NAMETABLE %x Tile %x\n", nametableTableBaseAddress + i + (scanline * 32), tilenumber);
-		unsigned int attribute = PPUMemory[attributeTableBaseAddress + (i/4) + (scanline * 8)];
-		if (!(scanline & 1)) {
+		unsigned int attribute = PPUMemory[attributeTableBaseAddress + (i/2) + (scanline * 8)];
+		if ((scanline & 1)) {
 			if (i & 1) attribute = ((attribute & 0xc) >> 2);
 			else attribute &= 0x3;
 		}
@@ -117,8 +128,9 @@ char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 			if (i & 1) attribute = ((attribute & 0xc0) >> 6);
 			else attribute = (attribute & 0x30) >> 4;
 		}
+		
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
-		DrawPixel(YPos, i, PPUMemory[patternTableBaseAddress + (tilenumber * 16)+(YPos % 8)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8)], /*attribute*/0);
+		DrawPixel(YPos, i*8, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], /*attribute*/0);
 	}
 	//CPU_LOG("\n");
 
@@ -143,7 +155,7 @@ void PPULoop() {
 	if (scanline == (scanlinesperframe - (vBlankInterval + 1))) {
 		PPUStatus |= 0x80;
 		CPU_LOG("VBLANK Start\n");
-		if (memReadPC(0x2000) & 0x80) {
+		if (PPUCtrl & 0x80) {
 			CPU_LOG("Executing NMI\n");
 			CPUPushAllStack();
 			P |= INTERRUPT_DISABLE_FLAG;

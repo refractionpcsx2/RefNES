@@ -58,11 +58,11 @@ void InitDisplay(int width, int height, HWND hWnd)
 
 }
 unsigned int xpos = 0;
-void DrawPixel(int scanline, int xpos, unsigned char value1, unsigned char value2, unsigned char value3)
+void DrawPixel(int ypos, int xpos, unsigned char value1, unsigned char value2, unsigned char value3)
 {
 	//FPS_LOG("Starting redraw");
 	unsigned short scale = 1; //Used for when the screen is bigger :P
-	unsigned int xposofs = xpos * 8;
+	unsigned int xposofs = xpos;
 	
 	SDL_Rect rect;
 	scale = SCREEN_WIDTH / 256;
@@ -71,21 +71,17 @@ void DrawPixel(int scanline, int xpos, unsigned char value1, unsigned char value
 	unsigned char curVal2 = value2;
 	unsigned char pixel;
 	//SDL_FillRect(SDL_Display, &rect, 0xffff0000);
-	for (unsigned short j = xposofs; j < xposofs+8; j++) {
-			rect = { j*scale,scanline*scale,scale,scale };
-			pixel = (((curVal >> 7) & 0x1) | (((curVal2 >> 7) & 0x1) << 1) | (value3 << 2));
+	for (unsigned short j = xposofs+8; j > xposofs; j--) {
+			rect = { j*scale,ypos*scale,scale,scale };
+			pixel = (((curVal) & 0x1) | (((curVal2) & 0x1) << 1) | (value3 << 2));
 			//CPU_LOG("Drawing pixels %x", pixel);
 			if (pixel) {
 				SDL_FillRect(SDL_Display, &rect, 0xff000000 | pixel * 0x303030);
 			}
-			curVal <<= 1;
-			curVal2 <<= 1;
+			curVal >>= 1;
+			curVal2 >>= 1;
 	}
 	
-	xpos++;
-	if (xpos == 256) {
-		xpos = 0;
-	}
 	//FPS_LOG("End redraw");
 }
 

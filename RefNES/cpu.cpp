@@ -193,11 +193,10 @@ void cpuBPL() {
 
 void cpuBIT() {
 	unsigned char value = memRead();
-
-
+	
 	P &= ~0xC0;
 	P |= value & 0xC0;
-	if (!(value & A)) {
+	if ((value & A) == 0) {
 		P |= ZERO_FLAG;
 	}
 	else {
@@ -277,7 +276,7 @@ void cpuCLV() {
 void cpuCPX() {
 	unsigned char memvalue = memRead();
 
-	if (X > memvalue) {
+	if (X >= memvalue) {
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -539,7 +538,7 @@ void cpuADC() {
 	temp += P & CARRY_FLAG;
 
 
-	if (!(temp & 0xff)) {
+	if ((temp & 0xff) == 0) {
 		P |= ZERO_FLAG;
 	}
 	else {

@@ -227,7 +227,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// enter the main loop:
 	MSG msg;
 	ZeroMemory(&msg, sizeof(msg));
-	unsigned int totalvblanks = 0;
 	masterCycles = 0;
 	nextPPUCycle = 0;
 	nextCpuCycle = 0;
@@ -258,33 +257,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 						if (scanline == 0) {
 							fps2++;
-							totalvblanks++;
 							//CPU_LOG("VBLN K%d masterCycles=%d\n", totalvblanks, masterCycles);
 						}
-
-
-						nextPPUCycle = dotCycles;
+						if (counter < time(NULL))
+						{
+							UpdateTitleBar(hWnd);
+							UpdateWindow(hWnd);
+							counter = time(NULL);
+							fps2 = 0;
+						}
+						if (dotCycles > 1000000) {
+							nextCpuCycle -= 500000;
+							dotCycles -= 500000;
+							cpuCycles -= 500000 / 3;
+						}
 						//CPU_LOG("Master: %x, Next PPU at %x", dotCycles, nextCpuCycle);
 					}
-
-					if (counter < time(NULL))
-					{
-						UpdateTitleBar(hWnd);
-						UpdateWindow(hWnd);
-						counter = time(NULL);
-						fps2 = 0;
-					} 
-
-					if (dotCycles > 1000000) {
-						CPU_LOG("totalvblanks=%d NEXTCPU=%x DOTCYCLES=%x CPUCYCLES=%x\n", totalvblanks, nextCpuCycle, dotCycles, cpuCycles);
-						totalvblanks = 0;
-						nextCpuCycle -= 500000;
-						dotCycles -= 500000;
-						cpuCycles -= 500000 / 3;
-					}
-					
 				}
-				else Sleep(1);	
+				else Sleep(100);	
 	}
 	CleanupRoutine();
 	return (int)msg.wParam;
