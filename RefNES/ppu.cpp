@@ -74,15 +74,17 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			else
 			if (VRAMRamAddress >= 0x4000)
 			{
-				vramlocation = 0x0000 | (VRAMRamAddress & 0x3FFF);
+				vramlocation = (VRAMRamAddress & 0x3FFF);
 			}
 			else
 			{
 				vramlocation = VRAMRamAddress;
 			}
+
 			if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
-				vramlocation = 0x3f00;
+				vramlocation = vramlocation - 0x10;
 			}
+
 			PPUMemory[vramlocation] = value;
 			VRAMRamAddress++;
 			if (PPUCtrl & 0x4) { //Increment
