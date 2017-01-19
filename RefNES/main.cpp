@@ -245,7 +245,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					 
 					//if (nextPPUCycle - masterCycles < 1) 
 					//CPU Loop
-					
+					handleInput();
+
 					if (dotCycles > nextCpuCycle ) {
 						
 						CPULoop();

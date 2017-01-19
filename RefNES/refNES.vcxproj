@@ -143,6 +143,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="cpu.cpp" />
+    <ClCompile Include="iohandler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="memory.cpp" />
     <ClCompile Include="ppu.cpp" />
@@ -152,6 +153,7 @@
   <ItemGroup>
     <ClInclude Include="common.h" />
     <ClInclude Include="cpu.h" />
+    <ClInclude Include="iohandler.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="memory.h" />
     <ClInclude Include="ppu.h" />

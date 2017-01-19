@@ -240,6 +240,11 @@ unsigned char memRead() {
 		return PPUReadReg(address);
 	}
 	else
+	if (address >= 0x4000 && address < 0x4020) {
+
+		return ioRegRead(address);
+	}
+	else
 	if (address >= 0x800 && address < 0x2000) {
 		CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
 		address = address & 0x7FF;
@@ -331,6 +336,11 @@ unsigned char memReadValue(unsigned short address) {
 	if (address >= 0x2000 && address < 0x4000) {
 		CPU_LOG("Wrapping PPU reg address %x\n", 0x2000 + (address & 0x7));
 		return PPUReadReg(address);
+	}
+	else
+	if (address >= 0x4000 && address < 0x4020) {
+
+		return ioRegRead(address);
 	}
 	else
 	if (address >= 0x800 && address < 0x2000) {

@@ -5,7 +5,7 @@
 #include "main.h"
 #include "ppu.h"
 #include "SDLInterface.h"
-
+#include "iohandler.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
