@@ -36,7 +36,7 @@ void CPUPushAllStack() {
 	memWritePC(SP--, PC >> 8);
 	memWritePC(SP--, (PC & 0xff));
 	memWritePC(SP--, P);
-	//SP = 0x100 + (SP & 0xFF);
+	SP = 0x100 + (SP & 0xFF);
 	CPU_LOG("Pushed all to stack, PC = %x, SP = %x\n", PC, SP);
 }
 
@@ -44,7 +44,7 @@ void CPUPopAllStack() {
 	P = memReadValue(++SP);
 	PC = memReadPC(++SP);
 	SP += 1;
-	//SP = 0x100 + (SP & 0xFF);
+	SP = 0x100 + (SP & 0xFF);
 
 
 	CPU_LOG("Popped all from stack, PC = %x, SP = %x\n", PC, SP);
@@ -53,7 +53,7 @@ void CPUPopAllStack() {
 void CPUPushPCStack() {	
 	memWritePC(SP--, PC >> 8);
 	memWritePC(SP--, (PC & 0xff));
-	//SP = 0x100 + (SP & 0xFF);
+	SP = 0x100 + (SP & 0xFF);
 	CPU_LOG("Pushed PC to stack, PC = %x, SP = %x\n", PC, SP);
 }
 
@@ -61,13 +61,13 @@ void CPUPopPCStack() {
 	
 	PC = memReadPC(++SP);
 	SP += 1;
-	//SP = 0x100 + (SP & 0xFF);
+	SP = 0x100 + (SP & 0xFF);
 	CPU_LOG("Popped PC from stack, PC = %x, SP = %x\n", PC, SP);
 }
 
 void CPUPushSingleStack(unsigned char value) {
 	memWritePC(SP--, value);
-	//SP = 0x100 + (SP & 0xFF);
+	SP = 0x100 + (SP & 0xFF);
 	CPU_LOG("Pushed Single to stack, PC = %x, SP = %x\n", PC, SP);
 }
 
@@ -75,7 +75,7 @@ unsigned char CPUPopSingleStack() {
 	unsigned char value;
 	
 	value = memReadValue(++SP);
-	//SP = 0x100 + (SP & 0xFF);
+	SP = 0x100 + (SP & 0xFF);
 	CPU_LOG("Popped Single from stack, PC = %x, SP = %x\n", PC, SP);
 	return value;
 }
@@ -450,6 +450,17 @@ void cpuPHP() {
 }
 void cpuPLA() {
 	A = CPUPopSingleStack();
+
+	P &= ~NEGATIVE_FLAG;
+	P |= A & 0x80;
+
+	if (A == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
 	CPU_LOG("PLA\n");
 	PC += PCInc;
 	cpuCycles += 2;
@@ -682,13 +693,14 @@ void cpuORA() {
 }
 
 void cpuSBC(){
-	unsigned char memvalue = memRead();
-	unsigned int temp = A - memvalue;
+	unsigned char memvalue = memRead() ^ 0xFF;
+	unsigned int temp = A + memvalue + (P & CARRY_FLAG);
 
-	temp -= P & CARRY_FLAG;
+	CPU_LOG("SBC Flags=%x ", P);
 
 
-	if (!(temp & 0xff)) {
+
+	if ((temp & 0xff)== 0) {
 		P |= ZERO_FLAG;
 	}
 	else {
@@ -706,7 +718,7 @@ void cpuSBC(){
 		P &= ~OVERFLOW_FLAG;
 	}
 
-	if (A >= (memvalue + (P & CARRY_FLAG))) {
+	if (A >= memvalue) {
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -928,7 +940,7 @@ void cpuROL() {
 	//Put carry flag (borrowed bit) in to bit 0 of the source
 	source |= carrybit;
 
-	if (!source) {
+	if (source == 0) {
 		P |= ZERO_FLAG;
 	}
 	else {
@@ -1034,7 +1046,7 @@ void cpuTAX() {
 }
 
 void cpuTSX() {
-	X = (char)SP;
+	X = (char)SP & 0xFF;
 
 	P &= ~NEGATIVE_FLAG;
 	//Negative flag
