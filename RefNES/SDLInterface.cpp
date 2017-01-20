@@ -58,6 +58,20 @@ void InitDisplay(int width, int height, HWND hWnd)
 
 }
 unsigned int xpos = 0;
+
+
+bool CheckCollision(unsigned int ypos, unsigned int xpos, unsigned int backgroundcolour) {
+	
+	if (ScreenBuffer[xpos][ypos] != backgroundcolour)
+		return true;
+
+	return false;
+}
+
+void ZeroBuffer() {
+	memset(ScreenBuffer, 0, sizeof(ScreenBuffer));
+}
+
 void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
 {
 	//FPS_LOG("Starting redraw");

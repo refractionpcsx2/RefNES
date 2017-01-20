@@ -14,5 +14,7 @@ void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel);
 void StartDrawing();
 void EndDrawing();
 void DrawScreen();
+void ZeroBuffer();
+bool CheckCollision(unsigned int ypos, unsigned int curpos, unsigned int final_pixel);
 
 #endif
