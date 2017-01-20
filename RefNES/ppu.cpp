@@ -169,7 +169,12 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		curVal2 <<= 1;
 		final_pixel = masterPalette[(palette >> (pixel* 8)) & 0xFF];
 		//CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
-		DrawPixelBuffer(ypos, curpos++, final_pixel);
+		if (PPUMemory[0x3F00] == ((palette >> (pixel * 8)) & 0xFF) && issprite == true) {
+
+		}else
+		DrawPixelBuffer(ypos, curpos, final_pixel);
+
+		curpos++;
 	}
 }
 void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
@@ -203,7 +208,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 			if (((i/2) & 1)) attribute = ((attribute >> 2) & 0x3);
 			else attribute &= 0x3;
 		}
-		
+		 
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
 		DrawPixel(i * 8, YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], attribute, false);
 	}

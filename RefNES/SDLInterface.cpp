@@ -67,7 +67,6 @@ void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
 	//rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
 	//rect = { j*scale,ypos*scale,scale,scale };
 	//SDL_FillRect(SDL_Display, &rect, 0xff000000 | pixel * 0x303030);
-	
 	ScreenBuffer[xpos][ypos] = pixel;	
 	
 	

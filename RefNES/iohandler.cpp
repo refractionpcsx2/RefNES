@@ -13,7 +13,10 @@ void ioRegWrite(unsigned short address, unsigned char value) {
 	switch (address) {
 	case 0x4014:
 		SPRTransfer(value);
+	case 0x4016:
+		writes = 0;
 	}
+	
 }
 
 int ioRegRead(unsigned short address) {
