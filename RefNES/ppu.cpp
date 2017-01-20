@@ -12,9 +12,7 @@ unsigned char PPUCtrl; //0x2000
 unsigned char PPUMask; //0x2001
 unsigned char PPUStatus; //0x2002
 unsigned char PPUScroll; //0x2005
-bool firstwritevram = true;
-bool firstwritesram = true;
-
+unsigned char lastwrite;
 unsigned int scanline;
 
 unsigned int masterPalette[64] = {  0xff545454, 0xFF001E74, 0xFF081090, 0xFF300088, 0xFF440064, 0xFF5C0030, 0xFF540400, 0xFF3C1800, 0xFF202A00, 0xFF083A00, 0xFF004000, 0xFF003C00, 0xFF00323C, 0xFF000000, 0xFF000000, 0xFF000000,
@@ -32,8 +30,6 @@ void PPUReset() {
 	PPUScroll = 0;
 	memset(PPUMemory, 0, 0x4000);
 	memset(SPRMemory, 0, 0x100);
-	firstwritevram = true;
-	firstwritesram = true;
 }
 
 void PPUWriteReg(unsigned short address, unsigned char value) {
@@ -50,14 +46,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			CPU_LOG("Attempt to write to status register\n");
 			break;
 		case 0x03: //SPR (OAM) Ram Address
-			if (firstwritesram == false) {
-				SPRRamAddress |= value;
-				firstwritesram = true;
-			}
-			else {
-				SPRRamAddress = value << 8;
-				firstwritesram = false;
-			}
+			SPRRamAddress = value | ((SPRRamAddress & 0xFF) << 8);
 			break;
 		case 0x04: //OAM Data
 			SPRMemory[SPRRamAddress++] = value;
@@ -66,36 +55,23 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 		case 0x05: //Scroll
 			PPUScroll = value;
 			break;
-		case 0x06: //VRAM Address
-			if (firstwritevram == false) {
-				VRAMRamAddress = value | (VRAMRamAddress & 0xFF00);
-				firstwritevram = true;
-			}
-			else {
-				
-				VRAMRamAddress = (value << 8) | (VRAMRamAddress & 0xFF);
-				firstwritevram = false;
-			}
-			
+		case 0x06: //VRAM Address			
+			VRAMRamAddress = value | ((VRAMRamAddress & 0xFF) << 8);
 			break;
 		case 0x07: //VRAM Data
 			
 			CPU_LOG("PPU Reg Write to VRAM Address %x value %x\n", VRAMRamAddress, value);
 			unsigned short vramlocation = VRAMRamAddress;
 			
-			if (VRAMRamAddress >= 0x3F20 && VRAMRamAddress < 0x4000)
-			{
-				vramlocation = 0x3F00 | (VRAMRamAddress & 0x1F);
-				CPU_LOG("BANANA Write to VRAM Address %x changed to %x\n", VRAMRamAddress, vramlocation);
-			}
-			else
+			
 			if (VRAMRamAddress >= 0x4000)
 			{
 				vramlocation = (VRAMRamAddress & 0x3FFF);
 			}
-			else
+
+			if (VRAMRamAddress >= 0x3000 && VRAMRamAddress < 0x3F00)
 			{
-				vramlocation = VRAMRamAddress;
+				vramlocation = 0x2000 | (VRAMRamAddress & 0xEFF);
 			}
 
 			if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
@@ -109,6 +85,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			}
 			break;
 	}
+	lastwrite = value;
 }
 
 unsigned char PPUReadReg(unsigned short address) {
@@ -117,7 +94,9 @@ unsigned char PPUReadReg(unsigned short address) {
 
 	switch (address & 0x7) {	
 	case 0x02: //PPU Status 
-		value = PPUStatus;
+		value = PPUStatus & 0xE0 | lastwrite & 0x1F;
+		PPUStatus &= ~0x80;
+
 		CPU_LOG("Scanling = %d", scanline);
 		break;	
 	case 0x04: //OAM Data
@@ -154,7 +133,7 @@ unsigned char PPUReadReg(unsigned short address) {
 	case 0x05: //Scroll (write only)
 	case 0x06: //VRAM Address (write only)
 		CPU_LOG("Attempt to read write only register at %x\n", address);
-		value = PPUStatus;
+		value = PPUStatus & 0xE0 | lastwrite & 0x1F;
 		//This is apparently garbage that gets returned, the lower 5 bits are the lower 5 bits of the PPU status register, 
 		//the upper 2 bits are pallate values. Lets just return the status reg unless we get problems.
 		break;	
@@ -190,11 +169,11 @@ char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 	unsigned int attributeTableBaseAddress; //2x2 sprite tiles each
 	
 	nametableTableBaseAddress = 0x2000 + (0x400 * (PPUCtrl & 0x3)) + ((YPos / 8) * 32);
-	/*VRAMRamAddress++;
-	if (PPUCtrl & 0x4) { //Increment
-		VRAMRamAddress += 31;
-	}*/
-	attributeTableBaseAddress = nametableTableBaseAddress + 0x3c0;
+	if ((PPUCtrl & 0x3) > 2) {
+		CPU_LOG("BANANA ABORT");
+	}
+	
+	attributeTableBaseAddress = 0x2000 + (0x400 * (PPUCtrl & 0x3)) + 0x3c0;
 	if(PPUCtrl & 0x10)
 		patternTableBaseAddress = 0x1000 + (YPos & 0x7);
 	else 
@@ -205,19 +184,20 @@ char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 	for (int i = 0; i < 32; i++) {
 		unsigned int tilenumber = PPUMemory[nametableTableBaseAddress + i];
 		//CPU_LOG("NAMETABLE %x Tile %x\n", nametableTableBaseAddress + i + (scanline * 32), tilenumber);
-		unsigned int attribute = PPUMemory[attributeTableBaseAddress + (i/2) + ((scanline/30)*8)];
-		if ((scanline & 1)) {
-			if (i & 1) attribute = ((attribute & 0xc) >> 2);
-			else attribute &= 0x3;
+		unsigned int attribute = PPUMemory[attributeTableBaseAddress + (i/4) + ((scanline/32)*8)];
+		if (((scanline/16) & 1)) {
+			if (((i/2) & 1)) attribute = ((attribute >> 6) & 0x3);
+			else attribute = ((attribute >> 4) & 0x3);
 		}
 		else {
-			if (i & 1) attribute = ((attribute & 0xc0) >> 6);
-			else attribute = (attribute & 0x30) >> 4;
+			if (((i/2) & 1)) attribute = ((attribute >> 2) & 0x3);
+			else attribute &= 0x3;
 		}
 		
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
 		DrawPixel(i * 8, YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], attribute);
 	}
+	
 	//CPU_LOG("EndScanline\n");
 	//CPU_LOG("\n");
 
@@ -256,7 +236,7 @@ void PPULoop() {
 	if (scanline == (scanlinesperframe - 1))
 	{
 		CPU_LOG("VBLANK End\n");
-		//PPUStatus &= ~0x80;
+		///PPUStatus &= ~0x80;
 	}
 	scanline++;
 	if (scanline == scanlinesperframe) {
