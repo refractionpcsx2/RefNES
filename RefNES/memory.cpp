@@ -262,13 +262,19 @@ unsigned char memRead() {
 void memWrite(unsigned char value) {
 	unsigned short address = memGetAddr();
 	//CPU_LOG("Writing to address %x, value %x\n", address, value);
+
 	if (address >= 0x8000) { //Mapper
 		CPU_LOG("MAPPER HANDLER write to address %x with %x\n", address, value);
 		MapperHandler(address, value);
 		return;
 	}else
-	if ((address >= 0x2000 && address < 0x4000) || address == 0x4014) {
+	if ((address >= 0x2000 && address < 0x4000)) {
 		PPUWriteReg(address, value);
+		return;
+	}
+	else
+	if (address >= 0x4000 && address < 0x4020) {
+		ioRegWrite(address, value);
 		return;
 	}
 	else

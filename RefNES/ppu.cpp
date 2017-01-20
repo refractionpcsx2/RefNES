@@ -5,7 +5,7 @@
 
 unsigned char PPUMemory[0x4000]; //16kb memory for PPU VRAM (0x4000-0xffff is mirrored)
 unsigned char SPRMemory[0x100]; //256byte memory for Sprite RAM
-
+unsigned char TempSPR[0x20];
 unsigned short SPRRamAddress; //0x2003
 unsigned short VRAMRamAddress; //0x2006
 unsigned char PPUCtrl; //0x2000
@@ -50,7 +50,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			break;
 		case 0x04: //OAM Data
 			SPRMemory[SPRRamAddress++] = value;
-			
+			SPRRamAddress &= 0xFF;
 			break;
 		case 0x05: //Scroll
 			PPUScroll = value;
@@ -87,6 +87,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 	}
 	lastwrite = value;
 }
+
 
 unsigned char PPUReadReg(unsigned short address) {
 	unsigned char value;
@@ -142,7 +143,7 @@ unsigned char PPUReadReg(unsigned short address) {
 	return value;
 }
 
-void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsigned int pixel_ub, unsigned int attribute) {
+void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsigned int pixel_ub, unsigned int attribute, bool issprite) {
 	unsigned char curVal = pixel_lb;
 	unsigned char curVal2 = pixel_ub;
 	unsigned int final_pixel;
@@ -151,6 +152,14 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 	unsigned short paletteaddr = 0x3F01 + (attribute * 4);
 	unsigned int palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr+1] << 16) | (PPUMemory[paletteaddr+2] << 24);
 
+	if (issprite == false) {
+		paletteaddr = 0x3F01 + (attribute * 4);
+		palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr + 1] << 16) | (PPUMemory[paletteaddr + 2] << 24);
+	}
+	else {
+		paletteaddr = 0x3F11 + (attribute * 4);
+		palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr + 1] << 16) | (PPUMemory[paletteaddr + 2] << 24);
+	}
 	//CPU_LOG("Palette is %x\n", palette);
 
 	for (unsigned short j = xpos; j < xpos+8; j++) {
@@ -163,7 +172,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		DrawPixelBuffer(ypos, curpos++, final_pixel);
 	}
 }
-char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
+void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 	unsigned int patternTableBaseAddress; //The tiles themselves (8 bytes, each byte is a row of 8 pixels)
 	unsigned int nametableTableBaseAddress; //1 byte = 1 tile (8x8 pixels)
 	unsigned int attributeTableBaseAddress; //2x2 sprite tiles each
@@ -178,6 +187,7 @@ char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 		patternTableBaseAddress = 0x1000 + (YPos & 0x7);
 	else 
 		patternTableBaseAddress = 0x0000 + (YPos & 0x7);
+	
 	
 	
 //CPU_LOG("Scanline %d NTBase %x ATBase %x PTBase %x\n", YPos, nametableTableBaseAddress, attributeTableBaseAddress, patternTableBaseAddress);
@@ -195,23 +205,60 @@ char PPUGetNameTableEntry(unsigned int YPos, unsigned int XPos) {
 		}
 		
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
-		DrawPixel(i * 8, YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], attribute);
+		DrawPixel(i * 8, YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], attribute, false);
 	}
 	
 	//CPU_LOG("EndScanline\n");
 	//CPU_LOG("\n");
-
-
-
-	return 0;
 }
+
+void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
+	unsigned int patternTableBaseAddress; //The tiles themselves (8 bytes, each byte is a row of 8 pixels)
+
+	if ((PPUCtrl & 0x20)) {
+		CPU_LOG("BANANA ABORT");
+	}
+
+	
+	unsigned int foundsprites = 0;
+	for (int s = 0; s < 256; s += 4) {
+		if (SPRMemory[s] <= YPos && (SPRMemory[s] + 7) > YPos) {
+			TempSPR[(foundsprites * 4)] = SPRMemory[s];
+			TempSPR[(foundsprites * 4) + 1] = SPRMemory[s + 1];
+			TempSPR[(foundsprites * 4) + 2] = SPRMemory[s + 2];
+			TempSPR[(foundsprites * 4) + 3] = SPRMemory[s + 3];
+			foundsprites++;
+		}
+		if (foundsprites == 8) {
+			PPUStatus |= 0x20;
+			break;
+		}
+	}
+	//CPU_LOG("Scanline %d NTBase %x ATBase %x PTBase %x\n", YPos, nametableTableBaseAddress, attributeTableBaseAddress, patternTableBaseAddress);
+	for (int i = 0; i <= (foundsprites * 4); i += 4) {
+		unsigned int tilenumber = TempSPR[i+1];
+
+		if (PPUCtrl & 0x8)
+			patternTableBaseAddress = 0x1000 + (YPos - TempSPR[i]);
+		else
+			patternTableBaseAddress = 0x0000 + (YPos - TempSPR[i]);
+
+		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
+		DrawPixel(TempSPR[i+3], YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], TempSPR[i+2] & 0x3, true);
+	}
+	memset(TempSPR, 0, 0x20);
+	//CPU_LOG("EndScanline\n");
+	//CPU_LOG("\n");
+}
+
 void PPUDrawScanline() {
-	unsigned char nameTableValue;
 	//Background
-	//for (int i = 0; i < 256; i++) {
-		nameTableValue = PPUGetNameTableEntry(scanline, 0);
-	//}
+	if(PPUMask & 0x8)
+		FetchBackgroundTile(scanline, 0);
 	//Sprites
+	if(PPUMask & 0x10)
+		FetchSpriteTile(scanline, 0);
+	
 }
 void PPULoop() {
 	

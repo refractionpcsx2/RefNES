@@ -15,13 +15,6 @@ void memWritePC(unsigned short address, unsigned char value);
 unsigned short memReadPCIndirect();
 unsigned char memReadValue(unsigned short address);
 void CopyRomToMemory();
-/*CPU Memory Writes*/
 
-/*PPU Memory Reads*/
-
-/*PPU Memory Writes*/
-
-/*SPR Memory Reads*/
-
-/*SPR Memory Writes*/
+extern unsigned char CPUMemory[0x10000];
 #endif
