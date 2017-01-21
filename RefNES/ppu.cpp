@@ -147,12 +147,12 @@ unsigned char PPUReadReg(unsigned short address) {
 	return value;
 }
 
-void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsigned int pixel_ub, unsigned int attribute, bool issprite, bool zerosprite, bool horizflip) {
+void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsigned int pixel_ub, unsigned int attribute, bool issprite, bool zerosprite, bool horizflip, unsigned int xposoff) {
 	unsigned char curVal = pixel_lb;
 	unsigned char curVal2 = pixel_ub;
 	unsigned int final_pixel;
 	unsigned int pixel;
-	unsigned int curpos = xpos;
+	unsigned int curpos = xpos-xposoff;
 	unsigned short paletteaddr = 0x3F01 + (attribute * 4);
 	unsigned int palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr+1] << 16) | (PPUMemory[paletteaddr+2] << 24);
 	unsigned int backgroundpixel = masterPalette[PPUMemory[0x3F00] & 0xFF];
@@ -166,11 +166,18 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr + 1] << 16) | (PPUMemory[paletteaddr + 2] << 24);
 	}
 	//CPU_LOG("Palette is %x\n", palette);
-
-	for (unsigned short j = xpos; j < xpos + 8; j++) {
+	/*if (horizflip == false) {
+		curVal <<= xposoff;
+		curVal2 <<= xposoff;
+	}
+	else {
+		curVal >>= xposoff;
+		curVal2 >>= xposoff;
+	}*/
+	for (signed int j = xpos-xposoff; j < ((xpos - xposoff) + 8); j++) {
 
 		if (((PPUMask & 0x2) && issprite == false) || ((PPUMask & 0x4) && issprite == true)) {
-			if(xpos < 8)
+			if(j < 8 || j >=256)
 				continue;
 		}
 		if (horizflip == false) {
@@ -243,7 +250,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 	
 	
 //CPU_LOG("Scanline %d NTBase %x ATBase %x PTBase %x\n", YPos, nametableTableBaseAddress, attributeTableBaseAddress, patternTableBaseAddress);
-	for (int i = 0; i < 32; i++) {
+	for (int i = 0; i < 33; i++) {
 		unsigned short nametableaddress = nametableTableBaseAddress + i + nametablescrollvalue;
 		unsigned short attributeaddress = attributeTableBaseAddress + (i / 4) + attributetablescrollvalue;
 		//unsigned short attributeaddress = attributeTableBaseAddress + (((nametableaddress - BaseNametable) & 0x1F) /4) + (((nametableaddress - BaseNametable) / 0x100) * 8);
@@ -275,7 +282,9 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		}
 		 
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
-		DrawPixel((i * 8) - xposofs, YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], attribute, false, false, false);
+		DrawPixel(i * 8, YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], attribute, false, false, false, xposofs);
+		if (i == 31 && ((PPUScroll >> 8) & 0x7) == 0)
+			break;
 	}
 	
 	//CPU_LOG("EndScanline\n");
@@ -330,7 +339,7 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 		}
 		
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
-		DrawPixel(TempSPR[i+3], YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], TempSPR[i+2] & 0x3, true, zerospritefound == true && zerospriteentry == i, (TempSPR[i + 2] & 0x40) == 0x40);
+		DrawPixel(TempSPR[i+3], YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], TempSPR[i+2] & 0x3, true, zerospritefound == true && zerospriteentry == i, (TempSPR[i + 2] & 0x40) == 0x40, 0);
 	}
 	memset(TempSPR, 0, 0x20);
 	//CPU_LOG("EndScanline\n");
