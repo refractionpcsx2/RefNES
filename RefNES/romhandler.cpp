@@ -43,7 +43,7 @@ int LoadRom(const char *Filename) {
 			flags10 = ROMHeader[10];
 			mapper = ((ROMHeader[6] >> 4) & 0xF) | (ROMHeader[7] & 0xF0);
 
-			CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags10=%x\n", prgsize, chrsize, flags6, flags10);
+			CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags8=%x, flags10=%x\n", prgsize, chrsize, flags6, ROMHeader[8],  flags10);
 			fseek(pFile, 16, SEEK_SET); //Point it past the header
 			LoadRomToMemory(pFile, lSize);
 			//fread(CPUMemory, 1, lSize, pFile); //Read in the file

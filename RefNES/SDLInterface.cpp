@@ -14,6 +14,9 @@ unsigned int ScreenBuffer[256][240];
 
 
 void DestroyDisplay() {
+	if (SDL_MUSTLOCK(SDL_Display)) {
+		SDL_UnlockSurface(SDL_Display);
+	}
 	SDL_DestroyTexture(texture);
 	SDL_FreeSurface(SDL_Display);
 	SDL_DestroyRenderer(renderer);
@@ -93,7 +96,7 @@ void DrawScreen() {
 	SDL_Rect rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
 	//SDL_FillRect(SDL_Display, &rect, 0xff000000);
 	for (int xpos = 0; xpos < 256; xpos++) {
-		for (int ypos = 0; ypos < 240; ypos++) {
+		for (int ypos = 1; ypos < 240; ypos++) {
 			rect = { xpos*scale,ypos*scale,scale,scale };
 			SDL_FillRect(SDL_Display, &rect, ScreenBuffer[xpos][ypos]);
 		}

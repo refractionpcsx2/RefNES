@@ -23,6 +23,7 @@ void MemReset() {
 }
 
 void ChangeUpperPRG(unsigned char PRGNum) {
+
 	if ((MMCcontrol & 0xC) <= 4) { //32kb
 		CPU_LOG("MAPPER Switching to 32K PRG-ROM number %d at 0x8000\n", PRGNum);
 		memcpy(&CPUMemory[0x8000], ROMCart + (PRGNum * 16384), 0x8000);
@@ -45,7 +46,7 @@ void ChangeUpperPRG(unsigned char PRGNum) {
 void CopyRomToMemory() {
 	if (prgsize > 1) {
 		memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
-		memcpy(&CPUMemory[0xC000], ROMCart+((prgsize-1)* 16384), 0x4000);
+		memcpy(&CPUMemory[0xC000], ROMCart+((prgsize - 1)* 16384), 0x4000);
 	}
 	else {
 		memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
@@ -76,22 +77,23 @@ void MapperHandler(unsigned short address, unsigned short value) {
 		if (value & 0x80) {
 			CPU_LOG("MAPPER MMC1 Reset shift reg %x\n", value);
 			MMCbuffer = value & 0x1;
-			MMCcontrol = value & ~0x1;
 			SRwrites = 0;
 			return;
 		}	
-
-		MMCbuffer |= (value & 0x1) << SRwrites;
+		MMCbuffer >>= 1;
+		MMCbuffer |= (value & 0x1) << 4;
 		SRwrites++;
-		CPU_LOG("MAPPER Write number %d, buffer=%x\n", SRwrites, MMCbuffer);
+		CPU_LOG("MAPPER Write address=%x number %d, buffer=%x value %x\n", address, SRwrites, MMCbuffer, value);
 		if (SRwrites == 5) {
 			if (address == 0x8000) { //Control register
 				CPU_LOG("MAPPER MMC1 Write to control reg %x\n", MMCbuffer);
 				MMCcontrol = MMCbuffer;
 			}
 			if (address == 0xE000) { //Change program rom in upper bits
-				CPU_LOG("MAPPER MMC1 Changing upper PRG to Program %d\n", MMCbuffer);
-				ChangeUpperPRG(MMCbuffer);		
+				if (!(value & 0x80)) {
+					CPU_LOG("MAPPER MMC1 Changing upper PRG to Program %d\n", MMCbuffer);
+					ChangeUpperPRG(MMCbuffer);
+				}
 			}
 			MMCbuffer = 0;
 			SRwrites = 0;
@@ -104,74 +106,80 @@ void MapperHandler(unsigned short address, unsigned short value) {
 /* CPU Addressing Functions */
 // These are called from memGetAddr
 
-unsigned short MemAddrAbsolute() {
+unsigned short MemAddrAbsolute(bool iswrite) {
 	unsigned short fulladdress;
 	
 	fulladdress = CPUMemory[PC + 2] << 8 | CPUMemory[PC + 1];
-	//CPU_LOG("Absolute Mem %x PC = %x ", fulladdress, PC);
+	CPU_LOG("Absolute Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 3;
+	if (iswrite == false)
 	cpuCycles += 2;
 	return fulladdress;
 
 }
 
-unsigned short MemAddrAbsoluteY() {
+unsigned short MemAddrAbsoluteY(bool iswrite) {
 	unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]) + Y;
-	//CPU_LOG("AbsoluteY Mem %x PC = %x ", fulladdress, PC);
+	CPU_LOG("AbsoluteY Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 3;
+	if (iswrite == false)
 	cpuCycles += 3;
 	return fulladdress;
 }
 
-unsigned short MemAddrAbsoluteX() {
+unsigned short MemAddrAbsoluteX(bool iswrite) {
 	unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]) + X;
-	//CPU_LOG("AbsoluteX Mem %x PC = %x ", fulladdress, PC);
+	CPU_LOG("AbsoluteX Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 3;
+	if (iswrite == false)
 	cpuCycles += 3;
 
 	return fulladdress;
 }
 
-unsigned short MemAddrPreIndexed() {
+unsigned short MemAddrPreIndexed(bool iswrite) {
 	unsigned short fulladdress;
 	unsigned short address = CPUMemory[PC + 1] + X;
 
 	fulladdress = (CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF];
-	//CPU_LOG("Pre Indexed Mem %x PC = %x ", fulladdress, PC);
+	CPU_LOG("Pre Indexed Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
+	if (iswrite == false)
 	cpuCycles += 3;
 	return fulladdress;
 }
 
-unsigned short MemAddrPostIndexed() {
+unsigned short MemAddrPostIndexed(bool iswrite) {
 	unsigned short fulladdress;
 	unsigned short address = CPUMemory[PC + 1];
 
 	fulladdress = ((CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF]) + Y;
-	//CPU_LOG("Post Indexed Mem %x PC = %x ", fulladdress, PC);
+	CPU_LOG("Post Indexed Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
+	if (iswrite == false)
 	cpuCycles += 3;
 	return fulladdress;
 }
 
-unsigned short MemAddrImmediate() {
+unsigned short MemAddrImmediate(bool iswrite) {
 	//We don't read from memory here, we just read the PC + 1 position value
 	unsigned short fulladdress = PC + 1;
-	//CPU_LOG("Immediate %x PC = %x ", fulladdress, PC);
+	CPU_LOG("Immediate %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
 
 	return fulladdress;
 }
 
-unsigned short MemAddrZeroPage() {
+unsigned short MemAddrZeroPage(bool iswrite) {
 	unsigned short fulladdress = CPUMemory[PC + 1];
-	//CPU_LOG("Zero Page %x PC = %x ", fulladdress, PC);
+	CPU_LOG("Zero Page %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
+	if (iswrite == false)
 	cpuCycles += 1;
 	return fulladdress;
 }
 
-unsigned short MemAddrZeroPageIndexed() {
+unsigned short MemAddrZeroPageIndexed(bool iswrite) {
 	unsigned short fulladdress;
 	
 
@@ -182,57 +190,58 @@ unsigned short MemAddrZeroPageIndexed() {
 	else {
 		fulladdress = (CPUMemory[PC + 1] + X) & 0xFF;
 	}
-	//CPU_LOG("Zero Page Indexed %x PC = %x ", fulladdress, PC);
+	CPU_LOG("Zero Page Indexed %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
+	if(iswrite == false)
 	cpuCycles += 2;
 	return fulladdress;
 }
 
 //Generic memread interfact for use most of the time, determines the standard address modes.
 
-unsigned short memGetAddr() {
+unsigned short memGetAddr(bool iswrite) {
 	unsigned short value;
 
 	switch (Opcode & 0x1C) {
 	case 0x0: //ALU Pre-Indexed Indirect (X) / Control+RWM Immediate
 		if (!(Opcode & 0x1)) {//Not ALU or Undocumented
-			value = MemAddrImmediate();
+			value = MemAddrImmediate(iswrite);
 		}
 		else {
-			value = MemAddrPreIndexed();
+			value = MemAddrPreIndexed(iswrite);
 		}
 		break;
 	case 0x4: //Zero Page
-		value = MemAddrZeroPage();
+		value = MemAddrZeroPage(iswrite);
 		break;
 	case 0x8: //Immediate
 		if (!(Opcode & 0x1)) {
 			CPU_LOG("BANANA Implied not immediate??");
 		}
-		value = MemAddrImmediate();
+		value = MemAddrImmediate(iswrite);
 		break;
 	case 0xC: //Absolute		
-		value = MemAddrAbsolute();
+		value = MemAddrAbsolute(iswrite);
 		break;
 	case 0x10://Post-indexed indirect (Y)
-		value = MemAddrPostIndexed();
+		value = MemAddrPostIndexed(iswrite);
 		break;
 	case 0x14://ZeroPage Indexed, X
-		value = MemAddrZeroPageIndexed();
+		value = MemAddrZeroPageIndexed(iswrite);
 		break;
 	case 0x18://Absolute,Y 
 		if (!(Opcode & 0x1)) {
 			CPU_LOG("BANANA Implied not absolutey??");
 		}
-		value = MemAddrAbsoluteY();
+		value = MemAddrAbsoluteY(iswrite);
 		break;
 	case 0x1C://Absolute,X
 		if ((Opcode & 0x3) > 1 && (Opcode & 0xC0) == 0x80) {
 			//CPU_LOG("BANANA Reading Absolute Y instead of Absolute X Opcode %x", Opcode);
-			value = MemAddrAbsoluteY();
+			value = MemAddrAbsoluteY(iswrite);
 		}
 		else {
-			value = MemAddrAbsoluteX();
+			value = MemAddrAbsoluteX(iswrite);
 		}
 		break;
 
@@ -242,7 +251,7 @@ unsigned short memGetAddr() {
 
 /* Generic Interfaces */
 unsigned char memRead() {
-	unsigned short address = memGetAddr();
+	unsigned short address = memGetAddr(false);
 	//CPU_LOG("Reading from address %x, value %x\n", address, CPUMemory[address]);
 	if (address >= 0x2000 && address < 0x4000) {
 		return PPUReadReg(address);
@@ -262,8 +271,8 @@ unsigned char memRead() {
 }
 
 void memWrite(unsigned char value) {
-	unsigned short address = memGetAddr();
-	//CPU_LOG("Writing to address %x, value %x\n", address, value);
+	unsigned short address = memGetAddr(true);
+	CPU_LOG("Writing to address %x, value %x\n", address, value);
 
 	if (address >= 0x8000) { //Mapper
 		//CPU_LOG("MAPPER HANDLER write to address %x with %x\n", address, value);

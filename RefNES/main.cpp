@@ -69,10 +69,13 @@ void CleanupRoutine()
 {
 	//Clean up XAudio2
 	CleanUpMem();
+	DestroyDisplay();
+	if (LoggingEnable)
+		fclose(LogFile);
 }
 
 int SaveIni(){
-	fopen_s(&iniFile, "./refNES.ini", "w+b");     //Open the file, args r = read, b = binary
+	fopen_s(&iniFile, "./refNES.ini", "w+");     //Open the file, args r = read, b = binary
 	
 
 	if (iniFile!=NULL)  //If the file exists
@@ -200,8 +203,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UpdateTitleBar(hWnd); //Set the title stuffs
 	ShowWindow(hWnd, nCmdShow);
 
-		
-	DestroyDisplay();
 	InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
 	
 	//refNESRecCPU->InitRecMem();
@@ -218,8 +219,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 //			refNESRecCPU->ResetRecMem();
 			Running = true;
-			DestroyDisplay();
-			InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
+			//DestroyDisplay();
+			//InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
 			nextsecond = 0;
 			fps = 0;
 			cpuCycles = 0;
@@ -279,7 +280,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 				else Sleep(100);	
 	}
-	CleanupRoutine();
+	
 	return (int)msg.wParam;
 }
 
@@ -336,7 +337,7 @@ void ToggleLogging(HWND hWnd)
 
 	SaveIni();
 
-	if (LoggingEnable == 1)
+	if (LoggingEnable)
 		OpenLog();
 	else
 		fclose(LogFile);
@@ -472,7 +473,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 					strcpy_s(CurFilename, szFileName);
 					MemReset();
 					PPUReset();
-					CPUReset();
 					CopyRomToMemory();
 					//refNESRecCPU->ResetRecMem();
 					//
@@ -496,8 +496,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 				 else 
 				 {
 					 /*refNESRecCPU->ResetRecMem();*/
-					 DestroyDisplay();
-					 InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	
+					/* DestroyDisplay();
+					 InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);	*/
 					 CPUReset();
 					 v_cycle = SDL_GetTicks();
 					 prev_v_cycle = v_cycle;
@@ -524,7 +524,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			 break;
 		  case ID_EXIT:
 			  Running = false;
-			  DestroyDisplay();
 			 DestroyWindow(hWnd);
 			 return 0;
 			 break;
@@ -536,7 +535,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 				case VK_ESCAPE:
 				{
 					Running = false;
-					DestroyDisplay();
+					
 					DestroyWindow(hWnd);
 					return 0;
 				}
@@ -550,6 +549,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 		{
 			//SaveIni();
 			Running = false;
+			DestroyWindow(hWnd);
+			CleanupRoutine();
+			SaveIni();
 			if(LoggingEnable)
 				fclose(LogFile);
 			PostQuitMessage(0);			
@@ -563,6 +565,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 
 void Reset()
 {
+	CPUReset();
 	/*Flag._u16 = 0;
 	PC = 0;
 	StackPTR = 0xFDF0;

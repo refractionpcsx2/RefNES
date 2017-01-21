@@ -1,5 +1,6 @@
 #include "common.h"
 #include "memory.h"
+#include "cpu.h"
 
 SDL_Event test_event;
 unsigned char keyevents;
@@ -7,6 +8,7 @@ unsigned char writes;
 
 void SPRTransfer(unsigned char memvalue) {
 	memcpy(SPRMemory, &CPUMemory[memvalue << 8], 256);
+	cpuCycles += 513;
 }
 void ioRegWrite(unsigned short address, unsigned char value) {
 	CPU_LOG("IO Reg Write address %x keyevents=%x value=%x\n", address, keyevents, value);
