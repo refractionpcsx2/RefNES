@@ -23,7 +23,7 @@ void MemReset() {
 }
 
 void ChangeUpperPRG(unsigned char PRGNum) {
-	if ((MMCcontrol & 0xC) == 4) { //32kb
+	if ((MMCcontrol & 0xC) <= 4) { //32kb
 		CPU_LOG("MAPPER Switching to 32K PRG-ROM number %d at 0x8000\n", PRGNum);
 		memcpy(&CPUMemory[0x8000], ROMCart + (PRGNum * 16384), 0x8000);
 	}
@@ -44,7 +44,8 @@ void ChangeUpperPRG(unsigned char PRGNum) {
 
 void CopyRomToMemory() {
 	if (prgsize > 1) {
-		memcpy(&CPUMemory[0x8000], ROMCart, 0x8000);
+		memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
+		memcpy(&CPUMemory[0xC000], ROMCart+((prgsize-1)* 16384), 0x4000);
 	}
 	else {
 		memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
@@ -75,7 +76,8 @@ void MapperHandler(unsigned short address, unsigned short value) {
 		if (value & 0x80) {
 			CPU_LOG("MAPPER MMC1 Reset shift reg %x\n", value);
 			MMCbuffer = value & 0x1;
-			SRwrites = 1;
+			MMCcontrol = value & ~0x1;
+			SRwrites = 0;
 			return;
 		}	
 
@@ -84,7 +86,7 @@ void MapperHandler(unsigned short address, unsigned short value) {
 		CPU_LOG("MAPPER Write number %d, buffer=%x\n", SRwrites, MMCbuffer);
 		if (SRwrites == 5) {
 			if (address == 0x8000) { //Control register
-				CPU_LOG("MAPPER MMC1 Write to control reg %d\n", MMCbuffer);
+				CPU_LOG("MAPPER MMC1 Write to control reg %x\n", MMCbuffer);
 				MMCcontrol = MMCbuffer;
 			}
 			if (address == 0xE000) { //Change program rom in upper bits
@@ -106,7 +108,7 @@ unsigned short MemAddrAbsolute() {
 	unsigned short fulladdress;
 	
 	fulladdress = CPUMemory[PC + 2] << 8 | CPUMemory[PC + 1];
-	CPU_LOG("Absolute Mem %x PC = %x ", fulladdress, PC);
+	//CPU_LOG("Absolute Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 3;
 	cpuCycles += 2;
 	return fulladdress;
@@ -115,7 +117,7 @@ unsigned short MemAddrAbsolute() {
 
 unsigned short MemAddrAbsoluteY() {
 	unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]) + Y;
-	CPU_LOG("AbsoluteY Mem %x PC = %x ", fulladdress, PC);
+	//CPU_LOG("AbsoluteY Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 3;
 	cpuCycles += 3;
 	return fulladdress;
@@ -123,7 +125,7 @@ unsigned short MemAddrAbsoluteY() {
 
 unsigned short MemAddrAbsoluteX() {
 	unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]) + X;
-	CPU_LOG("AbsoluteX Mem %x PC = %x ", fulladdress, PC);
+	//CPU_LOG("AbsoluteX Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 3;
 	cpuCycles += 3;
 
@@ -135,7 +137,7 @@ unsigned short MemAddrPreIndexed() {
 	unsigned short address = CPUMemory[PC + 1] + X;
 
 	fulladdress = (CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF];
-	CPU_LOG("Pre Indexed Mem %x PC = %x ", fulladdress, PC);
+	//CPU_LOG("Pre Indexed Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
 	cpuCycles += 3;
 	return fulladdress;
@@ -146,7 +148,7 @@ unsigned short MemAddrPostIndexed() {
 	unsigned short address = CPUMemory[PC + 1];
 
 	fulladdress = ((CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF]) + Y;
-	CPU_LOG("Post Indexed Mem %x PC = %x ", fulladdress, PC);
+	//CPU_LOG("Post Indexed Mem %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
 	cpuCycles += 3;
 	return fulladdress;
@@ -155,7 +157,7 @@ unsigned short MemAddrPostIndexed() {
 unsigned short MemAddrImmediate() {
 	//We don't read from memory here, we just read the PC + 1 position value
 	unsigned short fulladdress = PC + 1;
-	CPU_LOG("Immediate %x PC = %x ", fulladdress, PC);
+	//CPU_LOG("Immediate %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
 
 	return fulladdress;
@@ -163,7 +165,7 @@ unsigned short MemAddrImmediate() {
 
 unsigned short MemAddrZeroPage() {
 	unsigned short fulladdress = CPUMemory[PC + 1];
-	CPU_LOG("Zero Page %x PC = %x ", fulladdress, PC);
+	//CPU_LOG("Zero Page %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
 	cpuCycles += 1;
 	return fulladdress;
@@ -175,12 +177,12 @@ unsigned short MemAddrZeroPageIndexed() {
 
 	if ((Opcode & 0xC0) == 0x80 && (Opcode & 0x3) > 1) {		
 		fulladdress = (CPUMemory[PC + 1] + Y) & 0xFF;
-		CPU_LOG("BANANA Zero Page Y Indexed %x PC = %x Opcode %x", fulladdress, PC, Opcode);
+		//CPU_LOG("BANANA Zero Page Y Indexed %x PC = %x Opcode %x", fulladdress, PC, Opcode);
 	}
 	else {
 		fulladdress = (CPUMemory[PC + 1] + X) & 0xFF;
 	}
-	CPU_LOG("Zero Page Indexed %x PC = %x ", fulladdress, PC);
+	//CPU_LOG("Zero Page Indexed %x PC = %x ", fulladdress, PC);
 	PCInc = 2;
 	cpuCycles += 2;
 	return fulladdress;
@@ -226,7 +228,7 @@ unsigned short memGetAddr() {
 		break;
 	case 0x1C://Absolute,X
 		if ((Opcode & 0x3) > 1 && (Opcode & 0xC0) == 0x80) {
-			CPU_LOG("BANANA Reading Absolute Y instead of Absolute X Opcode %x", Opcode);
+			//CPU_LOG("BANANA Reading Absolute Y instead of Absolute X Opcode %x", Opcode);
 			value = MemAddrAbsoluteY();
 		}
 		else {
@@ -252,10 +254,10 @@ unsigned char memRead() {
 	}
 	else
 	if (address >= 0x800 && address < 0x2000) {
-		CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
+		//CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
 		address = address & 0x7FF;
 	}
-	CPU_LOG("value = %x\n", CPUMemory[address]);
+	//CPU_LOG("value = %x\n", CPUMemory[address]);
 	return CPUMemory[address];
 }
 
@@ -264,7 +266,7 @@ void memWrite(unsigned char value) {
 	//CPU_LOG("Writing to address %x, value %x\n", address, value);
 
 	if (address >= 0x8000) { //Mapper
-		CPU_LOG("MAPPER HANDLER write to address %x with %x\n", address, value);
+		//CPU_LOG("MAPPER HANDLER write to address %x with %x\n", address, value);
 		MapperHandler(address, value);
 		return;
 	}else
@@ -279,10 +281,10 @@ void memWrite(unsigned char value) {
 	}
 	else
 	if (address >= 0x800 && address < 0x2000) {
-		CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
+		//CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
 		address = address & 0x7FF;
 	}
-	CPU_LOG("\n");
+	//CPU_LOG("\n");
 	CPUMemory[address] = value;
 }
 
@@ -294,10 +296,10 @@ unsigned short memReadPC(unsigned short address) {
 	}
 	else
 	if (address >= 0x800 && address < 0x2000) {
-		CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
+		//CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
 		address = address & 0x7FF;
 	}
-	CPU_LOG("value = %x\n", (CPUMemory[address + 1] << 8) | CPUMemory[address]);
+	//CPU_LOG("value = %x\n", (CPUMemory[address + 1] << 8) | CPUMemory[address]);
 	value = (CPUMemory[address + 1] << 8) | CPUMemory[address];
 	return value;
 
@@ -309,30 +311,24 @@ unsigned short memReadPCIndirect() {
 	unsigned short masked;
 	address = (CPUMemory[PC + 2] << 8) | CPUMemory[PC + 1];
 	if (address >= 0x2000 && address < 0x4000) {
-		CPU_LOG("Wrapping PPU reg address %x\n", 0x2000 + (address & 0x7));
+		//CPU_LOG("Wrapping PPU reg address %x\n", 0x2000 + (address & 0x7));
 		return PPUReadReg(address);
 	} else
 	if (address >= 0x800 && address < 0x2000) {
-		CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
+		//CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
 		address = address & 0x7FF;		
 	}
 	masked = (address & 0xFF00) | ((address+1) & 0xFF);
-	CPU_LOG("Indirect read from %x ", address);
+	//CPU_LOG("Indirect read from %x ", address);
 	value = (CPUMemory[masked] << 8) | CPUMemory[address];
-	CPU_LOG("\n");
-	CPU_LOG("returned value %x, values at address upper = %x lower = %x\n", value, CPUMemory[address + 1], CPUMemory[address]);
+	//CPU_LOG("\n");
+	//CPU_LOG("returned value %x, values at address upper = %x lower = %x\n", value, CPUMemory[address + 1], CPUMemory[address]);
 	
 	return value;
 
 }
 
 void memWritePC(unsigned short address, unsigned char value) {
-	if (mapper > 0 && address >= 0x8000) { //Mapper
-		CPU_LOG("MAPPER HANDLER write to address %x with %x\n", address, value);
-		MapperHandler(address, value);
-		return;
-	}
-	else
 	if (address >= 0x2000 && address < 0x4000) {
 		CPU_LOG("Wrapping PPU reg address %x\n", 0x2000 + (address & 0x7));
 		PPUWriteReg(address, value);
@@ -343,7 +339,6 @@ void memWritePC(unsigned short address, unsigned char value) {
 		CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
 		address = address & 0x7FF;
 	}
-	CPU_LOG("\n");
 	CPUMemory[address] = value;
 }
 
