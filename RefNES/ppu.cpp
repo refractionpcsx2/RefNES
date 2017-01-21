@@ -166,19 +166,14 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr + 1] << 16) | (PPUMemory[paletteaddr + 2] << 24);
 	}
 	//CPU_LOG("Palette is %x\n", palette);
-	/*if (horizflip == false) {
-		curVal <<= xposoff;
-		curVal2 <<= xposoff;
-	}
-	else {
-		curVal >>= xposoff;
-		curVal2 >>= xposoff;
-	}*/
+	
 	for (signed int j = xpos-xposoff; j < ((xpos - xposoff) + 8); j++) {
 
 		if (((PPUMask & 0x2) && issprite == false) || ((PPUMask & 0x4) && issprite == true)) {
-			if(j < 8 || j >=256)
+			if (xpos == 0 || j >= 256) {
+				curpos++;
 				continue;
+			}
 		}
 		if (horizflip == false) {
 			pixel = (((curVal >> 7) & 0x1) | (((curVal2 >> 7) & 0x1) << 1));

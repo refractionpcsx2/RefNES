@@ -24,10 +24,10 @@ int ioRegRead(unsigned short address) {
 	
 	switch (address & 0x1F) {
 		case 0x16: //Joypad 1
-			value = (keyevents >> writes) & 0x1;
+			if (writes > 7)
+				return 1;
+			value = (keyevents >> writes++) & 0x1;
 			CPU_LOG("IO Reg read address %x keyevents=%x value=%x\n", address, keyevents, value);
-			if (++writes == 8)
-				writes = 0;
 			break;
 	}
 	return value;

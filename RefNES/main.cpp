@@ -247,7 +247,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					 
 					//if (nextPPUCycle - masterCycles < 1) 
 					//CPU Loop
-					handleInput();
+					
 
 					if (dotCycles > nextCpuCycle ) {
 						
@@ -257,7 +257,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 							 //PPU Loop
 						PPULoop();
-
+						handleInput();
 						if (scanline == 0) {
 							fps2++;
 							//CPU_LOG("VBLN K%d masterCycles=%d\n", totalvblanks, masterCycles);
