@@ -26,7 +26,7 @@ typedef void(*JumpTable)(void);
 
 void CPUReset() {
 	PC = memReadPC(0xFFFC);
-	SP = 0x1FF;
+	SP = 0x1FD;
 	P = 0x34;
 	CPUPushAllStack();
 	CPU_LOG("CPU Reset start PC set to %x\n", PC);
@@ -211,10 +211,11 @@ void cpuBIT() {
 
 void cpuBRK() {
 	
-	PC += 1;
+	PC += 2;
 	CPU_LOG("BRK\n");
+	P |= BREAK_FLAG | (1<<5);
 	CPUPushAllStack();
-	P |= BREAK_FLAG;
+	P |= INTERRUPT_DISABLE_FLAG;
 	cpuCycles += 5;
 	
 	PC = memReadPC(0xFFFE);
@@ -276,23 +277,23 @@ void cpuCLV() {
 	PC += 1;
 }
 void cpuCPX() {
-	unsigned char memvalue = memRead();
+	unsigned short memvalue = memRead();
 
-	if (X >= memvalue) {
+	memvalue = X - memvalue;
+
+	if (memvalue < 0x100) {
 		P |= CARRY_FLAG;
 	}
 	else {
 		P &= ~CARRY_FLAG;
 	}
 
-	if (X == memvalue) {
+	if (!(memvalue & 0xff)) {
 		P |= ZERO_FLAG;
 	}
 	else {
 		P &= ~ZERO_FLAG;
 	}
-
-	memvalue = X - memvalue;
 
 	if (memvalue & 0x80) {
 		P |= NEGATIVE_FLAG;
@@ -306,23 +307,23 @@ void cpuCPX() {
 	CPU_LOG("CPX X=%x Mem=%x A=%x Flags=%x\n", memvalue, X, P);
 }
 void cpuCPY() {
-	unsigned char memvalue = memRead();
+	unsigned short memvalue = memRead();
 
-	if (Y >= memvalue) {
+	memvalue = Y - memvalue;
+
+	if (memvalue < 0x100) {
 		P |= CARRY_FLAG;
 	}
 	else {
 		P &= ~CARRY_FLAG;
 	}
 
-	if (Y == memvalue) {
+	if (!(memvalue & 0xff)) {
 		P |= ZERO_FLAG;
 	}
 	else {
 		P &= ~ZERO_FLAG;
 	}
-
-	memvalue = Y - memvalue;
 
 	if (memvalue & 0x80) {
 		P |= NEGATIVE_FLAG;
@@ -445,9 +446,9 @@ void cpuPHA() {
 	cpuCycles += 1;
 }
 void cpuPHP() {
-	CPU_LOG("BANANA PHP FLAGS %x", P);
+	P |= BREAK_FLAG | (1 << 5);
 	CPUPushSingleStack(P);
-	P |= BREAK_FLAG;
+	
 	CPU_LOG("PHP\n");
 	PC += PCInc;
 	cpuCycles += 1;
@@ -606,23 +607,22 @@ void cpuAND() {
 }
 
 void cpuCMP() {
-	unsigned char memvalue = memRead();
-	if (A >= memvalue) {
+	unsigned short memvalue = A - memRead();
+
+	if (memvalue < 0x100) {
 		P |= CARRY_FLAG;
 	}
 	else {
 		P &= ~CARRY_FLAG;
 	}
 
-	if (A == memvalue) {
+	if (!(memvalue & 0xff)) {
 		P |= ZERO_FLAG;
 	}
 	else {
 		P &= ~ZERO_FLAG;
 	}
-
-	memvalue = A - memvalue;
-
+	
 	if (memvalue & 0x80) {
 		P |= NEGATIVE_FLAG;
 	}
@@ -723,7 +723,7 @@ void cpuSBC(){
 		P &= ~OVERFLOW_FLAG;
 	}
 
-	if (A >= memvalue) {
+	if (temp < 0x100) {
 		P |= CARRY_FLAG;
 	}
 	else {
@@ -746,7 +746,7 @@ void cpuSTA() {
 /* Read Write Modify Instructions */
 
 void cpuASL() {
-	unsigned short source;
+	unsigned char source;
 
 	if (Opcode == 0x0A) {
 		source = A;
@@ -764,7 +764,7 @@ void cpuASL() {
 
 	source <<= 1;
 
-	if (!(source & 0xff)) {
+	if (source == 0) {
 		P |= ZERO_FLAG;
 	}
 	else {
@@ -778,10 +778,10 @@ void cpuASL() {
 	CPU_LOG("ASL Result=%x Flags=%x\n", source, P);
 
 	if (Opcode == 0x0A) {
-		A = (unsigned char)source;
+		A = source;
 	}
 	else {
-		memWrite((unsigned char)source);
+		memWrite(source);
 	}
 	
 	PC += PCInc;
@@ -1006,10 +1006,10 @@ void cpuROR() {
 	}
 
 	if (Opcode == 0x6A) {
-		A = (unsigned char)source;
+		A = source;
 	}
 	else {
-		memWrite((unsigned char)source);
+		memWrite(source);
 	}
 
 	CPU_LOG("ROR Result=%x Flags=%x\n", source, P);
@@ -1029,7 +1029,7 @@ void cpuSHX() {
 
 void cpuSTX() {
 	memWrite(X);
-	CPU_LOG("STX PC=%x\n", PC);
+	CPU_LOG("STX PC=%x value %x\n", PC, X);
 	PC += PCInc;
 }
 
@@ -1087,7 +1087,7 @@ void cpuTXA() {
 void cpuTXS() {
 	SP = 0x100 | X;
 
-	CPU_LOG("TXS PC=%x\n", PC);
+	CPU_LOG("TXS PC=%x, X=%x SP=%x\n", PC, X, SP);
 	PC += PCInc;
 }
 

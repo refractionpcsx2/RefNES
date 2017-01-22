@@ -149,7 +149,7 @@ unsigned char PPUReadReg(unsigned short address) {
 		//the upper 2 bits are pallate values. Lets just return the status reg unless we get problems.
 		break;	
 	}
-	//CPU_LOG("PPU Reg Read %x value %x\n", 0x2000 + (address & 0x7), value);
+	CPU_LOG("PPU Reg Read %x value %x\n", 0x2000 + (address & 0x7), value);
 	return value;
 }
 
@@ -331,7 +331,7 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 	unsigned int patternTableBaseAddress; //The tiles themselves (8 bytes, each byte is a row of 8 pixels)
 	bool zerospritefound = false;
 	int zerospriteentry = 0;
-
+	unsigned int readfrom = SPRRamAddress;
 	if ((PPUCtrl & 0x20)) {
 		CPU_LOG("BANANA ABORT");
 	}
@@ -358,7 +358,7 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 		
 	}
 	//CPU_LOG("Scanline %d NTBase %x ATBase %x PTBase %x\n", YPos, nametableTableBaseAddress, attributeTableBaseAddress, patternTableBaseAddress);
-	for (unsigned int i = 0; i <= (foundsprites * 4); i += 4) {
+	for (unsigned int i = 0; i < (foundsprites * 4); i += 4) {
 		unsigned int tilenumber = TempSPR[i+1];
 
 

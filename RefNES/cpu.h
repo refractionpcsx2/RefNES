@@ -10,6 +10,7 @@ extern unsigned char Opcode;
 extern unsigned char X;
 extern unsigned char Y;
 extern unsigned char P;
+extern unsigned short SP;
 extern unsigned int cpuCycles;
 extern unsigned int dotCycles;
 extern int masterCycles;
@@ -19,6 +20,8 @@ extern unsigned int masterClock;
 extern unsigned int cpuClock;
 extern unsigned int ppuClock;
 
+void CPUPushSingleStack(unsigned char value);
+unsigned char CPUPopSingleStack();
 #define CARRY_FLAG (1 << 0)
 #define ZERO_FLAG (1 << 1)
 #define INTERRUPT_DISABLE_FLAG (1 << 2)

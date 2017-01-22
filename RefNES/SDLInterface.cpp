@@ -57,7 +57,7 @@ void InitDisplay(int width, int height, HWND hWnd)
 	SetParent(hwndSDL, hWnd);
 	SetWindowPos(hwndSDL, HWND_TOP, 0, 0, width, height, NULL);
 	prev_v_cycle = SDL_GetTicks();
-
+	SetFocus(hwndSDL);
 
 }
 unsigned int xpos = 0;
