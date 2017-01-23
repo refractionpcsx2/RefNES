@@ -2,6 +2,7 @@
 #include "common.h"
 #include "cpu.h"
 #include "memory.h"
+#include "romhandler.h"
 
 unsigned char PPUMemory[0x4000]; //16kb memory for PPU VRAM (0x4000-0xffff is mirrored)
 unsigned char SPRMemory[0x100]; //256byte memory for Sprite RAM
@@ -108,7 +109,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			
 			if (vramlocation >= 0x4000) {
 				//CPU_LOG("BANANA VRAM Memory going crazy!");
-				vramlocation = vramlocation - 0x4000;
+				vramlocation = vramlocation & 0x3FFF;
 			}
 
 			if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
@@ -123,6 +124,17 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			
 			if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
 				vramlocation -= 0x800;
+			}
+
+			if ((flags6 & 0x1)) {
+				if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
+					vramlocation -= 0x800;
+				}
+			}
+			else {
+				if (((vramlocation >= 0x2400) && (vramlocation < 0x2800)) || ((vramlocation >= 0x2C00) && (vramlocation < 0x3000))) {
+					vramlocation &= ~0x400;
+				}
 			}
 			/*if (vramlocation < 0x2000) {
 				CPU_LOG("PPU T Update writing to CHR-ROM Area %x", VRAMRamAddress);
@@ -168,7 +180,7 @@ unsigned char PPUReadReg(unsigned short address) {
 	case 0x07: //VRAM Data
 		if (vramlocation >= 0x4000) {
 			CPU_LOG("BANANA VRAM Memory going crazy!");
-			vramlocation = vramlocation - 0x4000;
+			vramlocation = vramlocation & 0x3FFF;
 		}
 
 		if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
@@ -180,7 +192,16 @@ unsigned char PPUReadReg(unsigned short address) {
 		if (vramlocation > 0x3F20 && vramlocation <= 0x3FFF) {
 			vramlocation &= 0x3F1F;
 		}
-		
+		if ((flags6 & 0x1)) {
+			if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
+				vramlocation -= 0x800;
+			}
+		}
+		else {
+			if (((vramlocation >= 0x2400) && (vramlocation < 0x2800)) || ((vramlocation >= 0x2C00) && (vramlocation < 0x3000))) {
+				vramlocation &= ~0x400;
+			}
+		}
 		value = cachedvramread;
 		cachedvramread = PPUMemory[vramlocation];
 
@@ -214,8 +235,11 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 	unsigned short paletteaddr;
 	unsigned int palette;
 	unsigned int backgroundpixel = masterPalette[PPUMemory[0x3F00] & 0xFF];
+	unsigned int screenoffset = 0;
 	bool horizflip = (attributein & 0x40) == 0x40;
-	
+	if ((PPUMask & 0x2)) {
+		screenoffset = 4;
+	}
 
 	if (issprite == false) {
 		paletteaddr = 0x3F01 + (attribute * 4);
@@ -243,10 +267,9 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		final_pixel = masterPalette[(palette >> (pixel * 8)) & 0xFF];
 
 		if (issprite == true) {
-			
 			if (zerosprite == true && backgroundpixel != final_pixel && zerospritehitenable == true) {
 				if (curpos > 7 && curpos != 255) {
-					if (CheckCollision(ypos, curpos, backgroundpixel) == true) {
+					if (CheckCollision(ypos, curpos - screenoffset, backgroundpixel) == true) {
 						//Zero Sprite hit
 						CPU_LOG("PPU T Update Zero sprite hit at scanline %d\n", ypos);
 						zerospritehitenable = false;
@@ -254,8 +277,8 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 					}
 				}
 			}
-			if (CheckCollision(ypos, curpos, backgroundpixel) == true && (attributein & 0x20)) {
-				if (masterPalette[PPUMemory[0x3F00] & 0xFF] != final_pixel) {
+			if (CheckCollision(ypos, curpos - screenoffset, backgroundpixel) == true && (attributein & 0x20)) {
+				if (PPUMemory[0x3F00] != (palette >> (pixel * 8))) {
 					curpos++;
 					continue;
 				}
@@ -272,7 +295,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		//CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
 		if ((masterPalette[PPUMemory[0x3F00] & 0xFF] != final_pixel) || issprite == false) {
 			
-			DrawPixelBuffer(ypos, curpos-4, final_pixel);
+			DrawPixelBuffer(ypos, curpos - screenoffset, final_pixel);
 		}
 
 		curpos++;
@@ -336,10 +359,17 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 			CPU_LOG("Nametable address %x, attribute address %x", nametableaddress, attributeaddress);
 		}		
 
-		if (nametableaddress >= 0x2800) {
-			attributeaddress -= 0x800;
-			nametableaddress -= 0x800;
-			CPU_LOG("Adjusting  Nametable base %x Out of bounds, changed to %x\n", BaseNametable, nametableaddress);
+		if ((flags6 & 0x1)) {
+			if (nametableaddress >= 0x2800) {
+				attributeaddress -= 0x800;
+				nametableaddress -= 0x800;
+			}
+		}
+		else{
+			if (((nametableaddress >= 0x2400) && (nametableaddress < 0x2800)) || ((nametableaddress >= 0x2C00) && (nametableaddress < 0x3000))) {
+				attributeaddress -= 0x800;
+				nametableaddress -= 0x800;
+			}
 		}
 
 		tilenumber = PPUMemory[nametableaddress];
@@ -369,14 +399,16 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 	bool zerospritefound = false;
 	int zerospriteentry = 0;
 	unsigned int readfrom = SPRRamAddress;
+	unsigned int spriteheight = 7;
 	if ((PPUCtrl & 0x20)) {
-		CPU_LOG("BANANA ABORT");
+		CPU_LOG("8x16\n");
+		spriteheight = 15;
 	}
 
 	
 	unsigned int foundsprites = 0;
 	for (int s = 0; s < 256; s += 4) {
-		if (SPRMemory[s] <= YPos && (SPRMemory[s] + 7U) >= YPos) {
+		if ((SPRMemory[s]) <= YPos && ((SPRMemory[s]) + spriteheight) >= YPos) {
 			if (foundsprites == 8) {
 				PPUStatus |= 0x20;
 				break;
@@ -405,7 +437,7 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 			patternTableBaseAddress = 0x0000;
 
 		if (TempSPR[i + 2] & 0x80) { //Flip Vertical
-			patternTableBaseAddress += 7 - (YPos - TempSPR[i]);
+			patternTableBaseAddress += spriteheight - (YPos - TempSPR[i]);
 		}
 		else {
 			patternTableBaseAddress += (YPos - TempSPR[i]);
@@ -442,11 +474,8 @@ void PPULoop() {
 		StartDrawing();
 		CPU_LOG("PPU T Update Start Drawing\n");
 	}
-	if (scanline >= 30 && scanline <= 70 && zerospritehitenable == false) {
-		CPU_LOG("PPU T Update Drawing Scanline %d\n", scanline);
-	}
+
 	if (scanline == (scanlinesperframe - (vBlankInterval + 1))) {
-		CPU_LOG("PPU T Update End Drawing\n");
 		PPUStatus |= 0x80;
 		CPU_LOG("VBLANK Start\n");
 		if (PPUCtrl & 0x80) {
@@ -463,7 +492,6 @@ void PPULoop() {
 	if (scanline == (scanlinesperframe - 1))
 	{
 		CPU_LOG("VBLANK End\n");
-		//PPUStatus &= ~0x80;
 	}
 	scanline++;
 	dotCycles += 341;

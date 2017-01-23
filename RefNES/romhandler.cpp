@@ -2,6 +2,7 @@
 #include "common.h"
 #include "cpu.h"
 #include "memory.h"
+#include "romhandler.h"
 #include <stdio.h>
 
 unsigned char prgsize;
