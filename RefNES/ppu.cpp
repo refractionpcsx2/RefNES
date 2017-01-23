@@ -277,11 +277,10 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 					}
 				}
 			}
+			//Priority
 			if (CheckCollision(ypos, curpos - screenoffset, backgroundpixel) == true && (attributein & 0x20)) {
-				if (PPUMemory[0x3F00] != (palette >> (pixel * 8))) {
 					curpos++;
 					continue;
-				}
 			}
 		}
 
