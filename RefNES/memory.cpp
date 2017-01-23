@@ -12,7 +12,7 @@ unsigned char MMCbuffer;
 unsigned char MMCcontrol;
 char* ROMCart;
 
-#define MEM_LOGGING
+//#define MEM_LOGGING
 
 void CleanUpMem() {
 	if (ROMCart != NULL) {

@@ -1,7 +1,7 @@
 #include "common.h"
 #include "memory.h"
 #include "cpu.h"
-
+//#define CPU_LOGGING
 //CPU Registers
 unsigned short PC;
 unsigned char PCInc;
@@ -29,7 +29,9 @@ void CPUReset() {
 	SP = 0x1FD;
 	P = 0x34;
 	CPUPushAllStack();
+#ifdef CPU_LOGGING
 	CPU_LOG("CPU Reset start PC set to %x\n", PC);
+#endif
 }
 
 void CPUPushAllStack() {
@@ -37,7 +39,9 @@ void CPUPushAllStack() {
 	memWritePC(SP--, (PC & 0xff));
 	memWritePC(SP--, P);
 	SP = 0x100 + (SP & 0xFF);
+#ifdef CPU_LOGGING
 	CPU_LOG("Pushed all to stack, PC = %x, SP = %x\n", PC, SP);
+#endif
 }
 
 void CPUPopAllStack() {
@@ -47,15 +51,18 @@ void CPUPopAllStack() {
 	SP += 1;
 	SP = 0x100 + (SP & 0xFF);
 
-
+#ifdef CPU_LOGGING
 	CPU_LOG("Popped all from stack, PC = %x, SP = %x\n", PC, SP);
+#endif
 }
 
 void CPUPushPCStack() {	
 	memWritePC(SP--, PC >> 8);
 	memWritePC(SP--, (PC & 0xff));
 	SP = 0x100 + (SP & 0xFF);
+#ifdef CPU_LOGGING
 	CPU_LOG("Pushed PC to stack, PC = %x, SP = %x\n", PC, SP);
+#endif
 }
 
 void CPUPopPCStack() {
@@ -63,13 +70,17 @@ void CPUPopPCStack() {
 	PC = memReadPC(++SP);
 	SP += 1;
 	SP = 0x100 + (SP & 0xFF);
+#ifdef CPU_LOGGING
 	CPU_LOG("Popped PC from stack, PC = %x, SP = %x\n", PC, SP);
+#endif
 }
 
 void CPUPushSingleStack(unsigned char value) {
 	memWritePC(SP--, value);
 	SP = 0x100 + (SP & 0xFF);
+#ifdef CPU_LOGGING
 	CPU_LOG("Pushed Single to stack, PC = %x, SP = %x\n", PC, SP);
+#endif
 }
 
 unsigned char CPUPopSingleStack() {
@@ -77,15 +88,18 @@ unsigned char CPUPopSingleStack() {
 	
 	value = memReadValue(++SP);
 	SP = 0x100 + (SP & 0xFF);
+#ifdef CPU_LOGGING
 	CPU_LOG("Popped Single from stack, PC = %x, SP = %x\n", PC, SP);
+#endif
 	return value;
 }
 /* Control Instruction */
 
 void cpuBCC() {
 	unsigned short newPC = PC + 2 + (char)memReadValue(PC + 1);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("BCC PC=%x Flags=%x newPC = %x\n", PC, P, newPC);
+#endif
 
 	if (!(P & CARRY_FLAG)) {
 		if ((newPC & 0xff00) != ((PC+2) & 0xff00)) {
@@ -102,8 +116,9 @@ void cpuBCC() {
 }
 void cpuBCS() {
 	unsigned short newPC = PC + 2 + (char)memReadValue(PC + 1);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("BCS PC=%x Flags=%x newPC = %x\n", PC, P, newPC);
+#endif
 
 	if ((P & CARRY_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
@@ -120,8 +135,9 @@ void cpuBCS() {
 }
 void cpuBEQ() {
 	unsigned short newPC = PC + 2 + (char)memReadValue(PC + 1);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("BEQ PC=%x Flags=%x newPC = %x\n", PC, P, newPC);
+#endif
 
 	if ((P & ZERO_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
@@ -139,8 +155,9 @@ void cpuBEQ() {
 
 void cpuBMI() {
 	unsigned short newPC = PC + 2 + (char)memReadValue(PC + 1);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("BMI PC=%x Flags=%x newPC = %x\n", PC, P, newPC);
+#endif
 
 	if ((P & NEGATIVE_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
@@ -157,8 +174,9 @@ void cpuBMI() {
 }
 void cpuBNE() {
 	unsigned short newPC = PC + 2 + (char)memReadValue(PC + 1);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("BNE PC=%x Flags=%x newPC = %x\n", PC, P, newPC);
+#endif
 
 	if (!(P & ZERO_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
@@ -175,8 +193,9 @@ void cpuBNE() {
 }
 void cpuBPL() {
 	unsigned short newPC = PC + 2 + (char)memReadValue(PC + 1);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("BPL PC=%x Flags=%x newPC = %x\n", PC, P, newPC);
+#endif
 
 	if (!(P & NEGATIVE_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
@@ -205,14 +224,18 @@ void cpuBIT() {
 	}
 
 	PC += PCInc;
+#ifdef CPU_LOGGING
 	CPU_LOG("BITS PC=%x Flags=%x\n", PC, P);
+#endif
 }
 
 
 void cpuBRK() {
 	
 	PC += 2;
+#ifdef CPU_LOGGING
 	CPU_LOG("BRK\n");
+#endif
 	P |= BREAK_FLAG | (1<<5);
 	CPUPushAllStack();
 	P |= INTERRUPT_DISABLE_FLAG;
@@ -222,8 +245,9 @@ void cpuBRK() {
 }
 void cpuBVC() {
 	unsigned short newPC = PC + 2 + (char)memReadValue(PC + 1);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("BVC PC=%x Flags=%x newPC = %x\n", PC, P, newPC);
+#endif
 
 	if (!(P & OVERFLOW_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
@@ -240,8 +264,9 @@ void cpuBVC() {
 }
 void cpuBVS() {
 	unsigned short newPC = PC + 2 + (char)memReadValue(PC + 1);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("BVS PC=%x Flags=%x newPC = %x\n", PC, P, newPC);
+#endif
 
 	if ((P & OVERFLOW_FLAG)) {
 		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
@@ -257,22 +282,30 @@ void cpuBVS() {
 	}
 }
 void cpuCLC() {
+#ifdef CPU_LOGGING
 	CPU_LOG("CLC PC=%x\n", PC);
+#endif
 	P &= ~CARRY_FLAG;
 	PC += 1;
 }
 void cpuCLD() {
+#ifdef CPU_LOGGING
 	CPU_LOG("CLD PC=%x\n", PC);
+#endif
 	P &= ~DECIMAL_FLAG;
 	PC += 1;
 }
 void cpuCLI() {
+#ifdef CPU_LOGGING
 	CPU_LOG("CLI PC=%x\n", PC);
+#endif
 	P &= ~INTERRUPT_DISABLE_FLAG;
 	PC += 1;
 }
 void cpuCLV() {
+#ifdef CPU_LOGGING
 	CPU_LOG("CLV PC=%x\n", PC);
+#endif
 	P &= ~OVERFLOW_FLAG;
 	PC += 1;
 }
@@ -303,8 +336,9 @@ void cpuCPX() {
 	}
 
 	PC += PCInc;
-
+#ifdef CPU_LOGGING
 	CPU_LOG("CPX X=%x Mem=%x A=%x Flags=%x\n", memvalue, X, P);
+#endif
 }
 void cpuCPY() {
 	unsigned short memvalue = memRead();
@@ -333,8 +367,9 @@ void cpuCPY() {
 	}
 
 	PC += PCInc;
-
+#ifdef CPU_LOGGING
 	CPU_LOG("CPY A=%x Mem=%x A=%x Flags=%x\n", memvalue, Y, P);
+#endif
 }
 void cpuDEY() {	
 	Y -= 1;
@@ -352,8 +387,9 @@ void cpuDEY() {
 	else {
 		P &= ~NEGATIVE_FLAG;
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("DEY Result=%x Flags=%x\n", Y, P);
+#endif
 
 	PC += PCInc;
 }
@@ -372,8 +408,9 @@ void cpuINX() {
 	else {
 		P &= ~ZERO_FLAG;
 	}
-	
+#ifdef CPU_LOGGING
 	CPU_LOG("INX Result=%x Flags=%x\n", X, P);
+#endif
 
 	PC += PCInc;
 }
@@ -394,8 +431,9 @@ void cpuINY() {
 	else {
 		P &= ~ZERO_FLAG;
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("INY Result=%x Flags=%x\n", Y, P);
+#endif
 
 	PC += PCInc;
 
@@ -404,12 +442,16 @@ void cpuJMP() {
 		
 	if (Opcode == 0x6c) {	
 		PC = memReadPCIndirect();
+#ifdef CPU_LOGGING
 		CPU_LOG("JMP Indirect to %x\n", PC);
+#endif
 		cpuCycles += 3;
 	}
 	else {
 		PC = memReadPC(PC + 1);
+#ifdef CPU_LOGGING
 		CPU_LOG("JMP Absolute to %x\n", PC);
+#endif
 		cpuCycles += 1;
 	}
 	
@@ -420,7 +462,9 @@ void cpuJSR() {
 	CPUPushPCStack();
 	PC = newPC;
 	cpuCycles += 4;
+#ifdef CPU_LOGGING
 	CPU_LOG("JSR\n");
+#endif
 }
 void cpuLDY() {
 	Y = memRead();
@@ -436,20 +480,24 @@ void cpuLDY() {
 	}
 
 	PC += PCInc;
-
+#ifdef CPU_LOGGING
 	CPU_LOG("LDY Result=%x Flags=%x\n", Y, P);
+#endif
 }
 void cpuPHA() {
 	CPUPushSingleStack(A);
+#ifdef CPU_LOGGING
 	CPU_LOG("PHA\n");
+#endif
 	PC += PCInc;
 	cpuCycles += 1;
 }
 void cpuPHP() {
 	P |= BREAK_FLAG | (1 << 5);
 	CPUPushSingleStack(P);
-	
+#ifdef CPU_LOGGING
 	CPU_LOG("PHP\n");
+#endif
 	PC += PCInc;
 	cpuCycles += 1;
 }
@@ -465,52 +513,69 @@ void cpuPLA() {
 	else {
 		P &= ~ZERO_FLAG;
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("PLA\n");
+#endif
 	PC += PCInc;
 	cpuCycles += 2;
 }
 void cpuPLP() {
 	P = CPUPopSingleStack();
 	P |= 0x20;
+#ifdef CPU_LOGGING
 	CPU_LOG("PLP\n");
+#endif
 	PC += PCInc;
 	cpuCycles += 2;
 }
 void cpuRTI() {
 	CPUPopAllStack();
 	cpuCycles += 4;
+#ifdef CPU_LOGGING
 	CPU_LOG("RTI PC=%x Flags=%x\n", PC, P);
+#endif
 }
 void cpuRTS() {
 	CPUPopPCStack();
 	PC += 1;
 	cpuCycles += 4;
+#ifdef CPU_LOGGING
 	CPU_LOG("RTS PC=%x Flags=%x\n", PC, P);
+#endif
 }
 void cpuSEC() {
+#ifdef CPU_LOGGING
 	CPU_LOG("SEC PC=%x\n", PC);
+#endif
 	P |= CARRY_FLAG;
 	PC += 1;
 }
 void cpuSED() {
+#ifdef CPU_LOGGING
 	CPU_LOG("SEC PC=%x\n", PC);
+#endif
 	P |= DECIMAL_FLAG;
 	PC += 1;
 
 }
 void cpuSEI() {
+#ifdef CPU_LOGGING
 	CPU_LOG("SEI PC=%x\n", PC);
+#endif
 	P |= INTERRUPT_DISABLE_FLAG;
 	PC += 1;
 }
 void cpuSHY() {
+#ifdef CPU_LOGGING
 	CPU_LOG("SHY Not Implemented\n");
+#endif
 	PC += PCInc;
 }
 void cpuSTY() {
 	memWrite(Y);
+#ifdef CPU_LOGGING
 	CPU_LOG("STY PC=%x\n", PC);
+#endif
 	PC += PCInc;
 }
 void cpuTAY() {
@@ -526,7 +591,9 @@ void cpuTAY() {
 	else {
 		P &= ~ZERO_FLAG;
 	}
+#ifdef CPU_LOGGING
 	CPU_LOG("TAY PC=%x\n", PC);
+#endif
 	PC += PCInc;
 }
 void cpuTYA() {
@@ -542,7 +609,9 @@ void cpuTYA() {
 	else {
 		P &= ~ZERO_FLAG;
 	}
+#ifdef CPU_LOGGING
 	CPU_LOG("TYA PC=%x\n", PC);
+#endif
 	PC += PCInc;
 }
 
@@ -579,8 +648,9 @@ void cpuADC() {
 	else {
 		P &= ~CARRY_FLAG;
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("ADC Flags=%x A=%x Result=%x\n", P, A, temp);
+#endif
 	A = (unsigned char)temp;
 
 	PC += PCInc;
@@ -600,8 +670,9 @@ void cpuAND() {
 	P &= ~NEGATIVE_FLAG;
 	//Negative
 	P |= A & 0x80;
-
-	CPU_LOG("AND A=%x Flags=%x\n", A, P );	
+#ifdef CPU_LOGGING
+	CPU_LOG("AND A=%x Flags=%x\n", A, P );
+#endif	
 
 	PC += PCInc;
 }
@@ -629,8 +700,9 @@ void cpuCMP() {
 	else {
 		P &= ~NEGATIVE_FLAG;
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("CMP Mem=%x A=%x Flags=%x\n", memvalue, A, P);
+#endif
 
 	PC += PCInc;
 }
@@ -654,8 +726,9 @@ void cpuEOR() {
 	else {
 		P &= ~ZERO_FLAG;
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("EOR Result=%x Flags=%x\n", A, P);
+#endif
 
 	PC += PCInc;
 }
@@ -674,8 +747,9 @@ void cpuLDA() {
 	}
 
 	PC += PCInc;
-
+#ifdef CPU_LOGGING
 	CPU_LOG("LDA Result=%x Flags=%x\n", A, P);
+#endif
 }
 
 void cpuORA() {
@@ -691,8 +765,9 @@ void cpuORA() {
 	P &= ~NEGATIVE_FLAG;
 	//Negative
 	P |= A & 0x80;
-
+#ifdef CPU_LOGGING
 	CPU_LOG("ORA A=%x Flags=%x\n", A, P);
+#endif
 
 	PC += PCInc;
 }
@@ -700,8 +775,9 @@ void cpuORA() {
 void cpuSBC(){
 	unsigned char memvalue = memRead() ;
 	unsigned int temp = A - memvalue - (1-(P & CARRY_FLAG));
-
+#ifdef CPU_LOGGING
 	CPU_LOG("SBC Flags=%x ", P);
+#endif
 
 
 
@@ -729,8 +805,9 @@ void cpuSBC(){
 	else {
 		P &= ~CARRY_FLAG;
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("SBC Flags=%x A=%x Result=%x\n", P, A, temp);
+#endif
 	A = (unsigned char)temp;
 
 	PC += PCInc;
@@ -739,7 +816,9 @@ void cpuSBC(){
 void cpuSTA() {
 
 	memWrite(A);
+#ifdef CPU_LOGGING
 	CPU_LOG("STA PC=%x\n", PC);
+#endif
 	PC += PCInc;
 }
 
@@ -774,8 +853,9 @@ void cpuASL() {
 	P &= ~NEGATIVE_FLAG;
 	//Negative
 	P |= source & 0x80;
-
+#ifdef CPU_LOGGING
 	CPU_LOG("ASL Result=%x Flags=%x\n", source, P);
+#endif
 
 	if (Opcode == 0x0A) {
 		A = source;
@@ -807,8 +887,9 @@ void cpuDEC() {
 	}
 
 	memWrite(memvalue);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("DEC Result=%x Flags=%x\n", memvalue, P);
+#endif
 
 	PC += PCInc;
 }
@@ -829,8 +910,9 @@ void cpuDEX() {
 	else {
 		P &= ~NEGATIVE_FLAG;
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("DEX Result=%x Flags=%x\n", X, P);
+#endif
 
 	PC += PCInc;
 }
@@ -855,8 +937,9 @@ void cpuINC() {
 	}
 
 	memWrite(memvalue);
-
+#ifdef CPU_LOGGING
 	CPU_LOG("INC Result=%x Flags=%x\n", memvalue, P);
+#endif
 
 	PC += PCInc;
 }
@@ -875,8 +958,9 @@ void cpuLDX() {
 	}
 
 	PC += PCInc;
-
+#ifdef CPU_LOGGING
 	CPU_LOG("LDX Result=%x Flags=%x\n", X, P);
+#endif
 }
 
 void cpuLSR() {
@@ -907,8 +991,9 @@ void cpuLSR() {
 
 	//Negative
 	P &= ~NEGATIVE_FLAG;
-
+#ifdef CPU_LOGGING
 	CPU_LOG("LSR Result=%x Flags=%x\n", source, P);
+#endif
 
 	if (Opcode == 0x4A) {
 		A = (unsigned char)source;
@@ -921,7 +1006,9 @@ void cpuLSR() {
 }
 
 void cpuSTP() {
+#ifdef CPU_LOGGING
 	CPU_LOG("STP Not Implemented\n");
+#endif
 	PC += PCInc;
 }
 
@@ -965,8 +1052,9 @@ void cpuROL() {
 	else {
 		memWrite(source);
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("ROL Result=%x Flags=%x\n", source, P);
+#endif
 
 	PC += PCInc;
 }
@@ -1011,8 +1099,9 @@ void cpuROR() {
 	else {
 		memWrite(source);
 	}
-
+#ifdef CPU_LOGGING
 	CPU_LOG("ROR Result=%x Flags=%x\n", source, P);
+#endif
 
 	PC += PCInc;
 }
@@ -1023,13 +1112,17 @@ void cpuSHX() {
 	value &= X;
 
 	memWrite(value);
+#ifdef CPU_LOGGING
 	CPU_LOG("SHX Result=%x\n", value);
+#endif
 	PC += PCInc;
 }
 
 void cpuSTX() {
 	memWrite(X);
+#ifdef CPU_LOGGING
 	CPU_LOG("STX PC=%x value %x\n", PC, X);
+#endif
 	PC += PCInc;
 }
 
@@ -1046,7 +1139,9 @@ void cpuTAX() {
 	else {
 		P &= ~ZERO_FLAG;
 	}
+#ifdef CPU_LOGGING
 	CPU_LOG("TAX PC=%x\n", PC);
+#endif
 	PC += PCInc;
 }
 
@@ -1063,7 +1158,9 @@ void cpuTSX() {
 	else {
 		P &= ~ZERO_FLAG;
 	}
+#ifdef CPU_LOGGING
 	CPU_LOG("TSX PC=%x\n", PC);
+#endif
 	PC += PCInc;
 }
 
@@ -1080,14 +1177,18 @@ void cpuTXA() {
 	else {
 		P &= ~ZERO_FLAG;
 	}
+#ifdef CPU_LOGGING
 	CPU_LOG("TXA PC=%x\n", PC);
+#endif
 	PC += PCInc;
 }
 
 void cpuTXS() {
 	SP = 0x100 | X;
 
+#ifdef CPU_LOGGING
 	CPU_LOG("TXS PC=%x, X=%x SP=%x\n", PC, X, SP);
+#endif
 	PC += PCInc;
 }
 
@@ -1118,7 +1219,9 @@ void cpuSLO() {
 	//Negative
 	P |= source & 0x80;
 
+#ifdef CPU_LOGGING
 	CPU_LOG("UNDOCUMENTED SLO Result=%x Flags=%x\n", source, P);
+#endif
 
 	memWrite((unsigned char)source);
 
@@ -1130,7 +1233,9 @@ void cpuSLO() {
 /* General Ops and Tables */
 
 void cpuNOP() {
+#ifdef CPU_LOGGING
 	CPU_LOG("NOP PC=%x\n", PC);
+#endif
 	PC += PCInc;
 }
 
