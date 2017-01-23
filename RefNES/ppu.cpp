@@ -211,8 +211,8 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 	unsigned int pixel;
 	unsigned int curpos = xpos-xposoff;
 	unsigned int attribute = attributein & 0x3;
-	unsigned short paletteaddr = 0x3F01 + (attribute * 4);
-	unsigned int palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr+1] << 16) | (PPUMemory[paletteaddr+2] << 24);
+	unsigned short paletteaddr;
+	unsigned int palette;
 	unsigned int backgroundpixel = masterPalette[PPUMemory[0x3F00] & 0xFF];
 	bool horizflip = (attributein & 0x40) == 0x40;
 	
@@ -307,7 +307,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 	
 	nametableTableBaseAddress = BaseNametable + (((YPos) / 8) * 32);
 
-	attributeTableBaseAddress = BaseNametable  + 0x3c0 + (((scanline) / 32) * 8);
+	attributeTableBaseAddress = BaseNametable  + 0x3c0 + (((YPos) / 32) * 8);
 
 
 	CPU_LOG("current scrolling nametable address %x PPScroll %x yPos %d\n", nametableTableBaseAddress, PPUScroll, YPos);
@@ -324,24 +324,16 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		unsigned int newi = i;
 		unsigned short nametableaddress = nametableTableBaseAddress + i + nametablescrollvalue;
 		unsigned short attributeaddress = attributeTableBaseAddress + (i / 4) + attributetablescrollvalue;
-		//unsigned short attributeaddress = attributeTableBaseAddress + (((nametableaddress - BaseNametable) & 0x1F) /4) + (((nametableaddress - BaseNametable) / 0x100) * 8);
+	
 		unsigned int tilenumber;
 
-		/*if (nametableaddress >= 0x27C0) {
-
-			attributeaddress -= 0x440;
-			nametableaddress -= 0x7C0;
-			CPU_LOG("Adjusting  Nametable base %x Out of bounds, changed to %x\n", BaseNametable, nametableaddress);
-		}*/
-		
-	
 
 		if (nametablescrollvalue > 0 && i >= (32 - nametablescrollvalue)) {
 			newi = (i - (32 - nametablescrollvalue));
-			CPU_LOG("Adjusting Nametable, base %x Address %x new address %x\n", BaseNametable, nametableaddress, nametableTableBaseAddress + 0x400 + newi);
+			//CPU_LOG("Adjusting Nametable, base %x Address %x new address %x\n", BaseNametable, nametableaddress, nametableTableBaseAddress + 0x400 + newi);
 			nametableaddress = nametableTableBaseAddress + 0x400 + newi;
 			attributeaddress = attributeTableBaseAddress + 0x400 + (newi / 4);
-			
+			CPU_LOG("Nametable address %x, attribute address %x", nametableaddress, attributeaddress);
 		}		
 
 		if (nametableaddress >= 0x2800) {
@@ -350,13 +342,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 			nametableaddress -= 0x800;
 			CPU_LOG("Adjusting  Nametable base %x Out of bounds, changed to %x\n", BaseNametable, nametableaddress);
 		}
-		/*if (nametableaddress >= 0x27C0) {
 
-			attributeaddress -= 0x440;
-			nametableaddress -= 0x7C0;
-			CPU_LOG("Adjusting  Nametable base %x Out of bounds, changed to %x\n", BaseNametable, nametableaddress);
-		}
-		*/
 		tilenumber = PPUMemory[nametableaddress];
 		//CPU_LOG("NAMETABLE %x Tile %x\n", nametableTableBaseAddress + i + (scanline * 32), tilenumber);
 		unsigned int attribute = PPUMemory[attributeaddress];
@@ -420,7 +406,7 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 			patternTableBaseAddress = 0x0000;
 
 		if (TempSPR[i + 2] & 0x80) { //Flip Vertical
-			patternTableBaseAddress += 8 - (YPos - TempSPR[i]);
+			patternTableBaseAddress += 7 - (YPos - TempSPR[i]);
 		}
 		else {
 			patternTableBaseAddress += (YPos - TempSPR[i]);

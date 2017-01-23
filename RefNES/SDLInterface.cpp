@@ -77,24 +77,14 @@ void ZeroBuffer() {
 
 void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
 {
-	//FPS_LOG("Starting redraw");
-	
-	//SDL_Rect rect;
-	//scale = SCREEN_WIDTH / 256;
-	//rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
-	//rect = { j*scale,ypos*scale,scale,scale };
-	//SDL_FillRect(SDL_Display, &rect, 0xff000000 | pixel * 0x303030);
 	ScreenBuffer[xpos][ypos] = pixel;	
-	
-	
-	//FPS_LOG("End redraw");
 }
 
 void DrawScreen() {
 	int scale = SCREEN_WIDTH / 256;
 
-	SDL_Rect rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
-	//SDL_FillRect(SDL_Display, &rect, 0xff000000);
+	SDL_Rect rect;
+
 	for (int xpos = 0; xpos < 256; xpos++) {
 		for (int ypos = 1; ypos < 240; ypos++) {
 			rect = { xpos*scale,ypos*scale,scale,scale };
@@ -120,14 +110,9 @@ void EndDrawing()
 
 void StartDrawing()
 {
-	SDL_Rect rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
-	//rect = { 0,0,SCREEN_WIDTH,SCREEN_HEIGHT };
-	
 	//CPU_LOG("Start Scene");
 	if (SDL_MUSTLOCK(SDL_Display))
 	{
 		SDL_LockSurface(SDL_Display);
 	}
-	
-	//
 }
