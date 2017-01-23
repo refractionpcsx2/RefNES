@@ -323,7 +323,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 	for (int i = 0; i < 33; i++) {
 		unsigned int newi = i;
 		unsigned short nametableaddress = nametableTableBaseAddress + i + nametablescrollvalue;
-		unsigned short attributeaddress = attributeTableBaseAddress + (i / 4) + attributetablescrollvalue;
+		unsigned short attributeaddress = attributeTableBaseAddress + ((i + nametablescrollvalue) / 4);
 	
 		unsigned int tilenumber;
 
@@ -337,7 +337,6 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		}		
 
 		if (nametableaddress >= 0x2800) {
-
 			attributeaddress -= 0x800;
 			nametableaddress -= 0x800;
 			CPU_LOG("Adjusting  Nametable base %x Out of bounds, changed to %x\n", BaseNametable, nametableaddress);
@@ -347,11 +346,11 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		//CPU_LOG("NAMETABLE %x Tile %x\n", nametableTableBaseAddress + i + (scanline * 32), tilenumber);
 		unsigned int attribute = PPUMemory[attributeaddress];
 		if (((scanline/16) & 1)) {
-			if ((newi/2) & 1) attribute = (attribute >> 6) & 0x3;
+			if (((i + nametablescrollvalue )/2) & 1) attribute = (attribute >> 6) & 0x3;
 			else attribute = (attribute >> 4) & 0x3;
 		}
 		else {
-			if ((newi/2) & 1) attribute = (attribute >> 2) & 0x3;
+			if (((i + nametablescrollvalue) /2) & 1) attribute = (attribute >> 2) & 0x3;
 			else attribute &= 0x3;
 		}
 		
