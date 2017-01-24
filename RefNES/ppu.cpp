@@ -350,12 +350,12 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		unsigned int tilenumber;
 
 
-		if (nametablescrollvalue > 0 && i >= (32 - nametablescrollvalue)) {
+		if (nametablescrollvalue > 0 && i >= (32 - ((TXSCROLL+1)/8))) {
 			newi = (i - (32 - nametablescrollvalue));
-			//CPU_LOG("Adjusting Nametable, base %x Address %x new address %x\n", BaseNametable, nametableaddress, nametableTableBaseAddress + 0x400 + newi);
+			CPU_LOG("Adjusting Nametable, base %x Address %x new address %x\n", BaseNametable, nametableaddress, nametableTableBaseAddress + 0x400 + newi);
 			nametableaddress = nametableTableBaseAddress + 0x400 + newi;
 			attributeaddress = attributeTableBaseAddress + 0x400 + (newi / 4);
-			CPU_LOG("Nametable address %x, attribute address %x", nametableaddress, attributeaddress);
+			CPU_LOG("Nametable address %x, attribute address %x\n", nametableaddress, attributeaddress);
 		}		
 
 		if ((flags6 & 0x1)) {
@@ -429,17 +429,28 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 	for (unsigned int i = 0; i < (foundsprites * 4); i += 4) {
 		unsigned int tilenumber = TempSPR[i+1];
 
+		if (!(PPUCtrl & 0x20)) {
+			if (PPUCtrl & 0x8)
+				patternTableBaseAddress = 0x1000;
+			else
+				patternTableBaseAddress = 0x0000;
+		}
+		else {
+			if (tilenumber & 0x1)
+				patternTableBaseAddress = 0x1000;
+			else
+				patternTableBaseAddress = 0x0000;
 
-		if (PPUCtrl & 0x8)
-			patternTableBaseAddress = 0x1000;
-		else
-			patternTableBaseAddress = 0x0000;
-
+			tilenumber &= ~1;
+		}
 		if (TempSPR[i + 2] & 0x80) { //Flip Vertical
 			patternTableBaseAddress += spriteheight - (YPos - TempSPR[i]);
 		}
 		else {
 			patternTableBaseAddress += (YPos - TempSPR[i]);
+		}
+		if ((YPos - TempSPR[i]) >= 8) {
+			patternTableBaseAddress += 8;
 		}
 		
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));

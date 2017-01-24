@@ -28,7 +28,7 @@ void ChangeUpperPRG(unsigned char PRGNum) {
 
 	if ((MMCcontrol & 0xC) <= 4) { //32kb
 		CPU_LOG("MAPPER Switching to 32K PRG-ROM number %d at 0x8000\n", PRGNum);
-		memcpy(&CPUMemory[0x8000], ROMCart + (PRGNum * 16384), 0x8000);
+		memcpy(&CPUMemory[0x8000], ROMCart + ((PRGNum & ~0x1) * 16384), 0x8000);
 	}
 	else {
 		if ((MMCcontrol & 0xC) == 0x8) {
@@ -45,9 +45,27 @@ void ChangeUpperPRG(unsigned char PRGNum) {
 	
 }
 
+void ChangeLowerPRG(unsigned char PRGNum) {
+
+	CPU_LOG("MAPPER Switching to 16K PRG-ROM number %d at 0x8000\n", PRGNum);
+	memcpy(&CPUMemory[0x8000], ROMCart + (PRGNum * 16384), 0x4000);
+}
+
+void ChangeUpperCHR(unsigned char PRGNum) {
+	CPU_LOG("MAPPER Switching Upper CHR number %d at 0x1000\n", PRGNum);
+	if ((MMCcontrol & 0x10)) {
+		memcpy(&PPUMemory[0x1000], ROMCart + ((prgsize - 1) * 16384) + (PRGNum * 4096), 0x1000);
+	}
+}
+
 void ChangeLowerCHR(unsigned char PRGNum) {
-	CPU_LOG("MAPPER Switching to 32K PRG-ROM number %d at 0x8000\n", PRGNum);
-	memcpy(PPUMemory, ROMCart + ((prgsize-1) * 16384) + (PRGNum * 8192), 0x2000);
+	CPU_LOG("MAPPER Switching Lower CHR number %d at 0x0000\n", PRGNum);
+	if ((MMCcontrol & 0x10)) {
+		memcpy(PPUMemory, ROMCart + ((prgsize - 1) * 16384) + (PRGNum * 4096), 0x1000);
+	}
+	else {
+		memcpy(PPUMemory, ROMCart + ((prgsize - 1) * 16384) + ((PRGNum & ~0x1) * 8192), 0x2000);
+	}
 }
 
 void CopyRomToMemory() {
@@ -92,17 +110,24 @@ void MapperHandler(unsigned short address, unsigned short value) {
 		SRwrites++;
 		CPU_LOG("MAPPER Write address=%x number %d, buffer=%x value %x\n", address, SRwrites, MMCbuffer, value);
 		if (SRwrites == 5) {
-			if (address == 0x8000) { //Control register
+			if ((address & 0xe000)== 0x8000) { //Control register
 				CPU_LOG("MAPPER MMC1 Write to control reg %x\n", MMCbuffer);
 				MMCcontrol = MMCbuffer;
+				if (MMCcontrol & 0x3 == 2) flags6 = 1;
 			}
-			if (address == 0xA000) { //Change program rom in upper bits
+			if ((address & 0xe000) == 0xA000) { //Change program rom in upper bits
 				if (!(value & 0x80)) {
 					CPU_LOG("MAPPER MMC1 Changing upper PRG to Program %d\n", MMCbuffer);
 					ChangeLowerCHR(MMCbuffer);
 				}
 			}
-			if (address == 0xE000) { //Change program rom in upper bits
+			if ((address & 0xe000) == 0xC000) { //Change program rom in upper bits
+				if (!(value & 0x80)) {
+					CPU_LOG("MAPPER MMC1 Changing upper PRG to Program %d\n", MMCbuffer);
+					ChangeUpperCHR(MMCbuffer);
+				}
+			}
+			if ((address & 0xe000) == 0xE000) { //Change program rom in upper bits
 				if (!(value & 0x80)) {
 					CPU_LOG("MAPPER MMC1 Changing upper PRG to Program %d\n", MMCbuffer);
 					ChangeUpperPRG(MMCbuffer);
@@ -111,6 +136,9 @@ void MapperHandler(unsigned short address, unsigned short value) {
 			MMCbuffer = 0;
 			SRwrites = 0;
 		}
+	}
+	if (mapper == 2) {
+		ChangeLowerPRG(value);
 	}
 }
 
