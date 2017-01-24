@@ -292,7 +292,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		}
 
 		//CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
-		if ((masterPalette[PPUMemory[0x3F00] & 0xFF] != final_pixel) || issprite == false) {
+		if ((pixel!= 0) || issprite == false) {
 			
 			DrawPixelBuffer(ypos, curpos - screenoffset, final_pixel);
 		}
@@ -350,7 +350,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		unsigned int tilenumber;
 
 
-		if (nametablescrollvalue > 0 && i >= (32 - ((TXSCROLL+1)/8))) {
+		if (nametablescrollvalue > 0 && i >= (32 - nametablescrollvalue)) {
 			newi = (i - (32 - nametablescrollvalue));
 			CPU_LOG("Adjusting Nametable, base %x Address %x new address %x\n", BaseNametable, nametableaddress, nametableTableBaseAddress + 0x400 + newi);
 			nametableaddress = nametableTableBaseAddress + 0x400 + newi;
