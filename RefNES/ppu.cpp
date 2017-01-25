@@ -17,6 +17,7 @@ unsigned short CurPPUScroll;
 unsigned char lastwrite;
 unsigned int scanline;
 bool zerospritehitenable = true;
+unsigned int zerospritecountdown = 0;
 
 unsigned short t = 0;
 unsigned short x = 0;
@@ -238,7 +239,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 	unsigned int screenoffset = 0;
 	bool horizflip = (attributein & 0x40) == 0x40;
 	if ((PPUMask & 0x2)) {
-		screenoffset = 4;
+		screenoffset = 0;
 	}
 
 	if (issprite == false) {
@@ -267,13 +268,13 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		final_pixel = masterPalette[(palette >> (pixel * 8)) & 0xFF];
 
 		if (issprite == true) {
-			if (zerosprite == true && backgroundpixel != final_pixel && zerospritehitenable == true) {
+			if (zerosprite == true && pixel != 0 && CheckCollision(ypos, curpos - screenoffset, backgroundpixel) == true && zerospritehitenable == true) {
 				if (curpos > 7 && curpos != 255) {
 					if (CheckCollision(ypos, curpos - screenoffset, backgroundpixel) == true) {
 						//Zero Sprite hit
 						CPU_LOG("PPU T Update Zero sprite hit at scanline %d\n", ypos);
 						zerospritehitenable = false;
-						
+						PPUStatus |= 0x40;
 					}
 				}
 			}
@@ -346,17 +347,21 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		unsigned int newi = i;
 		unsigned short nametableaddress = nametableTableBaseAddress + i + nametablescrollvalue;
 		unsigned short attributeaddress = attributeTableBaseAddress + ((i + nametablescrollvalue) / 4);
-	
 		unsigned int tilenumber;
 
+		//As we're actually rendering outside more than we need to in case of scrolling, we need to grab the first bit from the next nametable.
+		if (i == 32 && nametablescrollvalue == 0) {
+			nametableaddress = nametableTableBaseAddress + 0x400;
+			attributeaddress = attributeTableBaseAddress + 0x400;
+		}
 
 		if (nametablescrollvalue > 0 && i >= (32 - nametablescrollvalue)) {
 			newi = (i - (32 - nametablescrollvalue));
-			CPU_LOG("Adjusting Nametable, base %x Address %x new address %x\n", BaseNametable, nametableaddress, nametableTableBaseAddress + 0x400 + newi);
+			//CPU_LOG("Adjusting Nametable, base %x Address %x new address %x\n", BaseNametable, nametableaddress, nametableTableBaseAddress + 0x400 + newi);
 			nametableaddress = nametableTableBaseAddress + 0x400 + newi;
 			attributeaddress = attributeTableBaseAddress + 0x400 + (newi / 4);
 			CPU_LOG("Nametable address %x, attribute address %x\n", nametableaddress, attributeaddress);
-		}		
+		}
 
 		if ((flags6 & 0x1)) {
 			if (nametableaddress >= 0x2800) {
@@ -407,12 +412,12 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 	
 	unsigned int foundsprites = 0;
 	for (int s = 0; s < 256; s += 4) {
-		if ((SPRMemory[s]) <= YPos && ((SPRMemory[s]) + spriteheight) >= YPos) {
+		if ((SPRMemory[s]+1) <= YPos && ((SPRMemory[s]+1) + spriteheight) >= YPos) {
 			if (foundsprites == 8) {
 				PPUStatus |= 0x20;
 				break;
 			}
-			TempSPR[(foundsprites * 4)] = SPRMemory[s];
+			TempSPR[(foundsprites * 4)] = SPRMemory[s]+1;
 			TempSPR[(foundsprites * 4) + 1] = SPRMemory[s + 1];
 			TempSPR[(foundsprites * 4) + 2] = SPRMemory[s + 2];
 			TempSPR[(foundsprites * 4) + 3] = SPRMemory[s + 3];
@@ -445,13 +450,16 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 		}
 		if (TempSPR[i + 2] & 0x80) { //Flip Vertical
 			patternTableBaseAddress += spriteheight - (YPos - TempSPR[i]);
+			if((YPos - TempSPR[i]) < 8 && spriteheight > 8)
+				patternTableBaseAddress += 8;
 		}
 		else {
 			patternTableBaseAddress += (YPos - TempSPR[i]);
+			if ((YPos - TempSPR[i]) >= 8) {
+				patternTableBaseAddress += 8;
+			}
 		}
-		if ((YPos - TempSPR[i]) >= 8) {
-			patternTableBaseAddress += 8;
-		}
+		
 		
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
 		DrawPixel(TempSPR[i+3], YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], TempSPR[i+2], true, zerospritefound == true && zerospriteentry == i, 0);
@@ -472,9 +480,11 @@ void PPUDrawScanline() {
 }
 void PPULoop() {
 	
-	if (zerospritehitenable == false) {
-		PPUStatus |= 0x40;
-	}
+	/*if (zerospritehitenable == false) {
+		if (--zerospritecountdown == 0) {
+			PPUStatus |= 0x40;
+		}
+	}*/
 	if (scanline == 0) {
 		PPUStatus &= ~0xE0;
 		//PPUCtrl &= ~0x3;
