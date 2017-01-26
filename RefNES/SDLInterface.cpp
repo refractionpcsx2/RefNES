@@ -64,7 +64,7 @@ unsigned int xpos = 0;
 
 
 bool CheckCollision(unsigned int ypos, unsigned int xpos, unsigned int backgroundcolour) {
-	
+	if (xpos < 0 || ypos < 0) return false;
 	if (ScreenBuffer[xpos][ypos] != backgroundcolour)
 		return true;
 

@@ -236,11 +236,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 	unsigned short paletteaddr;
 	unsigned int palette;
 	unsigned int backgroundpixel = masterPalette[PPUMemory[0x3F00] & 0xFF];
-	unsigned int screenoffset = 0;
 	bool horizflip = (attributein & 0x40) == 0x40;
-	if ((PPUMask & 0x2)) {
-		screenoffset = 0;
-	}
 
 	if (issprite == false) {
 		paletteaddr = 0x3F01 + (attribute * 4);
@@ -252,7 +248,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 	}
 	//CPU_LOG("Palette is %x\n", palette);
 	
-	for (signed int j = xpos-xposoff; j < ((xpos - xposoff) + 8); j++) {
+	for (unsigned int j = xpos-xposoff; j < ((xpos - xposoff) + 8); j++) {
 
 		
 		if (horizflip == false) {
@@ -268,24 +264,23 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		final_pixel = masterPalette[(palette >> (pixel * 8)) & 0xFF];
 
 		if (issprite == true) {
-			if (zerosprite == true && pixel != 0 && CheckCollision(ypos, curpos - screenoffset, backgroundpixel) == true && zerospritehitenable == true) {
-				if (curpos > 7 && curpos != 255) {
-					if (CheckCollision(ypos, curpos - screenoffset, backgroundpixel) == true) {
+			if (zerosprite == true && pixel != 0 && zerospritehitenable == true) {
+
+					if (CheckCollision(ypos, curpos, backgroundpixel) == true) {
 						//Zero Sprite hit
 						CPU_LOG("PPU T Update Zero sprite hit at scanline %d\n", ypos);
 						zerospritehitenable = false;
 						PPUStatus |= 0x40;
 					}
-				}
 			}
 			//Priority
-			if (CheckCollision(ypos, curpos - screenoffset, backgroundpixel) == true && (attributein & 0x20)) {
+			if (CheckCollision(ypos, curpos, backgroundpixel) == true && (attributein & 0x20)) {
 					curpos++;
 					continue;
 			}
 		}
 
-		if (((PPUMask & 0x2) && issprite == false) || ((PPUMask & 0x4) && issprite == true)) {
+		if ((!(PPUMask & 0x2) && issprite == false) || (!(PPUMask & 0x4) && issprite == true)) {
 			if (curpos < 8 || j >= 256) {
 				curpos++;
 				continue;
@@ -293,9 +288,9 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		}
 
 		//CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
-		if ((pixel!= 0) || issprite == false) {
+		if ((pixel!= 0) || issprite == false && curpos >=0) {
 			
-			DrawPixelBuffer(ypos, curpos - screenoffset, final_pixel);
+			DrawPixelBuffer(ypos, curpos, final_pixel);
 		}
 
 		curpos++;
@@ -340,7 +335,28 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 	else 
 		patternTableBaseAddress = 0x0000 + (YPos & 0x7);
 	
-	
+	if (TXSCROLL & 0x7) {
+		unsigned short nametableaddress = nametableTableBaseAddress + nametablescrollvalue;
+		unsigned short attributeaddress = attributeTableBaseAddress + ((nametablescrollvalue) / 4);
+		unsigned int tilenumber;
+
+		tilenumber = PPUMemory[nametableaddress];
+		//CPU_LOG("NAMETABLE %x Tile %x\n", nametableTableBaseAddress + i + (scanline * 32), tilenumber);
+		unsigned int attribute = PPUMemory[attributeaddress];
+		if (((scanline / 16) & 1)) {
+			if (((nametablescrollvalue) / 2) & 1) attribute = (attribute >> 6) & 0x3;
+			else attribute = (attribute >> 4) & 0x3;
+		}
+		else {
+			if (((nametablescrollvalue) / 2) & 1) attribute = (attribute >> 2) & 0x3;
+			else attribute &= 0x3;
+		}
+		unsigned pl = PPUMemory[patternTableBaseAddress + (tilenumber * 16)] << (((PPUScroll >> 8) & 0x7));
+		unsigned pu = PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)] << (((PPUScroll >> 8) & 0x7));
+
+		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
+		DrawPixel(0, YPos, pl, pu, attribute, false, false, 0);
+	}
 	
 //CPU_LOG("Scanline %d NTBase %x ATBase %x PTBase %x\n", YPos, nametableTableBaseAddress, attributeTableBaseAddress, patternTableBaseAddress);
 	for (int i = 0; i < 33; i++) {
@@ -412,7 +428,7 @@ void FetchSpriteTile(unsigned int YPos, unsigned int XPos) {
 	
 	unsigned int foundsprites = 0;
 	for (int s = 0; s < 256; s += 4) {
-		if ((SPRMemory[s]+1) <= YPos && ((SPRMemory[s]+1) + spriteheight) >= YPos) {
+		if ((SPRMemory[s]+1U) <= YPos && ((SPRMemory[s]+1U) + spriteheight) >= YPos) {
 			if (foundsprites == 8) {
 				PPUStatus |= 0x20;
 				break;

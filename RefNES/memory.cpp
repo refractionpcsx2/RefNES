@@ -96,7 +96,7 @@ void LoadRomToMemory(FILE * RomFile, long lSize) {
 	//CopyRomToMemory();
 }
 
-void MapperHandler(unsigned short address, unsigned short value) {
+void MapperHandler(unsigned short address, unsigned char value) {
 
 	if (mapper == 1) {
 		if (value & 0x80) {
@@ -113,7 +113,7 @@ void MapperHandler(unsigned short address, unsigned short value) {
 			if ((address & 0xe000)== 0x8000) { //Control register
 				CPU_LOG("MAPPER MMC1 Write to control reg %x\n", MMCbuffer);
 				MMCcontrol = MMCbuffer;
-				if (MMCcontrol & 0x3 == 2) flags6 = 1;
+				if ((MMCcontrol & 0x3) == 2) flags6 = 1;
 			}
 			if ((address & 0xe000) == 0xA000) { //Change program rom in upper bits
 				if (!(value & 0x80)) {
