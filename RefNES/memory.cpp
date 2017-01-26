@@ -13,6 +13,8 @@ unsigned char MMCcontrol;
 unsigned char MMCIRQCounterLatch = 0;
 unsigned char MMCIRQCounter = 0;
 unsigned char MMCIRQEnable = 0;
+unsigned char MMC2Latch0 = 0xFE;
+unsigned char MMC2Latch1 = 0xFE;
 char* ROMCart;
 
 //#define MEM_LOGGING
@@ -25,6 +27,15 @@ void CleanUpMem() {
 void MemReset() {
 	memset(CPUMemory, 0, 0x10000); //Reset only IO registers, everything else is "indetermined" just in case a game resets.
 	
+}
+
+void MMC2SetLatch(unsigned char latch, unsigned char value) {
+	if (latch == 0) {
+		MMC2Latch0 = value;
+	}
+	else {
+		MMC2Latch1 = value;
+	}
 }
 
 void MMC3IRQCountdown() {
@@ -94,6 +105,12 @@ void MMC1ChangePRG(unsigned char PRGNum) {
 	
 }
 
+void ChangeLower8KPRG(unsigned char PRGNum) {
+
+	CPU_LOG("MAPPER Switching to 8K PRG-ROM number %d at 0x8000\n", PRGNum);
+	memcpy(&CPUMemory[0x8000], ROMCart + (PRGNum * 8192), 0x2000);
+}
+
 void ChangeLowerPRG(unsigned char PRGNum) {
 
 	CPU_LOG("MAPPER Switching to 16K PRG-ROM number %d at 0x8000\n", PRGNum);
@@ -101,29 +118,46 @@ void ChangeLowerPRG(unsigned char PRGNum) {
 }
 
 void ChangeUpperCHR(unsigned char PRGNum) {
-	
+	unsigned int PrgSizetotal = prgsize * 16384;
+
+	if (mapper == 9)
+	{
+		PrgSizetotal = (prgsize * 2) * 8192;
+	}
+
 	if ((MMCcontrol & 0x10)) {
 		CPU_LOG("MAPPER Switching Upper CHR 4K number %d at 0x1000\n", PRGNum);
-		memcpy(&PPUMemory[0x1000], ROMCart + ((prgsize) * 16384) + (PRGNum * 4096), 0x1000);
+		memcpy(&PPUMemory[0x1000], ROMCart + PrgSizetotal + (PRGNum * 4096), 0x1000);
 	}
 }
 
 void ChangeLowerCHR(unsigned char PRGNum) {
-	
+	unsigned int PrgSizetotal = prgsize * 16384;
+
+	if (mapper == 9)
+	{
+		PrgSizetotal = (prgsize * 2) * 8192;
+	}
 	if ((MMCcontrol & 0x10)) {
 		CPU_LOG("MAPPER Switching Lower CHR 4k number %d at 0x0000\n", PRGNum);
-		memcpy(PPUMemory, ROMCart + ((prgsize) * 16384) + (PRGNum * 4096), 0x1000);
+		memcpy(PPUMemory, ROMCart + PrgSizetotal + (PRGNum * 4096), 0x1000);
 	}
 	else {
 		CPU_LOG("MAPPER Switching Lower CHR 8k number %d at 0x0000\n", PRGNum);
-		memcpy(PPUMemory, ROMCart + ((prgsize) * 16384) + ((PRGNum & ~0x1) * 8192), 0x2000);
+		memcpy(PPUMemory, ROMCart + PrgSizetotal + ((PRGNum & ~0x1) * 8192), 0x2000);
 	}
 }
 
 void CopyRomToMemory() {
 	if (prgsize > 1) {
-		memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
-		memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);
+		if (mapper == 9) {
+			memcpy(&CPUMemory[0x8000], ROMCart, 0x2000);
+			memcpy(&CPUMemory[0xA000], ROMCart + (((prgsize * 2) - 3) * 8192), 0x6000);
+		}
+		else {
+			memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
+			memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);
+		}
 		
 	}
 	else {
@@ -150,7 +184,7 @@ void LoadRomToMemory(FILE * RomFile, long lSize) {
 }
 
 void MapperHandler(unsigned short address, unsigned char value) {
-
+	CPU_LOG("MAPPER HANDLER Mapper = %d\n", mapper);
 	if (mapper == 1) { //MMC1
 		if (value & 0x80) {
 			CPU_LOG("MAPPER MMC1 Reset shift reg %x\n", value);
@@ -195,36 +229,74 @@ void MapperHandler(unsigned short address, unsigned char value) {
 		ChangeLowerPRG(value);
 	}
 	if (mapper == 4) { //MMC3
+		MMCcontrol |= 0x10; //So we can make use of existing functions
 		switch (address & 0xE001) {
-		case 0x8000: //Bank Select Config
-			CPU_LOG("MAPPER MMC3 Control = %x\n", value);
-			MMCcontrol = value;
-			break;
-		case 0x8001: //Bank Data
-			MMC3ChangePRG(value);
-			break;
-		case 0xA000: //Nametable Mirroring
-			CPU_LOG("MAPPER MMC3 Mirroring set to = %x\n", ~value & 0x1);
-			flags6 = ~(value & 0x1);
-			break;
-		case 0xA001: //PRG RAM Protect (Don't implement, maybe?)
-			break;
-		case 0xC000: //IRQ latch/counter value
-			CPU_LOG("MAPPER MMC3 counter latch = %d\n", value);
-			MMCIRQCounterLatch = value;
-			break;
-		case 0xC001: //IRQ Reload (Any value)
-			CPU_LOG("MAPPER MMC3 IRQ Reload\n");
-			MMCIRQCounter = MMCIRQCounterLatch;
-			break;
-		case 0xE000: //Disable IRQ (any value)
-			CPU_LOG("MAPPER MMC3 Disable IRQ\n");
-			MMCIRQEnable = 0;
-			break;
-		case 0xE001: //Enable IRQ (any value)
-			CPU_LOG("MAPPER MMC3 Enable IRQ\n");
-			MMCIRQEnable = 1;
-			break;
+			case 0x8000: //Bank Select Config
+				CPU_LOG("MAPPER MMC3 Control = %x\n", value);
+				MMCcontrol = value;
+				break;
+			case 0x8001: //Bank Data
+				MMC3ChangePRG(value);
+				break;
+			case 0xA000: //Nametable Mirroring
+				CPU_LOG("MAPPER MMC3 Mirroring set to = %x\n", ~value & 0x1);
+				flags6 = ~(value & 0x1);
+				break;
+			case 0xA001: //PRG RAM Protect (Don't implement, maybe?)
+				break;
+			case 0xC000: //IRQ latch/counter value
+				CPU_LOG("MAPPER MMC3 counter latch = %d\n", value);
+				MMCIRQCounterLatch = value;
+				break;
+			case 0xC001: //IRQ Reload (Any value)
+				CPU_LOG("MAPPER MMC3 IRQ Reload\n");
+				MMCIRQCounter = MMCIRQCounterLatch;
+				break;
+			case 0xE000: //Disable IRQ (any value)
+				CPU_LOG("MAPPER MMC3 Disable IRQ\n");
+				MMCIRQEnable = 0;
+				break;
+			case 0xE001: //Enable IRQ (any value)
+				CPU_LOG("MAPPER MMC3 Enable IRQ\n");
+				MMCIRQEnable = 1;
+				break;
+		}
+	}
+	if (mapper == 9) { //MMC2
+		MMCcontrol |= 0x10;
+		switch (address & 0xE000) {
+			case 0xA000: //PRG ROM Select
+				CPU_LOG("MAPPER MMC2 PRG Select %d\n", value);
+				ChangeLower8KPRG(value & 0xF);
+				break;
+			case 0xB000: //CHR ROM Lower 4K select FD
+				if (MMC2Latch0 == 0xFD) {
+					CPU_LOG("MAPPER MMC2 CHR Lower FD Select %d\n", value);
+					ChangeLowerCHR(value & 0x1F);
+				}
+				break;
+			case 0xC000: //CHR ROM Lower 4K select FE
+				if (MMC2Latch0 == 0xFE) {
+					CPU_LOG("MAPPER MMC2 CHR Lower FE Select %d\n", value);
+					ChangeLowerCHR(value & 0x1F);
+				}
+				break;
+			case 0xD000: //CHR ROM Upper 4K select FD
+				if (MMC2Latch1 == 0xFD) {
+					CPU_LOG("MAPPER MMC2 CHR Upper FD Select %d\n", value);
+					ChangeUpperCHR(value & 0x1F);
+				}
+				break;
+			case 0xE000: //CHR ROM Upper 4K select FD
+				if (MMC2Latch1 == 0xFE) {
+					CPU_LOG("MAPPER MMC2 CHR Upper FE Select %d\n", value);
+					ChangeUpperCHR(value & 0x1F);
+				}
+				break;
+			case 0xF000:
+				CPU_LOG("MAPPER MMC2 Set nametable mirroring %d\n", ~value & 0x1);
+				flags6 = ~(value & 0x1);
+				break;
 		}
 	}
 }

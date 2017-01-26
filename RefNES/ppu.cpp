@@ -203,6 +203,20 @@ unsigned char PPUReadReg(unsigned short address) {
 				vramlocation &= ~0x400;
 			}
 		}
+		if (mapper == 9) {
+			if (vramlocation == 0xFD8)
+				MMC2SetLatch(0, 0xFD);
+
+			if (vramlocation == 0xFE8)
+				MMC2SetLatch(0, 0xFE);
+
+			if (vramlocation >= 0x1FD8 && vramlocation <= 0x1FDF)
+				MMC2SetLatch(1, 0xFD);
+
+			if (vramlocation >= 0x1FE8 && vramlocation <= 0x1FEF)
+				MMC2SetLatch(1, 0xFE);
+		
+		}
 		value = cachedvramread;
 		cachedvramread = PPUMemory[vramlocation];
 
@@ -290,7 +304,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		}
 
 		//CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
-		if ((pixel!= 0) || issprite == false && curpos >=0 && curpos <= 255) {
+		if (((pixel!= 0) || issprite == false) && curpos >=0 && curpos <= 255) {
 			
 			DrawPixelBuffer(ypos, curpos, final_pixel);
 		}
