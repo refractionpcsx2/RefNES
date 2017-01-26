@@ -54,17 +54,17 @@ void ChangeLowerPRG(unsigned char PRGNum) {
 void ChangeUpperCHR(unsigned char PRGNum) {
 	CPU_LOG("MAPPER Switching Upper CHR number %d at 0x1000\n", PRGNum);
 	if ((MMCcontrol & 0x10)) {
-		memcpy(&PPUMemory[0x1000], ROMCart + ((prgsize - 1) * 16384) + (PRGNum * 4096), 0x1000);
+		memcpy(&PPUMemory[0x1000], ROMCart + ((prgsize) * 16384) + (PRGNum * 4096), 0x1000);
 	}
 }
 
 void ChangeLowerCHR(unsigned char PRGNum) {
 	CPU_LOG("MAPPER Switching Lower CHR number %d at 0x0000\n", PRGNum);
 	if ((MMCcontrol & 0x10)) {
-		memcpy(PPUMemory, ROMCart + ((prgsize - 1) * 16384) + (PRGNum * 4096), 0x1000);
+		memcpy(PPUMemory, ROMCart + ((prgsize) * 16384) + (PRGNum * 4096), 0x1000);
 	}
 	else {
-		memcpy(PPUMemory, ROMCart + ((prgsize - 1) * 16384) + ((PRGNum & ~0x1) * 8192), 0x2000);
+		memcpy(PPUMemory, ROMCart + ((prgsize) * 16384) + ((PRGNum & ~0x1) * 8192), 0x2000);
 	}
 }
 
