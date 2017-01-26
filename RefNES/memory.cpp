@@ -31,7 +31,7 @@ void MMC3IRQCountdown() {
 	if (mapper != 4) return;
 
 	if (MMCIRQEnable == 1) {
-		if (--MMCIRQCounter <= 0) {
+		if (--MMCIRQCounter == 0) {
 			MMCIRQCounter = MMCIRQCounterLatch;
 			CPUPushAllStack();
 			PC = memReadPC(0xFFFE);
