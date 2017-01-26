@@ -389,8 +389,8 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		}
 		else{
 			if (((nametableaddress >= 0x2400) && (nametableaddress < 0x2800)) || ((nametableaddress >= 0x2C00) && (nametableaddress < 0x3000))) {
-				attributeaddress -= 0x800;
-				nametableaddress -= 0x800;
+				attributeaddress &= ~0x400;
+				nametableaddress &= ~0x400;
 			}
 		}
 

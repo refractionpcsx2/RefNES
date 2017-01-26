@@ -12,7 +12,7 @@ unsigned char MMCbuffer;
 unsigned char MMCcontrol;
 unsigned char MMCIRQCounterLatch = 0;
 unsigned char MMCIRQCounter = 0;
-unsigned char MMCIRQEnable = false;
+unsigned char MMCIRQEnable = 0;
 char* ROMCart;
 
 //#define MEM_LOGGING
@@ -30,7 +30,7 @@ void MemReset() {
 void MMC3IRQCountdown() {
 	if (mapper != 4) return;
 
-	if (MMCIRQEnable == true) {
+	if (MMCIRQEnable == 1) {
 		if (--MMCIRQCounter <= 0) {
 			MMCIRQCounter = MMCIRQCounterLatch;
 			CPUPushAllStack();
@@ -47,20 +47,25 @@ void MMC3ChangePRG(unsigned char PRGNum) {
 		if ((MMCcontrol & 0x7) < 2) { //2k CHR banks
 			unsigned short address = inversion ? 0x1000 : 0x0000;
 			address += (MMCcontrol & 0x7) * 0x800;
+			CPU_LOG("MAPPER Switching to 2K CHR-ROM number %d at 0x%x\n", PRGNum, address);
 			memcpy(&PPUMemory[address], ROMCart + ((prgsize) * 16384) + (PRGNum * 1024), 0x800);
 		}
 		else { //1K CHR banks
 			unsigned short address = inversion ? 0x0000 : 0x1000;
 			address += ((MMCcontrol & 0x7) - 2) * 0x400;
+			CPU_LOG("MAPPER Switching to 1K CHR-ROM number %d at 0x%x\n", PRGNum, address);
 			memcpy(&PPUMemory[address], ROMCart + ((prgsize) * 16384) + (PRGNum * 1024), 0x400);
 		}
 	} 
 	if ((MMCcontrol & 0x7) == 6) { //8k program at 0x8000 or 0xC000(swappable)
 		unsigned short address = bankmode ? 0xC000 : 0x8000;
-
+		unsigned short fixed = bankmode ? 0x8000 : 0xC000;
+		CPU_LOG("MAPPER Switching to 8K PRG-ROM number %d at 0x%x\n", PRGNum, address);
 		memcpy(&CPUMemory[address], ROMCart + (PRGNum * 8192), 0x2000);
+		memcpy(&CPUMemory[fixed], ROMCart + (((prgsize * 2)-2) * 8192), 0x2000);
 	}
 	if ((MMCcontrol & 0x7) == 7) { //8k program at 0xA000 
+		CPU_LOG("MAPPER Switching to 8K PRG-ROM number %d at 0xA000\n", PRGNum);
 		memcpy(&CPUMemory[0xA000], ROMCart + (PRGNum * 8192), 0x2000);
 	}
 }
@@ -112,7 +117,8 @@ void ChangeLowerCHR(unsigned char PRGNum) {
 void CopyRomToMemory() {
 	if (prgsize > 1) {
 		memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
-		memcpy(&CPUMemory[0xC000], ROMCart+((prgsize - 1)* 16384), 0x4000);
+		memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);
+		
 	}
 	else {
 		memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
@@ -184,27 +190,33 @@ void MapperHandler(unsigned short address, unsigned char value) {
 	if (mapper == 4) { //MMC3
 		switch (address & 0xE001) {
 		case 0x8000: //Bank Select Config
+			CPU_LOG("MAPPER MMC3 Control = %x\n", value);
 			MMCcontrol = value;
 			break;
 		case 0x8001: //Bank Data
 			MMC3ChangePRG(value);
 			break;
 		case 0xA000: //Nametable Mirroring
-			flags6 = ~value & 0x1;
+			CPU_LOG("MAPPER MMC3 Mirroring set to = %x\n", ~value & 0x1);
+			flags6 = ~(value & 0x1);
 			break;
 		case 0xA001: //PRG RAM Protect (Don't implement, maybe?)
 			break;
 		case 0xC000: //IRQ latch/counter value
+			CPU_LOG("MAPPER MMC3 counter latch = %d\n", value);
 			MMCIRQCounterLatch = value;
 			break;
 		case 0xC001: //IRQ Reload (Any value)
+			CPU_LOG("MAPPER MMC3 IRQ Reload\n");
 			MMCIRQCounter = MMCIRQCounterLatch;
 			break;
 		case 0xE000: //Disable IRQ (any value)
-			MMCIRQEnable = false;
+			CPU_LOG("MAPPER MMC3 Disable IRQ\n");
+			MMCIRQEnable = 0;
 			break;
 		case 0xE001: //Enable IRQ (any value)
-			MMCIRQEnable = true;
+			CPU_LOG("MAPPER MMC3 Enable IRQ\n");
+			MMCIRQEnable = 1;
 			break;
 		}
 	}
