@@ -512,6 +512,7 @@ void PPULoop() {
 		CurPPUScroll = PPUScroll;
 		StartDrawing();
 		CPU_LOG("PPU T Update Start Drawing\n");
+		MMC3IRQCountdown();
 	}
 
 	if (scanline == (scanlinesperframe - (vBlankInterval + 1))) {

@@ -1315,7 +1315,7 @@ void CPULoop() {
 		case 0x3:
 			memRead();
 			PC += PCInc;
-			CPU_LOG("UNDOCUMENTED OPCODE\n");
+			CPU_LOG("UNDOCUMENTED OPCODE %x\n", Opcode);
 			//TODO undocumented opcodes
 			break;
 	}
