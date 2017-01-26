@@ -10,6 +10,9 @@ unsigned char CPUMemory[0x10000]; //64kb memory Main CPU Memory
 unsigned char SRwrites = 0; //Shift register for MMC1 wrappers
 unsigned char MMCbuffer;
 unsigned char MMCcontrol;
+unsigned char MMCIRQCounterLatch = 0;
+unsigned char MMCIRQCounter = 0;
+unsigned char MMCIRQEnable = false;
 char* ROMCart;
 
 //#define MEM_LOGGING
@@ -22,6 +25,44 @@ void CleanUpMem() {
 void MemReset() {
 	memset(CPUMemory, 0, 0x10000); //Reset only IO registers, everything else is "indetermined" just in case a game resets.
 	
+}
+
+void MMC3IRQCountdown() {
+	if (mapper != 4) return;
+
+	if (MMCIRQEnable == true) {
+		if (--MMCIRQCounter <= 0) {
+			MMCIRQCounter = MMCIRQCounterLatch;
+			CPUPushAllStack();
+			PC = memReadPC(0xFFFE);
+		}
+	}
+}
+
+void MMC3ChangePRG(unsigned char PRGNum) {
+	unsigned char inversion = (MMCcontrol >> 7) & 0x1;
+	unsigned char bankmode = (MMCcontrol >> 6) & 0x1;
+
+	if((MMCcontrol & 0x7) <= 5) {  //CHR bank		
+		if ((MMCcontrol & 0x7) < 2) { //2k CHR banks
+			unsigned short address = inversion ? 0x1000 : 0x0000;
+			address += (MMCcontrol & 0x7) * 0x800;
+			memcpy(&PPUMemory[address], ROMCart + ((prgsize) * 16384) + (PRGNum * 1024), 0x800);
+		}
+		else { //1K CHR banks
+			unsigned short address = inversion ? 0x0000 : 0x1000;
+			address += ((MMCcontrol & 0x7) - 2) * 0x400;
+			memcpy(&PPUMemory[address], ROMCart + ((prgsize) * 16384) + (PRGNum * 1024), 0x400);
+		}
+	} 
+	if ((MMCcontrol & 0x7) == 6) { //8k program at 0x8000 or 0xC000(swappable)
+		unsigned short address = bankmode ? 0xC000 : 0x8000;
+
+		memcpy(&CPUMemory[address], ROMCart + (PRGNum * 8192), 0x2000);
+	}
+	if ((MMCcontrol & 0x7) == 7) { //8k program at 0xA000 
+		memcpy(&CPUMemory[0xA000], ROMCart + (PRGNum * 8192), 0x2000);
+	}
 }
 
 void ChangeUpperPRG(unsigned char PRGNum) {
@@ -98,7 +139,7 @@ void LoadRomToMemory(FILE * RomFile, long lSize) {
 
 void MapperHandler(unsigned short address, unsigned char value) {
 
-	if (mapper == 1) {
+	if (mapper == 1) { //MMC1
 		if (value & 0x80) {
 			CPU_LOG("MAPPER MMC1 Reset shift reg %x\n", value);
 			MMCbuffer = value & 0x1;
@@ -137,8 +178,35 @@ void MapperHandler(unsigned short address, unsigned char value) {
 			SRwrites = 0;
 		}
 	}
-	if (mapper == 2) {
+	if (mapper == 2) { //UNROM
 		ChangeLowerPRG(value);
+	}
+	if (mapper == 4) { //MMC3
+		switch (address & 0xE001) {
+		case 0x8000: //Bank Select Config
+			MMCcontrol = value;
+			break;
+		case 0x8001: //Bank Data
+			MMC3ChangePRG(value);
+			break;
+		case 0xA000: //Nametable Mirroring
+			flags6 = ~value & 0x1;
+			break;
+		case 0xA001: //PRG RAM Protect (Don't implement, maybe?)
+			break;
+		case 0xC000: //IRQ latch/counter value
+			MMCIRQCounterLatch = value;
+			break;
+		case 0xC001: //IRQ Reload (Any value)
+			MMCIRQCounter = MMCIRQCounterLatch;
+			break;
+		case 0xE000: //Disable IRQ (any value)
+			MMCIRQEnable = false;
+			break;
+		case 0xE001: //Enable IRQ (any value)
+			MMCIRQEnable = true;
+			break;
+		}
 	}
 }
 

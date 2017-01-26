@@ -526,6 +526,7 @@ void PPULoop() {
 	if (scanline > 0 && scanline < (scanlinesperframe - (vBlankInterval + 1))) {
 		//DrawScanline(scanline);
 		PPUDrawScanline();
+		MMC3IRQCountdown();
 	}
 	
 	if (scanline == (scanlinesperframe - 1))

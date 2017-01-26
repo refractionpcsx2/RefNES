@@ -15,6 +15,7 @@ void memWritePC(unsigned short address, unsigned char value);
 unsigned short memReadPCIndirect();
 unsigned char memReadValue(unsigned short address);
 void CopyRomToMemory();
+void MMC3IRQCountdown();
 
 extern unsigned char CPUMemory[0x10000];
 #endif
