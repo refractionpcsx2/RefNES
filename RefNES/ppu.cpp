@@ -18,7 +18,7 @@ unsigned char lastwrite;
 unsigned int scanline;
 bool zerospritehitenable = true;
 unsigned int zerospritecountdown = 0;
-
+unsigned int BackgroundBuffer[256][240];
 unsigned short t = 0;
 unsigned short x = 0;
 bool tfirstwrite = true;
@@ -235,7 +235,6 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 	unsigned int attribute = attributein & 0x3;
 	unsigned short paletteaddr;
 	unsigned int palette;
-	unsigned int backgroundpixel = masterPalette[PPUMemory[0x3F00] & 0xFF];
 	bool horizflip = (attributein & 0x40) == 0x40;
 
 	if (issprite == false) {
@@ -265,8 +264,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 
 		if (issprite == true) {
 			if (zerosprite == true && pixel != 0 && zerospritehitenable == true) {
-
-					if (CheckCollision(ypos, curpos, backgroundpixel) == true) {
+					if (BackgroundBuffer[curpos][ypos] != 0) {
 						//Zero Sprite hit
 						CPU_LOG("PPU T Update Zero sprite hit at scanline %d\n", ypos);
 						zerospritehitenable = false;
@@ -274,10 +272,14 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 					}
 			}
 			//Priority
-			if (CheckCollision(ypos, curpos, backgroundpixel) == true && (attributein & 0x20)) {
+			if (BackgroundBuffer[curpos][ypos] != 0 && (attributein & 0x20)) {
 					curpos++;
 					continue;
 			}
+		}
+		else {
+			if(curpos >= 0 && curpos <= 255)
+				BackgroundBuffer[curpos][ypos] = pixel;
 		}
 
 		if ((!(PPUMask & 0x2) && issprite == false) || (!(PPUMask & 0x4) && issprite == true)) {
@@ -288,7 +290,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		}
 
 		//CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
-		if ((pixel!= 0) || issprite == false && curpos >=0) {
+		if ((pixel!= 0) || issprite == false && curpos >=0 && curpos <= 255) {
 			
 			DrawPixelBuffer(ypos, curpos, final_pixel);
 		}
@@ -505,6 +507,7 @@ void PPULoop() {
 		PPUStatus &= ~0xE0;
 		//PPUCtrl &= ~0x3;
 		ZeroBuffer();
+		memset(BackgroundBuffer, 0, sizeof(BackgroundBuffer));
 		zerospritehitenable = true;
 		CurPPUScroll = PPUScroll;
 		StartDrawing();
