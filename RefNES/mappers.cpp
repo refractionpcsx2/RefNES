@@ -37,8 +37,9 @@ void MMC3IRQCountdown() {
 void MMC3ChangePRG(unsigned char PRGNum) {
 	unsigned char inversion = (MMCcontrol >> 7) & 0x1;
 	unsigned char bankmode = (MMCcontrol >> 6) & 0x1;
-
+	
 	if ((MMCcontrol & 0x7) <= 5) {  //CHR bank		
+		if (chrsize == 0) return;
 		if ((MMCcontrol & 0x7) < 2) { //2k CHR banks
 			unsigned short address = inversion ? 0x1000 : 0x0000;
 			address += (MMCcontrol & 0x7) * 0x800;
@@ -132,6 +133,12 @@ void ChangeLowerCHR(unsigned char PRGNum) {
 	}
 }
 
+void Change8KCHR(unsigned char PRGNum) {
+	
+	CPU_LOG("MAPPER Switching Lower CHR 8k number %d at 0x0000\n", PRGNum);
+	memcpy(PPUMemory, ROMCart + (prgsize * 16384) + (PRGNum+1 * 8192), 0x2000);
+}
+
 void MapperHandler(unsigned short address, unsigned char value) {
 	CPU_LOG("MAPPER HANDLER Mapper = %d\n", mapper);
 	if (mapper == 1) { //MMC1
@@ -176,6 +183,9 @@ void MapperHandler(unsigned short address, unsigned char value) {
 	}
 	if (mapper == 2) { //UNROM
 		ChangeLowerPRG(value);
+	}
+	if (mapper == 3) { //UNROM
+		Change8KCHR(value);
 	}
 	if (mapper == 4) { //MMC3
 		MMCcontrol |= 0x10; //So we can make use of existing functions

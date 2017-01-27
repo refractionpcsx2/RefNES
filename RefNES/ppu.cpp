@@ -529,11 +529,13 @@ void PPUDrawScanline() {
 }
 void PPULoop() {
 	
-	/*if (zerospritehitenable == false) {
-		if (--zerospritecountdown == 0) {
-			PPUStatus |= 0x40;
+	if (scanline == (scanlinesperframe - (vBlankInterval + 1) + 1)) {
+		if ((PPUStatus & 0x80) && (PPUCtrl & 0x80)) {
+			CPU_LOG("Executing NMI\n");
+			CPUPushAllStack();
+			PC = memReadPC(0xFFFA);
 		}
-	}*/
+	}
 	if (scanline == 0) {
 		PPUStatus &= ~0xE0;
 		//PPUCtrl &= ~0x3;
@@ -549,11 +551,7 @@ void PPULoop() {
 	if (scanline == (scanlinesperframe - (vBlankInterval + 1))) {
 		PPUStatus |= 0x80;
 		CPU_LOG("VBLANK Start\n");
-		if (PPUCtrl & 0x80) {
-			CPU_LOG("Executing NMI\n");
-			CPUPushAllStack();
-			PC = memReadPC(0xFFFA);
-		}
+		
 	} else
 	if (scanline > 0 && scanline < (scanlinesperframe - (vBlankInterval + 1))) {
 		//DrawScanline(scanline);
