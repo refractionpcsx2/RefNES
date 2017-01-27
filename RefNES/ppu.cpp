@@ -31,10 +31,10 @@ unsigned int masterPalette[64] = {  0xff545454, 0xFF001E74, 0xFF081090, 0xFF3000
 #define TCOARSEXSCROLL ((t & 0x1f))
 #define TCOARSEYSCROLL ((t >> 5) & 0x1f)
 #define TNAMETABLE ((t >> 10) & 0x3)
-#define TFINEYSCROLL ((t >> 10) & 0x3)
+#define TFINEYSCROLL ((t >> 12) & 0x7)
 #define TFINEXSCROLL (x)
 #define TXSCROLL (((t & 0x1f) << 3) | x)
-#define TYSCROLL ((TCOARSEYSCROLL << 2) | TFINEYSCROLL)
+#define TYSCROLL ((TCOARSEYSCROLL << 3) | TFINEYSCROLL)
 void PPUReset() {
 	PPUCtrl = 0;
 	VRAMRamAddress = 0;
@@ -319,6 +319,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 	unsigned int xposofs = ((PPUScroll >> 8) & 0x7);
 	unsigned short nametablescrollvalue = (TXSCROLL / 8);
 	unsigned short attributetablescrollvalue = (TXSCROLL / 32);
+	unsigned short verticalscrollvalue = TYSCROLL;
 	unsigned short BaseNametable;
 	
 
@@ -338,13 +339,23 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 	if (TNAMETABLE == 3) {
 		BaseNametable = 0x2C00;
 	}
+
+	if ((verticalscrollvalue)) {
+		if ((239 - verticalscrollvalue) > YPos) {
+			YPos = verticalscrollvalue + YPos;
+			BaseNametable += 0x800;
+		}
+		else {
+			YPos -= (239 - verticalscrollvalue);
+		}
+	}
 	
 	nametableTableBaseAddress = BaseNametable + (((YPos) / 8) * 32);
 
 	attributeTableBaseAddress = BaseNametable  + 0x3c0 + (((YPos) / 32) * 8);
 
 
-	CPU_LOG("current scrolling nametable address %x PPScroll %x yPos %d\n", nametableTableBaseAddress, PPUScroll, YPos);
+	CPU_LOG("current scrolling nametable address %x PPScroll %x yPos %d yScroll = %d\n", nametableTableBaseAddress, PPUScroll, YPos, TYSCROLL);
 	
 	if(PPUCtrl & 0x10)
 		patternTableBaseAddress = 0x1000 + (YPos & 0x7);
@@ -359,7 +370,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		tilenumber = PPUMemory[nametableaddress];
 		//CPU_LOG("NAMETABLE %x Tile %x\n", nametableTableBaseAddress + i + (scanline * 32), tilenumber);
 		unsigned int attribute = PPUMemory[attributeaddress];
-		if (((scanline / 16) & 1)) {
+		if (((YPos / 16) & 1)) {
 			if (((nametablescrollvalue) / 2) & 1) attribute = (attribute >> 6) & 0x3;
 			else attribute = (attribute >> 4) & 0x3;
 		}
@@ -371,7 +382,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		unsigned pu = PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)] << (((PPUScroll >> 8) & 0x7));
 
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
-		DrawPixel(0, YPos, pl, pu, attribute, false, false, 0);
+		DrawPixel(0, scanline, pl, pu, attribute, false, false, 0);
 	}
 	
 //CPU_LOG("Scanline %d NTBase %x ATBase %x PTBase %x\n", YPos, nametableTableBaseAddress, attributeTableBaseAddress, patternTableBaseAddress);
@@ -411,7 +422,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		tilenumber = PPUMemory[nametableaddress];
 		//CPU_LOG("NAMETABLE %x Tile %x\n", nametableTableBaseAddress + i + (scanline * 32), tilenumber);
 		unsigned int attribute = PPUMemory[attributeaddress];
-		if (((scanline/16) & 1)) {
+		if (((YPos/16) & 1)) {
 			if (((i + nametablescrollvalue )/2) & 1) attribute = (attribute >> 6) & 0x3;
 			else attribute = (attribute >> 4) & 0x3;
 		}
@@ -421,7 +432,7 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 		}
 		
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
-		DrawPixel((i * 8), YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], attribute, false, false, xposofs);
+		DrawPixel((i * 8), scanline, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], attribute, false, false, xposofs);
 		if (i == 31 && ((PPUScroll >> 8) & 0x7) == 0)
 			break;
 	}
