@@ -19,4 +19,5 @@ void MMC3IRQCountdown();
 void MMC2SetLatch(unsigned char latch, unsigned char value);
 
 extern unsigned char CPUMemory[0x10000];
+extern char* ROMCart;
 #endif

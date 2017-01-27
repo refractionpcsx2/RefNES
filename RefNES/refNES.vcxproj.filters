@@ -36,6 +36,9 @@
     <ClCompile Include="iohandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mappers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -63,6 +66,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="iohandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mappers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

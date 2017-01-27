@@ -145,6 +145,7 @@
     <ClCompile Include="cpu.cpp" />
     <ClCompile Include="iohandler.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="mappers.cpp" />
     <ClCompile Include="memory.cpp" />
     <ClCompile Include="ppu.cpp" />
     <ClCompile Include="romhandler.cpp" />
@@ -155,6 +156,7 @@
     <ClInclude Include="cpu.h" />
     <ClInclude Include="iohandler.h" />
     <ClInclude Include="main.h" />
+    <ClInclude Include="mappers.h" />
     <ClInclude Include="memory.h" />
     <ClInclude Include="ppu.h" />
     <ClInclude Include="resource.h" />
