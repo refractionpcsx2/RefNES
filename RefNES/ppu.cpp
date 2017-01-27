@@ -322,8 +322,6 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 	unsigned short verticalscrollvalue = TYSCROLL;
 	unsigned short BaseNametable;
 	
-
-	
 	if (YPos == 240) return;
 	
 	
@@ -343,7 +341,15 @@ void FetchBackgroundTile(unsigned int YPos, unsigned int XPos) {
 	if ((verticalscrollvalue)) {
 		if ((239 - verticalscrollvalue) > YPos) {
 			YPos = verticalscrollvalue + YPos;
-			BaseNametable += 0x800;
+			
+			if ((flags6 & 0x1)) {
+			}
+			else {
+				if(BaseNametable <= 0x2400)
+					BaseNametable += 0x400;
+				else 
+					BaseNametable -= 0x400;
+			}
 		}
 		else {
 			YPos -= (239 - verticalscrollvalue);
