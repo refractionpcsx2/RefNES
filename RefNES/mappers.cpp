@@ -134,9 +134,9 @@ void ChangeLowerCHR(unsigned char PRGNum) {
 }
 
 void Change8KCHR(unsigned char PRGNum) {
-	
-	CPU_LOG("MAPPER Switching Lower CHR 8k number %d at 0x0000\n", PRGNum);
-	memcpy(PPUMemory, ROMCart + (prgsize * 16384) + (PRGNum+1 * 8192), 0x2000);
+	unsigned char program = (PRGNum & 0x3) % chrsize;
+	CPU_LOG("MAPPER Switching Lower CHR 8k number %d at 0x0000\n", program);
+	memcpy(&PPUMemory[0x0000], ROMCart + (prgsize * 16384) + (program * 8192), 0x2000);
 }
 
 void MapperHandler(unsigned short address, unsigned char value) {
@@ -184,7 +184,7 @@ void MapperHandler(unsigned short address, unsigned char value) {
 	if (mapper == 2) { //UNROM
 		ChangeLowerPRG(value);
 	}
-	if (mapper == 3) { //UNROM
+	if (mapper == 3) { //CNROM
 		Change8KCHR(value);
 	}
 	if (mapper == 4) { //MMC3
