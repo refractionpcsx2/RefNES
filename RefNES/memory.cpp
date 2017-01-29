@@ -202,14 +202,12 @@ unsigned short memGetAddr(bool iswrite) {
 	case 0x10://Post-indexed indirect (Y)
 		value = MemAddrPostIndexed(iswrite);
 		break;
-	case 0x14://ZeroPage Indexed, X
-		value = MemAddrZeroPageIndexed(iswrite);
+	case 0x14://ZeroPage Indexed, X or Y
+			value = MemAddrZeroPageIndexed(iswrite);
 		break;
 	case 0x18://Absolute,Y 
 		if (!(Opcode & 0x1)) {
-#ifdef MEM_LOGGING
-			CPU_LOG("BANANA Implied not absolutey??\n");
-#endif
+			return 0;
 		}
 		value = MemAddrAbsoluteY(iswrite);
 		break;
@@ -317,7 +315,7 @@ unsigned short memReadPCIndirect() {
 
 }
 
-void memWritePC(unsigned short address, unsigned char value) {
+void memWriteValue(unsigned short address, unsigned char value) {
 	if (address >= 0x2000 && address < 0x4000) {
 		CPU_LOG("Wrapping PPU reg address %x\n", 0x2000 + (address & 0x7));
 		PPUWriteReg(address, value);

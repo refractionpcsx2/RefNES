@@ -5,7 +5,7 @@
 //CPU Registers
 unsigned short PC;
 unsigned char PCInc;
-unsigned short SP;
+unsigned char SP;
 unsigned char X;
 unsigned char Y;
 unsigned char A;
@@ -26,7 +26,7 @@ typedef void(*JumpTable)(void);
 
 void CPUReset() {
 	PC = memReadPC(0xFFFC);
-	SP = 0x1FD;
+	SP = 0xFD;
 	P = 0x34;
 	CPUPushAllStack();
 #ifdef CPU_LOGGING
@@ -35,31 +35,27 @@ void CPUReset() {
 }
 
 void CPUPushAllStack() {
-	memWritePC(SP--, PC >> 8);
-	memWritePC(SP--, (PC & 0xff));
-	memWritePC(SP--, P);
-	SP = 0x100 + (SP & 0xFF);
+	memWriteValue(0x100 + SP--, PC >> 8);
+	memWriteValue(0x100 + SP--, (PC & 0xff));
+	memWriteValue(0x100 + SP--, P);
 #ifdef CPU_LOGGING
 	CPU_LOG("Pushed all to stack, PC = %x, SP = %x\n", PC, SP);
 #endif
 }
 
 void CPUPopAllStack() {
-	P = memReadValue(++SP);
+	P = memReadValue(0x100 + ++SP);
 	P |= 0x20;
-	PC = memReadPC(++SP);
-	SP += 1;
-	SP = 0x100 + (SP & 0xFF);
-
+	PC = memReadPC(0x100 + ++SP);
+	SP++;
 #ifdef CPU_LOGGING
 	CPU_LOG("Popped all from stack, PC = %x, SP = %x\n", PC, SP);
 #endif
 }
 
 void CPUPushPCStack() {	
-	memWritePC(SP--, PC >> 8);
-	memWritePC(SP--, (PC & 0xff));
-	SP = 0x100 + (SP & 0xFF);
+	memWriteValue(0x100 + SP--, PC >> 8);
+	memWriteValue(0x100 + SP--, (PC & 0xff));
 #ifdef CPU_LOGGING
 	CPU_LOG("Pushed PC to stack, PC = %x, SP = %x\n", PC, SP);
 #endif
@@ -67,17 +63,15 @@ void CPUPushPCStack() {
 
 void CPUPopPCStack() {
 	
-	PC = memReadPC(++SP);
-	SP += 1;
-	SP = 0x100 + (SP & 0xFF);
+	PC = memReadPC(0x100 + ++SP);
+	SP++;
 #ifdef CPU_LOGGING
 	CPU_LOG("Popped PC from stack, PC = %x, SP = %x\n", PC, SP);
 #endif
 }
 
 void CPUPushSingleStack(unsigned char value) {
-	memWritePC(SP--, value);
-	SP = 0x100 + (SP & 0xFF);
+	memWriteValue(0x100 + SP--, value);
 #ifdef CPU_LOGGING
 	CPU_LOG("Pushed Single to stack, PC = %x, SP = %x\n", PC, SP);
 #endif
@@ -86,8 +80,7 @@ void CPUPushSingleStack(unsigned char value) {
 unsigned char CPUPopSingleStack() {
 	unsigned char value;
 	
-	value = memReadValue(++SP);
-	SP = 0x100 + (SP & 0xFF);
+	value = memReadValue(0x100 + ++SP);
 #ifdef CPU_LOGGING
 	CPU_LOG("Popped Single from stack, PC = %x, SP = %x\n", PC, SP);
 #endif
@@ -566,9 +559,13 @@ void cpuSEI() {
 	PC += 1;
 }
 void cpuSHY() {
-#ifdef CPU_LOGGING
+	unsigned char temp = memRead();
 	CPU_LOG("SHY Not Implemented\n");
-#endif
+	temp = memReadPC(PC + 2) + 1;
+	temp &= Y;
+
+	memWrite(temp);
+
 	PC += PCInc;
 }
 void cpuSTY() {
@@ -1006,9 +1003,9 @@ void cpuLSR() {
 }
 
 void cpuSTP() {
-#ifdef CPU_LOGGING
+
 	CPU_LOG("STP Not Implemented\n");
-#endif
+
 	PC += PCInc;
 }
 
@@ -1112,9 +1109,7 @@ void cpuSHX() {
 	value &= X;
 
 	memWrite(value);
-#ifdef CPU_LOGGING
-	CPU_LOG("SHX Result=%x\n", value);
-#endif
+	CPU_LOG("SHX Not Implemented SHX Result=%x\n", value);
 	PC += PCInc;
 }
 
@@ -1146,7 +1141,7 @@ void cpuTAX() {
 }
 
 void cpuTSX() {
-	X = (unsigned char)SP & 0xFF;
+	X = SP;
 
 	P &= ~NEGATIVE_FLAG;
 	//Negative flag
@@ -1184,7 +1179,7 @@ void cpuTXA() {
 }
 
 void cpuTXS() {
-	SP = 0x100 | X;
+	SP = X;
 
 #ifdef CPU_LOGGING
 	CPU_LOG("TXS PC=%x, X=%x SP=%x\n", PC, X, SP);
@@ -1193,6 +1188,364 @@ void cpuTXS() {
 }
 
 /* Undocumented */
+
+
+
+
+void cpuAHX() {
+	unsigned char temp;
+
+	temp = X & A;
+	temp &= 7;
+
+	memWrite(temp);
+
+	PC += PCInc;
+}
+
+void cpuALR() {
+
+	unsigned char source;
+
+	source = A & memRead();
+
+	if (source & 0x1) {
+		P |= CARRY_FLAG;
+	}
+	else {
+		P &= ~CARRY_FLAG;
+	}
+
+	source >>= 1;
+
+	if (source == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	P &= ~NEGATIVE_FLAG;
+
+	A = source;
+
+	CPU_LOG("Undocumented ALR\n");	
+
+	PC += PCInc;
+}
+
+void cpuANC() {
+	unsigned char temp;
+
+	temp = A & memRead();
+	
+	if (temp == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	if (temp & 0x80) {
+		P |= NEGATIVE_FLAG | CARRY_FLAG;
+	}
+	else {
+		P &= ~(CARRY_FLAG | NEGATIVE_FLAG);
+	}
+
+	CPU_LOG("Undocumented ANC\n");
+
+	PC += PCInc;
+}
+
+void cpuARR() {
+	unsigned char tempbit;
+	unsigned char temp = memRead();
+
+	A = temp & A;
+
+	tempbit = A & 0x1;
+
+	A >>= 1;
+	A |= tempbit << 7;
+
+	P &= ~NEGATIVE_FLAG;
+	P |= A & 0x80;
+
+	if (A == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	if ((P & 0x60) == 0x60) {
+		P |= CARRY_FLAG;
+		P &= ~OVERFLOW_FLAG;
+	}
+	else if ((P & 0x60) == 0x00) {
+		P &= ~(CARRY_FLAG | OVERFLOW_FLAG);
+	}
+	else if ((P & 0x60) == 0x40) {
+		P |= CARRY_FLAG | OVERFLOW_FLAG;
+	}
+	else if ((P & 0x60) == 0x20) {
+		P |= OVERFLOW_FLAG;
+		P &= ~CARRY_FLAG;
+	}
+	CPU_LOG("Undocumented ARR\n");
+	PC += PCInc;
+}
+
+void cpuAXS() {
+	unsigned short temp;
+	X &= A;
+	temp = X - memRead();
+
+	if (temp < 0x100) {
+		P |= CARRY_FLAG;
+	}
+	else {
+		P &= ~CARRY_FLAG;
+	}
+
+	X = (unsigned char)temp;
+
+	P &= ~NEGATIVE_FLAG;
+	P |= X & 0x80;
+
+	if (X == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	CPU_LOG("Undocumented AXS\n");
+	PC += PCInc;
+}
+
+void cpuDCP() {
+	unsigned char memvalue = memRead();
+	unsigned short temp;
+
+	memvalue -= 1;
+
+	memWrite(memvalue);
+
+	temp = A - memvalue;
+
+	if (temp < 0x100) {
+		P |= CARRY_FLAG;
+	}
+	else {
+		P &= ~CARRY_FLAG;
+	}
+
+	if (!(temp & 0xff)) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	if (temp & 0x80) {
+		P |= NEGATIVE_FLAG;
+	}
+	else {
+		P &= ~NEGATIVE_FLAG;
+	}
+
+	CPU_LOG("Undocumented DCP\n");
+	PC += PCInc;
+}
+
+void cpuISC() {
+	unsigned char memvalue = memRead();
+	unsigned int temp;
+	memvalue += 1;
+
+	memWrite(memvalue);
+	
+	temp = A - memvalue - (1 - (P & CARRY_FLAG));
+	
+	if ((temp & 0xff) == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	P &= ~NEGATIVE_FLAG;
+	//Negative
+	P |= temp & 0x80;
+
+	if (((A ^ memvalue) & 0x80) && ((A ^ temp) & 0x80)) {
+		P |= OVERFLOW_FLAG;
+	}
+	else {
+		P &= ~OVERFLOW_FLAG;
+	}
+
+	if (temp < 0x100) {
+		P |= CARRY_FLAG;
+	}
+	else {
+		P &= ~CARRY_FLAG;
+	}
+#ifdef CPU_LOGGING
+	CPU_LOG("Undocumented ISC\n");
+#endif
+	A = (unsigned char)temp;
+	PC += PCInc;
+}
+
+void cpuLAS() {
+	memRead();
+	PC += PCInc;
+}
+
+void cpuLAX() {
+	unsigned char temp = memRead();
+		
+	A = temp;
+	X = temp;
+
+	if (X == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	P &= ~NEGATIVE_FLAG;
+	//Negative
+	P |= X & 0x80;
+
+	CPU_LOG("Undocumented LAX\n");
+
+	PC += PCInc;
+}
+
+void cpuRLA() {
+	unsigned char source;
+	unsigned char carrybit;
+
+	source = memRead();
+
+	//Grab carry bit and clear flag
+	carrybit = (P & CARRY_FLAG);
+	P &= ~CARRY_FLAG;
+
+	//Rotate end bit in to carry flag
+	P |= (source >> 7) & CARRY_FLAG;
+	source <<= 1;
+	//Put carry flag (borrowed bit) in to bit 0 of the source
+	source |= carrybit;
+
+	if (source == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	if (source & 0x80) {
+		P |= NEGATIVE_FLAG;
+	}
+	else {
+		P &= ~NEGATIVE_FLAG;
+	}
+
+	memWrite(source);
+
+	A = A & source;
+
+	if (!A) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	P &= ~NEGATIVE_FLAG;
+	//Negative
+	P |= A & 0x80;
+	CPU_LOG("Undocumented RLA\n");
+	
+	PC += PCInc;
+}
+
+void cpuRRA() { 
+	unsigned char source;
+	unsigned char carrybit;
+
+	source = memRead();
+
+	//Grab carry bit and clear flag
+	carrybit = (P & CARRY_FLAG);
+	P &= ~CARRY_FLAG;
+
+	//Rotate bit 0 in to carry flag
+	P |= source & CARRY_FLAG;
+	source >>= 1;
+	//Put carry flag (borrowed bit) in to bit 7 of the source
+	source |= carrybit << 7;
+
+	if (source & 0x80) {
+		P |= NEGATIVE_FLAG;
+	}
+	else {
+		P &= ~NEGATIVE_FLAG;
+	}
+
+	memWrite(source);
+
+	unsigned int temp = source + A;
+
+	temp += P & CARRY_FLAG;
+
+
+	if ((temp & 0xff) == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	P &= ~NEGATIVE_FLAG;
+	//Negative
+	P |= temp & 0x80;
+
+	if (!((A ^ source) & 0x80) && ((A ^ temp) & 0x80)) {
+		P |= OVERFLOW_FLAG;
+	}
+	else {
+		P &= ~OVERFLOW_FLAG;
+	}
+
+	if (temp > 0xFF) {
+		P |= CARRY_FLAG;
+	}
+	else {
+		P &= ~CARRY_FLAG;
+	}
+
+	A = (unsigned char)temp;
+
+	CPU_LOG("Undocumented RRA\n");
+	PC += PCInc;
+}
+
+void cpuSAX() {
+	unsigned char temp;
+
+	temp = X & A;
+	
+	memWrite(temp);
+	CPU_LOG("Undocumented SAX\n");
+	PC += PCInc;
+}
 
 void cpuSLO() {
 	unsigned short source;
@@ -1207,8 +1560,14 @@ void cpuSLO() {
 	}
 
 	source <<= 1;
+	
+	
 
-	if (!(source & 0xff)) {
+	memWrite((unsigned char)source);
+
+	A |= (unsigned char)source;
+
+	if (!A) {
 		P |= ZERO_FLAG;
 	}
 	else {
@@ -1217,25 +1576,71 @@ void cpuSLO() {
 
 	P &= ~NEGATIVE_FLAG;
 	//Negative
-	P |= source & 0x80;
-
-#ifdef CPU_LOGGING
+	P |= A & 0x80;
 	CPU_LOG("UNDOCUMENTED SLO Result=%x Flags=%x\n", source, P);
-#endif
+	PC += PCInc;
+}
+
+void cpuSRE() {
+	unsigned short source;
+
+	source = memRead();
+
+	if (source & 0x1) {
+		P |= CARRY_FLAG;
+	}
+	else {
+		P &= ~CARRY_FLAG;
+	}
+
+	source >>= 1;
 
 	memWrite((unsigned char)source);
 
-	A |= (unsigned char)source;
+	A = A ^ source;
 
+	if (A & 0x80) {
+		P |= NEGATIVE_FLAG;
+	}
+	else {
+		P &= ~NEGATIVE_FLAG;
+	}
+
+	if (A == 0) {
+		P |= ZERO_FLAG;
+	}
+	else {
+		P &= ~ZERO_FLAG;
+	}
+
+	CPU_LOG("Undocumented SRE\n");
+
+	PC += PCInc;
+}
+
+void cpuTAS() {
+	memRead();
+	PC += PCInc;
+}
+
+void cpuXAA() {
+	memRead();
 	PC += PCInc;
 }
 
 /* General Ops and Tables */
 
 void cpuNOP() {
+	if (Opcode != 0xEA) {
+		CPU_LOG("Undocumented NOP %x, using memread to get the length right\n", Opcode);
+		//PCInc = 1;
+		memRead();		
+	}
+	else {
 #ifdef CPU_LOGGING
-	CPU_LOG("NOP PC=%x\n", PC);
+		CPU_LOG("NOP PC=%x\n", PC);
 #endif
+	}
 	PC += PCInc;
 }
 
@@ -1285,7 +1690,7 @@ JumpTable CPUControl[64] = { cpuBRK, cpuNOP, cpuPHP, cpuNOP, cpuBPL, cpuNOP, cpu
 							 cpuNOP, cpuSTY, cpuDEY, cpuSTY, cpuBCC, cpuSTY, cpuTYA, cpuSHY,
 							 cpuLDY, cpuLDY, cpuTAY, cpuLDY, cpuBCS, cpuLDY, cpuCLV, cpuLDY,
 							 cpuCPY, cpuCPY, cpuINY, cpuCPY, cpuBNE, cpuNOP, cpuCLD, cpuNOP,
-							 cpuCPX, cpuCPX, cpuINX, cpuCPX, cpuBEQ, cpuNOP, cpuSED, cpuNOP};
+							 cpuCPX, cpuCPX, cpuINX, cpuCPX, cpuBEQ, cpuNOP, cpuSED, cpuNOP };
 
 /* Read Write Modify Instruction table*/
 JumpTable CPURWM[64]	= { cpuSTP, cpuASL, cpuASL, cpuASL, cpuSTP, cpuASL, cpuNOP, cpuASL,
@@ -1295,7 +1700,17 @@ JumpTable CPURWM[64]	= { cpuSTP, cpuASL, cpuASL, cpuASL, cpuSTP, cpuASL, cpuNOP,
 							cpuNOP, cpuSTX, cpuTXA, cpuSTX, cpuSTP, cpuSTX, cpuTXS, cpuSHX,
 							cpuLDX, cpuLDX, cpuTAX, cpuLDX, cpuSTP, cpuLDX, cpuTSX, cpuLDX,
 							cpuNOP, cpuDEC, cpuDEX, cpuDEC, cpuSTP, cpuDEC, cpuNOP, cpuDEC,
-							cpuNOP, cpuINC, cpuNOP, cpuINC, cpuSTP, cpuINC, cpuNOP, cpuINC};
+							cpuNOP, cpuINC, cpuNOP, cpuINC, cpuSTP, cpuINC, cpuNOP, cpuINC };
+
+/* Read Write Modify Instruction table*/
+JumpTable CPUUnofficial[64] = { cpuSLO, cpuSLO, cpuANC, cpuSLO, cpuSLO, cpuSLO, cpuSLO, cpuSLO,
+								cpuRLA, cpuRLA, cpuANC, cpuRLA, cpuRLA, cpuRLA, cpuRLA, cpuRLA,
+								cpuSRE, cpuSRE, cpuALR, cpuSRE, cpuSRE, cpuSRE, cpuSRE, cpuSRE,
+								cpuRRA, cpuRRA, cpuARR, cpuRRA, cpuRRA, cpuRRA, cpuRRA, cpuRRA,
+								cpuSAX, cpuSAX, cpuXAA, cpuSAX, cpuAHX, cpuSAX, cpuTAS, cpuAHX,
+								cpuLAX, cpuLAX, cpuLAX, cpuLAX, cpuLAX, cpuLAX, cpuLAS, cpuLAX,
+								cpuDCP, cpuDCP, cpuAXS, cpuDCP, cpuDCP, cpuDCP, cpuDCP, cpuDCP,
+								cpuISC, cpuISC, cpuSBC, cpuISC, cpuISC, cpuISC, cpuISC, cpuISC };
 
 void CPULoop() {
 	Opcode = memReadValue(PC);
@@ -1313,8 +1728,8 @@ void CPULoop() {
 			CPURWM[Opcode >> 2]();
 			break;
 		case 0x3:
-			memRead();
-			PC += PCInc;
+			CPUUnofficial[Opcode >> 2]();
+			//PC += PCInc;
 			CPU_LOG("UNDOCUMENTED OPCODE %x\n", Opcode);
 			//TODO undocumented opcodes
 			break;

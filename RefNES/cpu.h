@@ -10,7 +10,7 @@ extern unsigned char Opcode;
 extern unsigned char X;
 extern unsigned char Y;
 extern unsigned char P;
-extern unsigned short SP;
+extern unsigned char SP;
 extern unsigned int cpuCycles;
 extern unsigned int dotCycles;
 extern int masterCycles;

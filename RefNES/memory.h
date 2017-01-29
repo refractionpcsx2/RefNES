@@ -11,7 +11,7 @@ unsigned char memRead();
 void memWrite(unsigned char value);
 void MemReset();
 unsigned short memReadPC(unsigned short address);
-void memWritePC(unsigned short address, unsigned char value);
+void memWriteValue(unsigned short address, unsigned char value);
 unsigned short memReadPCIndirect();
 unsigned char memReadValue(unsigned short address);
 void CopyRomToMemory();
