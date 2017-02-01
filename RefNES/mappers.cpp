@@ -96,6 +96,12 @@ void ChangeLower8KPRG(unsigned char PRGNum) {
 	memcpy(&CPUMemory[0x8000], ROMCart + (PRGNum * 8192), 0x2000);
 }
 
+void Change32KPRG(unsigned char PRGNum) {
+	PRGNum = PRGNum % (prgsize / 2);
+	CPU_LOG("MAPPER Switching to 32K PRG-ROM number %d at 0x8000\n", PRGNum);
+	memcpy(&CPUMemory[0x8000], ROMCart + (PRGNum * 0x8000), 0x8000);
+}
+
 void ChangeLowerPRG(unsigned char PRGNum) {
 
 	CPU_LOG("MAPPER Switching to 16K PRG-ROM number %d at 0x8000\n", PRGNum);
@@ -220,6 +226,9 @@ void MapperHandler(unsigned short address, unsigned char value) {
 			MMCIRQEnable = 1;
 			break;
 		}
+	}
+	if (mapper == 7) { //AOROM
+		Change32KPRG(value);
 	}
 	if (mapper == 9) { //MMC2
 		MMCcontrol |= 0x10;
