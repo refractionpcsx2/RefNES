@@ -151,7 +151,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			
 			/*if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
 				vramlocation -= 0x800;
-			}
+			}*/
 
 			if ((flags6 & 0x1)) {
 				if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
@@ -159,10 +159,10 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 				}
 			}
 			else {
-				if (((vramlocation >= 0x2400) && (vramlocation < 0x2800)) || ((vramlocation >= 0x2C00) && (vramlocation < 0x3000))) {
+				if ((vramlocation >= 0x2800) && (vramlocation < 0x3000)) {
 					vramlocation &= ~0x400;
 				}
-			}*/
+			}
 			/*if (vramlocation < 0x2000) {
 				CPU_LOG("PPU T Update writing to CHR-ROM Area %x", VRAMRamAddress);
 				if (PPUCtrl & 0x4) { //Increment
@@ -223,16 +223,16 @@ unsigned char PPUReadReg(unsigned short address) {
 		if (vramlocation > 0x3F20 && vramlocation <= 0x3FFF) {
 			vramlocation &= 0x3F1F;
 		}
-		/*if ((flags6 & 0x1)) {
+		if ((flags6 & 0x1)) {
 			if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
 				vramlocation -= 0x800;
 			}
 		}
 		else {
-			if (((vramlocation >= 0x2400) && (vramlocation < 0x2800)) || ((vramlocation >= 0x2C00) && (vramlocation < 0x3000))) {
+			if ((vramlocation >= 0x2800) && (vramlocation < 0x3000)) {
 				vramlocation &= ~0x400;
 			}
-		}*/
+		}
 		if (mapper == 9) {
 			if (vramlocation == 0xFD8)
 				MMC2SetLatch(0, 0xFD);
@@ -423,19 +423,19 @@ void FetchBackgroundTile(unsigned int YPos) {
 				if((flags6 & 0x1))
 					BaseNametable = 0x2400;
 				else
-					BaseNametable = 0x2800;//4
+					BaseNametable = 0x2000;
 			}
 			if (nameTable == 2) {
 				if ((flags6 & 0x1))
 					BaseNametable = 0x2000;
 				else
-					BaseNametable = 0x2800;//8
+					BaseNametable = 0x2800;
 			}
 			if (nameTable == 3) {
 				if ((flags6 & 0x1))
 					BaseNametable = 0x2400;
 				else
-					BaseNametable = 0x2800;//c
+					BaseNametable = 0x2800;
 			}
 			nameTableVerticalAddress = BaseNametable + ((coarseYScroll) * 32); //Get vertical position for nametable
 			nameTableAddress = nameTableVerticalAddress + coarseXScroll; //Get horizontal position
