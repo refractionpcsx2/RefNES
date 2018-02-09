@@ -223,7 +223,7 @@ unsigned char PPUReadReg(unsigned short address) {
 		if (vramlocation > 0x3F20 && vramlocation <= 0x3FFF) {
 			vramlocation &= 0x3F1F;
 		}
-		if ((flags6 & 0x1)) {
+		/*if ((flags6 & 0x1)) {
 			if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
 				vramlocation -= 0x800;
 			}
@@ -232,7 +232,7 @@ unsigned char PPUReadReg(unsigned short address) {
 			if (((vramlocation >= 0x2400) && (vramlocation < 0x2800)) || ((vramlocation >= 0x2C00) && (vramlocation < 0x3000))) {
 				vramlocation &= ~0x400;
 			}
-		}
+		}*/
 		if (mapper == 9) {
 			if (vramlocation == 0xFD8)
 				MMC2SetLatch(0, 0xFD);
@@ -420,13 +420,22 @@ void FetchBackgroundTile(unsigned int YPos) {
 				BaseNametable = 0x2000;
 			}
 			if (nameTable == 1) {
-				BaseNametable = 0x2400;
+				if((flags6 & 0x1))
+					BaseNametable = 0x2400;
+				else
+					BaseNametable = 0x2800;//4
 			}
 			if (nameTable == 2) {
-				BaseNametable = 0x2800;
+				if ((flags6 & 0x1))
+					BaseNametable = 0x2000;
+				else
+					BaseNametable = 0x2800;//8
 			}
 			if (nameTable == 3) {
-				BaseNametable = 0x2C00;
+				if ((flags6 & 0x1))
+					BaseNametable = 0x2400;
+				else
+					BaseNametable = 0x2800;//c
 			}
 			nameTableVerticalAddress = BaseNametable + ((coarseYScroll) * 32); //Get vertical position for nametable
 			nameTableAddress = nameTableVerticalAddress + coarseXScroll; //Get horizontal position
