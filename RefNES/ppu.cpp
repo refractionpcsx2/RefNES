@@ -356,7 +356,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		}
 
 		//Priority
-		if (BackgroundBuffer[curXPos][ypos] != 0 && (attributein & 0x20)) {
+		if ((BackgroundBuffer[curXPos][ypos] & 0xFFFFF) != 0 && (attributein & 0x20)) {
 				curXPos++;
 				continue;
 		}
@@ -467,7 +467,7 @@ void FetchBackgroundTile(unsigned int YPos) {
 			} else
 				fineXScroll = (fineXScroll + 1) & 0x7;
 		}
-		DrawBGPixel(YPos, i * 8, lowerBits, upperBits, attributeInfo, false, false);
+		DrawBGPixel(YPos-1, i * 8, lowerBits, upperBits, attributeInfo, false, false);
 	}
 
 	//Increment the Y value	
@@ -502,6 +502,7 @@ void FetchSpriteTile(unsigned int YPos) {
 	unsigned int patternTableBaseAddress; //The tiles themselves (8 bytes, each byte is a row of 8 pixels)
 	bool zerospritefound = false;
 	int zerospriteentry = 0;
+	unsigned int YPosition = YPos-1;
 	unsigned int spriteheight = 7;
 	if ((PPUCtrl & 0x20)) {
 		CPU_LOG("8x16\n");
@@ -511,12 +512,12 @@ void FetchSpriteTile(unsigned int YPos) {
 	
 	unsigned int foundsprites = 0;
 	for (int s = 0; s < 256; s += 4) {
-		if ((SPRMemory[s]+1U) <= YPos && ((SPRMemory[s]+1U) + spriteheight) >= YPos) {
+		if ((SPRMemory[s]) <= YPosition && ((SPRMemory[s]) + spriteheight) >= YPosition) {
 			if (foundsprites == 8) {
 				PPUStatus |= 0x20;
 				break;
 			}
-			TempSPR[(foundsprites * 4)] = SPRMemory[s]+1;
+			TempSPR[(foundsprites * 4)] = SPRMemory[s];
 			TempSPR[(foundsprites * 4) + 1] = SPRMemory[s + 1];
 			TempSPR[(foundsprites * 4) + 2] = SPRMemory[s + 2];
 			TempSPR[(foundsprites * 4) + 3] = SPRMemory[s + 3];
@@ -548,19 +549,19 @@ void FetchSpriteTile(unsigned int YPos) {
 			tilenumber &= ~1;
 		}
 		if (TempSPR[i + 2] & 0x80) { //Flip Vertical
-			patternTableBaseAddress += spriteheight - (YPos - TempSPR[i]);
-			if((YPos - TempSPR[i]) < 8 && spriteheight > 8)
+			patternTableBaseAddress += spriteheight - (YPosition - TempSPR[i]);
+			if((YPosition - TempSPR[i]) < 8 && spriteheight > 8)
 				patternTableBaseAddress += 8;
 		}
 		else {
-			patternTableBaseAddress += (YPos - TempSPR[i]);
-			if ((YPos - TempSPR[i]) >= 8) {
+			patternTableBaseAddress += (YPosition - TempSPR[i]);
+			if ((YPosition - TempSPR[i]) >= 8) {
 				patternTableBaseAddress += 8;
 			}
 		}
 				
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
-		DrawPixel(TempSPR[i+3], YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], TempSPR[i+2], zerospritefound == true && zerospriteentry == i);
+		DrawPixel(TempSPR[i+3], YPosition, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], TempSPR[i+2], zerospritefound == true && zerospriteentry == i);
 	}
 	memset(TempSPR, 0, 0x20);
 	//CPU_LOG("EndScanline\n");
