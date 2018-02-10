@@ -41,14 +41,21 @@ void MMC3ChangePRG(unsigned char PRGNum) {
 	if ((MMCcontrol & 0x7) <= 5) {  //CHR bank		
 		if (chrsize == 0) return;
 		if ((MMCcontrol & 0x7) < 2) { //2k CHR banks
-			unsigned short address = inversion ? 0x1000 : 0x0000;
+			unsigned short address = 0;// inversion ? 0x1000 : 0x0000;
 			address += (MMCcontrol & 0x7) * 0x800;
+			if (inversion) {
+				address ^= 0x1000;
+			}
 			CPU_LOG("MAPPER Switching to 2K CHR-ROM number %d at 0x%x\n", PRGNum, address);
-			memcpy(&PPUMemory[address], ROMCart + ((prgsize) * 16384) + (PRGNum * 1024), 0x800);
+			memcpy(&PPUMemory[address], ROMCart + ((prgsize) * 16384) + ((PRGNum & 0xFE) * 1024), 0x400);
+			memcpy(&PPUMemory[address+0x400], ROMCart + ((prgsize) * 16384) + ((PRGNum | 1) * 1024), 0x400);
 		}
 		else { //1K CHR banks
-			unsigned short address = inversion ? 0x0000 : 0x1000;
+			unsigned short address = 0x1000;// = inversion ? 0x0000 : 0x1000;
 			address += ((MMCcontrol & 0x7) - 2) * 0x400;
+			if (inversion) {
+				address ^= 0x1000;
+			}
 			CPU_LOG("MAPPER Switching to 1K CHR-ROM number %d at 0x%x\n", PRGNum, address);
 			memcpy(&PPUMemory[address], ROMCart + ((prgsize) * 16384) + (PRGNum * 1024), 0x400);
 		}
