@@ -128,6 +128,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 				t &= ~0xFF;
 				t |= value;
 				VRAMRamAddress = t;
+                addr = t;
 			}
 			CPU_LOG("PPU T Update 2006 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, x & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
 			break;
@@ -178,12 +179,12 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			
 			if (PPUCtrl & 0x4) { //Increment
 				VRAMRamAddress += 32;
-				t = VRAMRamAddress;// VRAMRamAddress;//(t & ~(0x1f << 5)) | ((TCOARSEYSCROLL + 1 & 0x1f) << 5);
+				//t = VRAMRamAddress;// VRAMRamAddress;//(t & ~(0x1f << 5)) | ((TCOARSEYSCROLL + 1 & 0x1f) << 5);
 				}
 			else {
 				
 				VRAMRamAddress++;
-			    t = VRAMRamAddress;// VRAMRamAddress; //(t & ~0x1f) | ((TCOARSEXSCROLL + 1) & 0x1f);
+			   // t = VRAMRamAddress;// VRAMRamAddress; //(t & ~0x1f) | ((TCOARSEXSCROLL + 1) & 0x1f);
 			}		
 			break;
 	}
@@ -622,7 +623,7 @@ void PPULoop() {
 		CPU_LOG("PPU T Update Start Drawing\n");
 		MMC3IRQCountdown();
 
-        addr = t;
+        
 		//VRAMRamAddress = t;
 	}
 
