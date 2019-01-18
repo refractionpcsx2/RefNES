@@ -19,6 +19,7 @@ bool zerospritehitenable = true;
 bool zerospriteirq = false;
 unsigned int zerospritecountdown = 0;
 unsigned int BackgroundBuffer[256][240];
+unsigned int SpriteBuffer[256][240];
 unsigned short t = 0;
 unsigned short x = 0;
 bool tfirstwrite = true;
@@ -332,7 +333,12 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 	
 	for (unsigned int j = xpos; j < (xpos + 8); j++) {
 
-		
+		if (!(PPUMask & 0x2)) {
+			if (j < 8 || j >= 256) {
+				continue;
+			}
+		}
+
 		if (horizFlip == false) {
 			pixel = (((curVal >> 7) & 0x1) | (((curVal2 >> 7) & 0x1) << 1));
 			curVal <<= 1;
@@ -356,10 +362,7 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		}
 
 		//Priority
-		if ((BackgroundBuffer[curXPos][ypos] & 0xFFFFF) != 0 && (attributein & 0x20)) {
-				curXPos++;
-				continue;
-		}
+		
 		
 
 		if (!(PPUMask & 0x4)) {
@@ -368,7 +371,20 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 				continue;
 			}
 		}
+		
+		if (SpriteBuffer[curXPos][ypos] != 0)
+		{
+			curXPos++;
+			continue;
+		}
+		
+		if (curXPos >= 0 && curXPos <= 255) //Sanity, should always be as such
+			SpriteBuffer[curXPos][ypos] = pixel;
 
+		if (((BackgroundBuffer[curXPos][ypos] & 0xFFFFF) != 0) && (attributein & 0x20)) {
+			curXPos++;
+			continue;
+		}
 		//CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
 		if ((pixel!= 0) && curXPos >=0 && curXPos <= 255) {
 			
@@ -604,6 +620,7 @@ void PPULoop() {
 		//PPUCtrl &= ~0x3;
 		ZeroBuffer();
 		memset(BackgroundBuffer, 0, sizeof(BackgroundBuffer));
+		memset(SpriteBuffer, 0, sizeof(SpriteBuffer));		
 		zerospritehitenable = true;
 		StartDrawing();
 		CPU_LOG("PPU T Update Start Drawing\n");
