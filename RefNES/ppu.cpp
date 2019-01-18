@@ -21,6 +21,7 @@ unsigned int zerospritecountdown = 0;
 unsigned int BackgroundBuffer[256][240];
 unsigned int SpriteBuffer[256][240];
 unsigned short t = 0;
+unsigned short addr = 0;
 unsigned short x = 0;
 bool tfirstwrite = true;
 
@@ -45,19 +46,19 @@ unsigned int masterPalette[64] = {  0xff545454, 0xFF001E74, 0xFF081090, 0xFF3000
 #define TFINEYSCROLLW(v) (VRAMRamAddress = (VRAMRamAddress & ~(0x7 << 12)) | ((v & 0x7) << 12))
 #define TFINEXSCROLLW(v) (x = v)
 #else
-#define TCOARSEXSCROLL ((t & 0x1f))
-#define TCOARSEYSCROLL ((t >> 5) & 0x1f)
-#define TNAMETABLE ((t >> 10) & 0x3)
-#define TFINEYSCROLL ((t >> 12) & 0x7)
+#define TCOARSEXSCROLL ((addr & 0x1f))
+#define TCOARSEYSCROLL ((addr >> 5) & 0x1f)
+#define TNAMETABLE ((addr >> 10) & 0x3)
+#define TFINEYSCROLL ((addr >> 12) & 0x7)
 #define TFINEXSCROLL (x)
-#define TXSCROLL (((t & 0x1f) << 3) | x)
+#define TXSCROLL (((addr & 0x1f) << 3) | x)
 #define TYSCROLL ((TCOARSEYSCROLL << 3) | TFINEYSCROLL)
 
 //Writeback
-#define TCOARSEXSCROLLW(v) (t = (t & ~0x1f) | (v & 0x1f))
-#define TCOARSEYSCROLLW(v) (t = (t & ~(0x1f << 5)) | ((v & 0x1f) << 5))
-#define TNAMETABLEW(v) (t = (t & ~(0x3 << 10)) | ((v & 0x3) << 10))
-#define TFINEYSCROLLW(v) (t = (t & ~(0x7 << 12)) | ((v & 0x7) << 12))
+#define TCOARSEXSCROLLW(v) (addr = (addr & ~0x1f) | (v & 0x1f))
+#define TCOARSEYSCROLLW(v) (addr = (addr & ~(0x1f << 5)) | ((v & 0x1f) << 5))
+#define TNAMETABLEW(v) (addr = (addr & ~(0x3 << 10)) | ((v & 0x3) << 10))
+#define TFINEYSCROLLW(v) (addr = (addr & ~(0x7 << 12)) | ((v & 0x7) << 12))
 #define TFINEXSCROLLW(v) (x = v)
 #endif
 
@@ -177,12 +178,12 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			
 			if (PPUCtrl & 0x4) { //Increment
 				VRAMRamAddress += 32;
-				//t = VRAMRamAddress;// VRAMRamAddress;//(t & ~(0x1f << 5)) | ((TCOARSEYSCROLL + 1 & 0x1f) << 5);
+				t = VRAMRamAddress;// VRAMRamAddress;//(t & ~(0x1f << 5)) | ((TCOARSEYSCROLL + 1 & 0x1f) << 5);
 				}
 			else {
 				
 				VRAMRamAddress++;
-				//t = VRAMRamAddress;// VRAMRamAddress; //(t & ~0x1f) | ((TCOARSEXSCROLL + 1) & 0x1f);
+			    t = VRAMRamAddress;// VRAMRamAddress; //(t & ~0x1f) | ((TCOARSEXSCROLL + 1) & 0x1f);
 			}		
 			break;
 	}
@@ -255,7 +256,6 @@ unsigned char PPUReadReg(unsigned short address) {
 		if (PPUCtrl & 0x4) { //Increment
 			VRAMRamAddress += 32;
 			//t = VRAMRamAddress;// VRAMRamAddress;//(t & ~(0x1f << 5)) | ((TCOARSEYSCROLL + 1 & 0x1f) << 5);
-			//t += 32;
 		}
 		else {
 
@@ -621,8 +621,9 @@ void PPULoop() {
 		StartDrawing();
 		CPU_LOG("PPU T Update Start Drawing\n");
 		MMC3IRQCountdown();
-		//t = VRAMRamAddress;
-		VRAMRamAddress = t;
+
+        addr = t;
+		//VRAMRamAddress = t;
 	}
 
 	if (scanline == (scanlinesperframe - (vBlankInterval + 1))) {
@@ -635,16 +636,16 @@ void PPULoop() {
 		//CPU_LOG("Drawing Scanline %d", scanline);
 	    
 		PPUDrawScanline();
-		t &= ~0x41F;
-		t |= VRAMRamAddress & 0x41F;
+        addr &= ~0x41F;
+        addr |= t & 0x41F;
 		MMC3IRQCountdown();
 	}
 	
 	if (scanline == (scanlinesperframe - 1))
 	{
 		CPU_LOG("VBLANK End\n");
-		t &= ~0x7BE0;
-		t |= VRAMRamAddress & 0x7BE0;
+        addr &= ~0x7BE0;
+        addr |= t & 0x7BE0;
 	}
 	if (zerospriteirq == true) {
 		zerospriteirq = false;
@@ -656,7 +657,6 @@ void PPULoop() {
 		scanline = 0;	
 		DrawScreen();
 		EndDrawing();
-		
 	}
 	
 	
