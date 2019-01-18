@@ -169,8 +169,13 @@ void MapperHandler(unsigned short address, unsigned char value) {
 			if ((address & 0xe000) == 0x8000) { //Control register
 				CPU_LOG("MAPPER MMC1 Write to control reg %x\n", MMCbuffer);
 				MMCcontrol = MMCbuffer;
-				if ((MMCcontrol & 0x3) == 2) flags6 |= 1;
-				else flags6 &= ~1;
+                /*
+                {*/
+                    if ((MMCcontrol & 0x1)) flags6 &= ~1; 
+                    else flags6 |= 1;
+               /* }*/
+               if (!(MMCcontrol & 0x2))
+                   singlescreen |= 1;
 			}
 			if ((address & 0xe000) == 0xA000) { //Change program rom in upper bits
 				if (!(value & 0x80)) {

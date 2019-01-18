@@ -5,6 +5,7 @@
 extern unsigned char prgsize;
 extern unsigned char chrsize;
 extern unsigned char flags6;
+extern unsigned char singlescreen;
 extern unsigned char flags10;
 extern unsigned char mapper;
 

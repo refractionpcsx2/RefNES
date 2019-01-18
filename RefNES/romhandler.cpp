@@ -8,6 +8,7 @@
 unsigned char prgsize;
 unsigned char chrsize;
 unsigned char flags6;
+unsigned char singlescreen;
 unsigned char flags10;
 unsigned char mapper;
 
@@ -41,6 +42,7 @@ int LoadRom(const char *Filename) {
 			prgsize = ROMHeader[4];
 			chrsize = ROMHeader[5];
 			flags6 = ROMHeader[6];
+            singlescreen = 0;
 			flags10 = ROMHeader[10];
 			mapper = ((ROMHeader[6] >> 4) & 0xF) | (ROMHeader[7] & 0xF0);
 

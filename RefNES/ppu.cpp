@@ -116,8 +116,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			}
 			CPU_LOG("PPU T Update 2005 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, x & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
 			break;
-		case 0x06: //VRAM Address			
-			//VRAMRamAddress = value | ((VRAMRamAddress & 0xFF) << 8);	
+		case 0x06: //VRAM Address
 			if (tfirstwrite == true) {
 				tfirstwrite = false;
 				t &= ~0xFF00;
@@ -136,11 +135,6 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			if(scanline != 0)
 		 	   CPU_LOG("PPU T Update Write to VRAM Address %x value %x on scanline %d\n", VRAMRamAddress, value, scanline);
 			unsigned short vramlocation = VRAMRamAddress;
-			
-			/*if (vramlocation >= 0x4000) {
-				//CPU_LOG("BANANA VRAM Memory going crazy!");
-				vramlocation = vramlocation & 0x3FFF;
-			}*/
 
 			if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
 				vramlocation = vramlocation - 0x10;
@@ -151,41 +145,38 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			if (vramlocation > 0x3F20 && vramlocation <= 0x3FFF) {
 				vramlocation &= 0x3F1F;
 			}
-			
-			/*if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
-				vramlocation -= 0x800;
-			}*/
 
-			if ((flags6 & 0x1)) {
-				if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
-					vramlocation -= 0x800;
-				}
-			}
-			else {
-				if ((vramlocation >= 0x2400) && (vramlocation < 0x3000)) {
-					vramlocation &= ~0x400;
-				}
-			}
-			/*if (vramlocation < 0x2000) {
-				CPU_LOG("PPU T Update writing to CHR-ROM Area %x", VRAMRamAddress);
-				if (PPUCtrl & 0x4) { //Increment
-					VRAMRamAddress += 32;
-				}
-				else VRAMRamAddress++;
-				return;
-			}*/
+            if (vramlocation >= 0x2000 && vramlocation < 0x3000)
+            {
+                if (singlescreen)
+                {
+                    vramlocation &= ~0xC00;
+                }
+                else if ((flags6 & 0x1)) {
+                    if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
+                        vramlocation -= 0x800;
+                    }
+                }
+                else {
+                    if ((vramlocation & 0x400)) {
+                        vramlocation &= ~0x400;
+                    }
+                    if (vramlocation >= 0x2800) {
+                        vramlocation &= ~0x800;
+                        vramlocation += 0x400;
+                    }
+                    
+                }
+            }
 			PPUMemory[vramlocation] = value;
 			
 			
 			if (PPUCtrl & 0x4) { //Increment
 				VRAMRamAddress += 32;
-				//t = VRAMRamAddress;// VRAMRamAddress;//(t & ~(0x1f << 5)) | ((TCOARSEYSCROLL + 1 & 0x1f) << 5);
 				}
-			else {
-				
-				VRAMRamAddress++;
-			   // t = VRAMRamAddress;// VRAMRamAddress; //(t & ~0x1f) | ((TCOARSEXSCROLL + 1) & 0x1f);
-			}		
+            else {
+                VRAMRamAddress++;
+            }
 			break;
 	}
 	lastwrite = value;
@@ -196,7 +187,7 @@ unsigned char PPUReadReg(unsigned short address) {
 	unsigned char value;
 	unsigned short vramlocation = VRAMRamAddress;
 
-	switch (address & 0x7) {	
+	switch (address & 0x7) {
 	case 0x02: //PPU Status 
 		value = PPUStatus & 0xE0 | lastwrite & 0x1F;
 		PPUStatus &= ~0x80;
@@ -226,16 +217,29 @@ unsigned char PPUReadReg(unsigned short address) {
 		if (vramlocation > 0x3F20 && vramlocation <= 0x3FFF) {
 			vramlocation &= 0x3F1F;
 		}
-		if ((flags6 & 0x1)) {
-			if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
-				vramlocation -= 0x800;
-			}
-		}
-		else {
-			if ((vramlocation >= 0x2400) && (vramlocation < 0x3000)) {
-				vramlocation &= ~0x400;
-			}
-		}
+		
+        if (vramlocation >= 0x2000 && vramlocation < 0x3000)
+        {
+            if (singlescreen)
+            {
+            vramlocation &= ~0xC00;
+            }
+            else if ((flags6 & 0x1)) {
+                if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
+                    vramlocation -= 0x800;
+                }
+            }
+            else {
+                if ((vramlocation & 0x400)) {
+                    vramlocation &= ~0x400;
+                }
+                if (vramlocation >= 0x2800) {
+                    vramlocation &= ~0x800;
+                    vramlocation += 0x400;
+                }
+
+            }
+        }
 
 		if (mapper == 9) {
 			if (vramlocation == 0xFD8)
@@ -256,16 +260,12 @@ unsigned char PPUReadReg(unsigned short address) {
 
 		if (PPUCtrl & 0x4) { //Increment
 			VRAMRamAddress += 32;
-			//t = VRAMRamAddress;// VRAMRamAddress;//(t & ~(0x1f << 5)) | ((TCOARSEYSCROLL + 1 & 0x1f) << 5);
 		}
 		else {
 
 			VRAMRamAddress++;
-			//t = VRAMRamAddress;// VRAMRamAddress; //(t & ~0x1f) | ((TCOARSEXSCROLL + 1) & 0x1f);
-			//t += 1;
 		}
-
-		break;
+        break;
 	case 0x00: //PPU Control (write only)
 	case 0x01: //PPU Mask (write only)
 	case 0x03: //SPR (OAM) Ram Address (write only)
@@ -275,7 +275,7 @@ unsigned char PPUReadReg(unsigned short address) {
 		value = PPUStatus & 0xE0 | lastwrite & 0x1F;
 		//This is apparently garbage that gets returned, the lower 5 bits are the lower 5 bits of the PPU status register, 
 		//the upper 2 bits are pallate values. Lets just return the status reg unless we get problems.
-		break;	
+		break;
 	}
 	CPU_LOG("PPU Reg Read %x value %x\n", 0x2000 + (address & 0x7), value);
 	return value;
@@ -298,10 +298,10 @@ void DrawBGPixel(unsigned int YPos, unsigned int XPos, unsigned int pixel_lb, un
 				continue;
 			}
 		}
+
 		//Get 8 palette colour indicies
 		paletteaddr = 0x3F01 + (((attributein >> ((7- offset)*2)) & 0x3) * 4);
 		palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr + 1] << 16) | (PPUMemory[paletteaddr + 2] << 24);
-
 
 		pixel = ((pixel_lb & 0x1) | ((pixel_ub & 0x1) << 1));
 		pixel_lb >>= 1;
@@ -356,7 +356,6 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 		}
 		final_pixel = masterPalette[(palette >> (pixel * 8)) & 0xFF];
 
-		
 		if (zerosprite == true && pixel != 0 && zerospritehitenable == true) {
 			if (BackgroundBuffer[curXPos][ypos] != 0) {
 				//Zero Sprite hit
@@ -366,15 +365,13 @@ void DrawPixel(unsigned int xpos, unsigned int ypos, unsigned int pixel_lb, unsi
 			}
 		}
 
-		
-		
 		if (SpriteBuffer[curXPos][ypos] != 0)
 		{
 			curXPos++;
 			continue;
 		}
 
-		//Priority		
+		//Priority
 		if (curXPos >= 0 && curXPos <= 255) //Sanity, should always be as such
 			SpriteBuffer[curXPos][ypos] = pixel;
 
@@ -429,27 +426,27 @@ void FetchBackgroundTile(unsigned int YPos) {
 
 		//Pixels across
 		for (int j = 0; j < 8; j++) {
-
-			if (nameTable == 0) {
+            //flags6(0) = vertical mirroring
+			if (nameTable == 0 || singlescreen) {
 				BaseNametable = 0x2000;
 			}
-			if (nameTable == 1) {
+            else if (nameTable == 1) {
 				if((flags6 & 0x1))
 					BaseNametable = 0x2400;
 				else
 					BaseNametable = 0x2000;
 			}
-			if (nameTable == 2) {
+            else if (nameTable == 2) {
 				if ((flags6 & 0x1))
 					BaseNametable = 0x2000;
 				else
-					BaseNametable = 0x2800;
+					BaseNametable = 0x2400;
 			}
-			if (nameTable == 3) {
+            else if (nameTable == 3) {
 				if ((flags6 & 0x1))
 					BaseNametable = 0x2400;
 				else
-					BaseNametable = 0x2800;
+					BaseNametable = 0x2400;
 			}
 			nameTableVerticalAddress = BaseNametable + ((coarseYScroll) * 32); //Get vertical position for nametable
 			nameTableAddress = nameTableVerticalAddress + coarseXScroll; //Get horizontal position
@@ -493,7 +490,7 @@ void FetchBackgroundTile(unsigned int YPos) {
 		DrawBGPixel(YPos, i * 8, lowerBits, upperBits, attributeInfo, false, false);
 	}
 
-	//Increment the Y value	
+	//Increment the Y value
 	
 	if (fineYScroll == 7) { //fine scroll has looped so increment the coarse
 		fineYScroll = 0;
@@ -534,7 +531,6 @@ void FetchSpriteTile(unsigned int YPos) {
 	if (YPos == 0)
 		return;
 
-	
 	unsigned int foundsprites = 0;
 	for (int s = 0; s < 256; s += 4) {
 		if ((SPRMemory[s]) <= YPosition && ((SPRMemory[s]) + spriteheight) >= YPosition) {
@@ -617,14 +613,11 @@ void PPULoop() {
 		//PPUCtrl &= ~0x3;
 		ZeroBuffer();
 		memset(BackgroundBuffer, 0, sizeof(BackgroundBuffer));
-		memset(SpriteBuffer, 0, sizeof(SpriteBuffer));		
+		memset(SpriteBuffer, 0, sizeof(SpriteBuffer));
 		zerospritehitenable = true;
 		StartDrawing();
 		CPU_LOG("PPU T Update Start Drawing\n");
 		MMC3IRQCountdown();
-
-        
-		//VRAMRamAddress = t;
 	}
 
 	if (scanline == (scanlinesperframe - (vBlankInterval + 1))) {
@@ -633,9 +626,8 @@ void PPULoop() {
 		
 	} else
 	if (scanline > 0 && scanline < (scanlinesperframe - (vBlankInterval + 1))) {
-		//DrawScanline(scanline);
 		//CPU_LOG("Drawing Scanline %d", scanline);
-	    
+
 		PPUDrawScanline();
         addr &= ~0x41F;
         addr |= t & 0x41F;
@@ -655,7 +647,7 @@ void PPULoop() {
 	scanline++;
 	dotCycles += 341;
 	if (scanline == scanlinesperframe) {
-		scanline = 0;	
+		scanline = 0;
 		DrawScreen();
 		EndDrawing();
 	}
