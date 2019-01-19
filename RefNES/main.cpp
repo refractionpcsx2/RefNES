@@ -250,7 +250,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					//CPU Loop
 					
 
-					if (dotCycles > nextCpuCycle ) {
+					if (dotCycles > nextCpuCycle) {
 						
 						CPULoop();
 						nextCpuCycle = cpuCycles * 3;
@@ -270,10 +270,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 							counter = time(NULL);
 							fps2 = 0;
 						}
-						if (dotCycles > 1000000) {
-							nextCpuCycle -= 500000;
-							dotCycles -= 500000;
-							cpuCycles -= 500000 / 3;
+						if (cpuCycles >= 1000000) {
+                            cpuCycles -= 900000;
+							dotCycles -= 2700000;
+                            nextCpuCycle -= 2700000;
 						}
 						//CPU_LOG("Master: %x, Next PPU at %x", dotCycles, nextCpuCycle);
 					}

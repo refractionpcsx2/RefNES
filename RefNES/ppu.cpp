@@ -139,7 +139,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
 				vramlocation = vramlocation - 0x10;
 			}
-			if (vramlocation > 0x3000 && vramlocation <= 0x3EFF) {
+			if (vramlocation >= 0x3000 && vramlocation <= 0x3EFF) {
 				vramlocation &= ~0x1000;
 			}
 			if (vramlocation > 0x3F20 && vramlocation <= 0x3FFF) {
@@ -148,6 +148,18 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 
             if (vramlocation >= 0x2000 && vramlocation < 0x3000)
             {
+                if (mapper == 7)
+                {
+                    if (singlescreen)
+                    {
+                        vramlocation = 0x2400 | (vramlocation & 0x3FF);
+                    }
+                    else
+                    {
+                        vramlocation = 0x2000 | (vramlocation & 0x3FF);
+                    }
+                }
+                else
                 if (singlescreen)
                 {
                     vramlocation &= ~0xC00;
@@ -173,7 +185,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			
 			if (PPUCtrl & 0x4) { //Increment
 				VRAMRamAddress += 32;
-				}
+			}
             else {
                 VRAMRamAddress++;
             }
@@ -185,7 +197,6 @@ unsigned char cachedvramread = 0;
 
 unsigned char PPUReadReg(unsigned short address) {
 	unsigned char value;
-	unsigned short vramlocation = VRAMRamAddress;
 
 	switch (address & 0x7) {
 	case 0x02: //PPU Status 
@@ -203,68 +214,83 @@ unsigned char PPUReadReg(unsigned short address) {
 		}
 		break;
 	case 0x07: //VRAM Data
-		if (vramlocation >= 0x4000) {
-			CPU_LOG("BANANA VRAM Memory going crazy!");
-			vramlocation = vramlocation & 0x3FFF;
-		}
-
-		if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
-			vramlocation = vramlocation - 0x10;
-		}
-		if (vramlocation > 0x3000 && vramlocation <= 0x3EFF) {
-			vramlocation &= ~0x1000;
-		}
-		if (vramlocation > 0x3F20 && vramlocation <= 0x3FFF) {
-			vramlocation &= 0x3F1F;
-		}
-		
-        if (vramlocation >= 0x2000 && vramlocation < 0x3000)
         {
-            if (singlescreen)
-            {
-            vramlocation &= ~0xC00;
+            unsigned short vramlocation = VRAMRamAddress;
+
+            if (vramlocation >= 0x4000) {
+                CPU_LOG("BANANA VRAM Memory going crazy!");
+                vramlocation = vramlocation & 0x3FFF;
             }
-            else if ((flags6 & 0x1)) {
-                if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
-                    vramlocation -= 0x800;
+
+            if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
+                vramlocation = vramlocation - 0x10;
+            }
+            if (vramlocation >= 0x3000 && vramlocation <= 0x3EFF) {
+                vramlocation &= ~0x1000;
+            }
+            if (vramlocation >= 0x3F20 && vramlocation <= 0x3FFF) {
+                vramlocation &= 0x3F1F;
+            }
+
+            if (vramlocation >= 0x2000 && vramlocation < 0x3000)
+            {
+                if (mapper == 7)
+                {
+                    if (singlescreen)
+                    {
+                        vramlocation = 0x2400 | (vramlocation & 0x3FF);
+                    }
+                    else
+                    {
+                        vramlocation = 0x2000 | (vramlocation & 0x3FF);
+                    }
                 }
+                else
+                if (singlescreen)
+                {
+                    vramlocation &= ~0xC00;
+                }
+                else if ((flags6 & 0x1)) {
+                    if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
+                        vramlocation -= 0x800;
+                    }
+                }
+                else {
+                    if ((vramlocation & 0x400)) {
+                        vramlocation &= ~0x400;
+                    }
+                    if (vramlocation >= 0x2800) {
+                        vramlocation &= ~0x800;
+                        vramlocation += 0x400;
+                    }
+
+                }
+            }
+
+            if (mapper == 9) {
+                if (vramlocation == 0xFD8)
+                    MMC2SetLatch(0, 0xFD);
+
+                if (vramlocation == 0xFE8)
+                    MMC2SetLatch(0, 0xFE);
+
+                if (vramlocation >= 0x1FD8 && vramlocation <= 0x1FDF)
+                    MMC2SetLatch(1, 0xFD);
+
+                if (vramlocation >= 0x1FE8 && vramlocation <= 0x1FEF)
+                    MMC2SetLatch(1, 0xFE);
+
+            }
+            value = cachedvramread;
+            cachedvramread = PPUMemory[vramlocation];
+
+            if (PPUCtrl & 0x4) { //Increment
+                VRAMRamAddress += 32;
             }
             else {
-                if ((vramlocation & 0x400)) {
-                    vramlocation &= ~0x400;
-                }
-                if (vramlocation >= 0x2800) {
-                    vramlocation &= ~0x800;
-                    vramlocation += 0x400;
-                }
-
+                VRAMRamAddress++;
             }
         }
-
-		if (mapper == 9) {
-			if (vramlocation == 0xFD8)
-				MMC2SetLatch(0, 0xFD);
-
-			if (vramlocation == 0xFE8)
-				MMC2SetLatch(0, 0xFE);
-
-			if (vramlocation >= 0x1FD8 && vramlocation <= 0x1FDF)
-				MMC2SetLatch(1, 0xFD);
-
-			if (vramlocation >= 0x1FE8 && vramlocation <= 0x1FEF)
-				MMC2SetLatch(1, 0xFE);
-		
-		}
-		value = cachedvramread;
-		cachedvramread = PPUMemory[vramlocation];
-
-		if (PPUCtrl & 0x4) { //Increment
-			VRAMRamAddress += 32;
-		}
-		else {
-
-			VRAMRamAddress++;
-		}
         break;
 	case 0x00: //PPU Control (write only)
 	case 0x01: //PPU Mask (write only)
@@ -426,28 +452,44 @@ void FetchBackgroundTile(unsigned int YPos) {
 
 		//Pixels across
 		for (int j = 0; j < 8; j++) {
-            //flags6(0) = vertical mirroring
-			if (nameTable == 0 || singlescreen) {
-				BaseNametable = 0x2000;
-			}
-            else if (nameTable == 1) {
-				if((flags6 & 0x1))
-					BaseNametable = 0x2400;
-				else
-					BaseNametable = 0x2000;
-			}
-            else if (nameTable == 2) {
-				if ((flags6 & 0x1))
-					BaseNametable = 0x2000;
-				else
-					BaseNametable = 0x2400;
-			}
-            else if (nameTable == 3) {
-				if ((flags6 & 0x1))
-					BaseNametable = 0x2400;
-				else
-					BaseNametable = 0x2400;
-			}
+
+            if (mapper == 7)
+            {
+                if (singlescreen)
+                {
+                    BaseNametable = 0x2400;
+                }
+                else
+                {
+                    BaseNametable = 0x2000;
+                }
+            }
+            else
+            {
+                //flags6(0) = vertical mirroring
+                if (nameTable == 0 || (singlescreen)) {
+                    BaseNametable = 0x2000;
+                }
+                else if (nameTable == 1) {
+                    if ((flags6 & 0x1))
+                        BaseNametable = 0x2400;
+                    else
+                        BaseNametable = 0x2000;
+                }
+                else if (nameTable == 2) {
+                    if ((flags6 & 0x1))
+                        BaseNametable = 0x2000;
+                    else
+                        BaseNametable = 0x2400;
+                }
+                else if (nameTable == 3) {
+                    if ((flags6 & 0x1))
+                        BaseNametable = 0x2400;
+                    else
+                        BaseNametable = 0x2400;
+                }
+            }
+            
 			nameTableVerticalAddress = BaseNametable + ((coarseYScroll) * 32); //Get vertical position for nametable
 			nameTableAddress = nameTableVerticalAddress + coarseXScroll; //Get horizontal position
 

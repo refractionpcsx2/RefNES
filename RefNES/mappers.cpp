@@ -240,7 +240,9 @@ void MapperHandler(unsigned short address, unsigned char value) {
 		}
 	}
 	if (mapper == 7) { //AOROM
-		Change32KPRG(value);
+        CPU_LOG("MAPPER AOROM PRG Select %d\n", value);
+        singlescreen = (value & 0x10) >> 4;
+		Change32KPRG(value & 0xf);
 	}
 	if (mapper == 9) { //MMC2
 		MMCcontrol |= 0x10;
@@ -275,7 +277,8 @@ void MapperHandler(unsigned short address, unsigned char value) {
 			break;
 		case 0xF000:
 			CPU_LOG("MAPPER MMC2 Set nametable mirroring %d\n", ~value & 0x1);
-			flags6 = ~(value & 0x1);
+            if ((value & 0x1)) flags6 &= ~1;
+            else flags6 |= 1;
 			break;
 		}
 	}
