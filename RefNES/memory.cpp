@@ -28,6 +28,7 @@ void CopyRomToMemory() {
 	if (prgsize > 1) {
 		if (mapper == 9) {
 			memcpy(&CPUMemory[0x8000], ROMCart, 0x2000);
+            //prg size is 16kb, multiply it by 2 to get 8k sizes, -3 for last 3
 			memcpy(&CPUMemory[0xA000], ROMCart + (((prgsize * 2) - 3) * 8192), 0x6000);
 		}
 		else {

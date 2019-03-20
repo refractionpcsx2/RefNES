@@ -271,18 +271,17 @@ unsigned char PPUReadReg(unsigned short address) {
             }
 
             if (mapper == 9) {
-                if (vramlocation == 0xFD8)
+                if (vramlocation >= 0xFD0 && vramlocation <= 0x0FDF)
                     MMC2SetLatch(0, 0xFD);
 
-                if (vramlocation == 0xFE8)
+                if (vramlocation >= 0xFD0 && vramlocation <= 0x0FDF)
                     MMC2SetLatch(0, 0xFE);
 
-                if (vramlocation >= 0x1FD8 && vramlocation <= 0x1FDF)
-                    MMC2SetLatch(1, 0xFD);
+                if (vramlocation >= 0x1FD0 && vramlocation <= 0x1FDF)
+                    MMC2SetLatch(0, 0xFD);
 
                 if (vramlocation >= 0x1FE8 && vramlocation <= 0x1FEF)
-                    MMC2SetLatch(1, 0xFE);
-
+                    MMC2SetLatch(0, 0xFE);
             }
             value = cachedvramread;
             cachedvramread = PPUMemory[vramlocation];
@@ -508,12 +507,29 @@ void FetchBackgroundTile(unsigned int YPos) {
 	     	attributeTableBaseAddress = BaseNametable + 0x3c0 +  ((coarseYScroll / 4) * 8); //Get vertical position of attribute table
 			attributeAddress = attributeTableBaseAddress + ((coarseXScroll) / 4);
 
-			tileNumber = PPUMemory[nameTableAddress]; //Fetch tile number to load pixels from
+            tileNumber = PPUMemory[nameTableAddress]; //Fetch tile number to load pixels from
 
+            unsigned int patternlower = patternTableBaseAddress + (tileNumber * 16);
+            unsigned int patternupper = patternTableBaseAddress + 8 + (tileNumber * 16);
+
+            if (mapper == 9) {
+                if ((patternlower >= 0xFD0 && patternlower <= 0x0FDF) || (patternupper >= 0xFD0 && patternupper <= 0x0FDF))
+                    MMC2SetLatch(0, 0xFD);
+
+                if ((patternlower >= 0xFE0 && patternlower <= 0x0FEF) || (patternupper >= 0xFE0 && patternupper <= 0x0FEF))
+                    MMC2SetLatch(0, 0xFE);
+
+                if ((patternlower >= 0x1FD0 && patternlower <= 0x1FDF) || (patternupper >= 0x1FD0 && patternupper <= 0x1FDF))
+                    MMC2SetLatch(0, 0xFD);
+
+                if ((patternlower >= 0x1FE8 && patternlower <= 0x1FEF) || (patternupper >= 0x1FE8 && patternupper <= 0x1FEF))
+                    MMC2SetLatch(0, 0xFE);
+            }
+            
 			//Read pixel bit values for upper and lower bits
-			lowerBits = lowerBits | ((PPUMemory[patternTableBaseAddress + (tileNumber * 16)] >> (7-fineXScroll)) & 0x1) << j;
-			upperBits = upperBits | ((PPUMemory[patternTableBaseAddress + 8 + (tileNumber * 16)] >> (7-fineXScroll)) & 0x1) << j;
-
+			lowerBits = lowerBits | ((PPUMemory[patternlower] >> (7-fineXScroll)) & 0x1) << j;
+			upperBits = upperBits | ((PPUMemory[patternupper] >> (7-fineXScroll)) & 0x1) << j;
+            
 			//Read attribute bits
 			attributeInfo <<= 2;
 			
