@@ -73,15 +73,21 @@ unsigned short MemAddrAbsolute(bool iswrite) {
 	CPU_LOG("Absolute Mem %x PC = %x \n", fulladdress, PC);
 #endif
 	PCInc = 3;
-    cpuCycles += 2;
+
+    //Should be 2 on write, but it breaks SMB3 but this is ok for now
+    //Needs investigation
+    if (iswrite == false)
+        cpuCycles += 2;
+    else
+        cpuCycles += 1;
 
 	return fulladdress;
 
 }
 
-unsigned short MemAddrAbsoluteY(bool iswrite) {
+unsigned short MemAddrAbsoluteY(bool iswrite, bool haspenalty) {
 	unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]);
-    if ((fulladdress & 0xFF00) != ((fulladdress + Y) & 0xFF00) && !iswrite)
+    if ((fulladdress & 0xFF00) != ((fulladdress + Y) & 0xFF00) && !iswrite && haspenalty)
         cpuCycles += 1;
 
     fulladdress += Y;
@@ -96,9 +102,9 @@ unsigned short MemAddrAbsoluteY(bool iswrite) {
 	return fulladdress;
 }
 
-unsigned short MemAddrAbsoluteX(bool iswrite) {
+unsigned short MemAddrAbsoluteX(bool iswrite, bool haspenalty) {
     unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]);
-    if ((fulladdress & 0xFF00) != ((fulladdress + X) & 0xFF00) && !iswrite)
+    if ((fulladdress & 0xFF00) != ((fulladdress + X) & 0xFF00) && !iswrite && haspenalty)
         cpuCycles += 1;
 
     fulladdress += X;
@@ -128,12 +134,12 @@ unsigned short MemAddrPreIndexed(bool iswrite) {
 	return fulladdress;
 }
 
-unsigned short MemAddrPostIndexed(bool iswrite) {
+unsigned short MemAddrPostIndexed(bool iswrite, bool haspenalty) {
 	unsigned short fulladdress;
 	unsigned short address = CPUMemory[PC + 1];
 
 	fulladdress = ((CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF]);
-    if((fulladdress & 0xFF00) != ((fulladdress + Y) & 0xFF00) && !iswrite)
+    if((fulladdress & 0xFF00) != ((fulladdress + Y) & 0xFF00) && !iswrite && haspenalty)
         cpuCycles += 1;
 
     fulladdress += Y;
@@ -190,7 +196,7 @@ unsigned short MemAddrZeroPageIndexed(bool iswrite) {
 
 //Generic memread interfact for use most of the time, determines the standard address modes.
 
-unsigned short memGetAddr(bool iswrite) {
+unsigned short memGetAddr(bool iswrite, bool haspenalty) {
 	unsigned short value;
 
 	switch (Opcode & 0x1C) {
@@ -217,7 +223,7 @@ unsigned short memGetAddr(bool iswrite) {
 		value = MemAddrAbsolute(iswrite);
 		break;
 	case 0x10://Post-indexed indirect (Y)
-		value = MemAddrPostIndexed(iswrite);
+		value = MemAddrPostIndexed(iswrite, haspenalty);
 		break;
 	case 0x14://ZeroPage Indexed, X or Y
 			value = MemAddrZeroPageIndexed(iswrite);
@@ -226,15 +232,15 @@ unsigned short memGetAddr(bool iswrite) {
 		if (!(Opcode & 0x1)) {
 			return 0;
 		}
-		value = MemAddrAbsoluteY(iswrite);
+		value = MemAddrAbsoluteY(iswrite, haspenalty);
 		break;
 	case 0x1C://Absolute,X
 		if ((Opcode & 0x3) > 1 && (Opcode & 0xC0) == 0x80) {
 			//CPU_LOG("BANANA Reading Absolute Y instead of Absolute X Opcode %x", Opcode);
-			value = MemAddrAbsoluteY(iswrite);
+			value = MemAddrAbsoluteY(iswrite, haspenalty);
 		}
 		else {
-			value = MemAddrAbsoluteX(iswrite);
+			value = MemAddrAbsoluteX(iswrite, haspenalty);
 		}
 		break;
 
@@ -243,8 +249,8 @@ unsigned short memGetAddr(bool iswrite) {
 }
 
 /* Generic Interfaces */
-unsigned char memRead() {
-	unsigned short address = memGetAddr(false);
+unsigned char memRead(bool haspenalty) {
+	unsigned short address = memGetAddr(false, haspenalty);
 	//CPU_LOG("Reading from address %x, value %x\n", address, CPUMemory[address]);
 	if (address >= 0x2000 && address < 0x4000) {
 		return PPUReadReg(address);
@@ -264,7 +270,7 @@ unsigned char memRead() {
 }
 
 void memWrite(unsigned char value) {
-	unsigned short address = memGetAddr(true);
+	unsigned short address = memGetAddr(true, false);
 #ifdef MEM_LOGGING
 	CPU_LOG("Writing to address %x, value %x\n", address, value);
 #endif

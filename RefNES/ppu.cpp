@@ -688,9 +688,11 @@ void PPULoop() {
 		memset(BackgroundBuffer, 0, sizeof(BackgroundBuffer));
 		memset(SpriteBuffer, 0, sizeof(SpriteBuffer));
 		zerospritehitenable = true;
+        addr &= ~0x7BE0;
+        addr |= t & 0x7BE0;
 		StartDrawing();
 		CPU_LOG("PPU T Update Start Drawing\n");
-		//MMC3IRQCountdown();
+		MMC3IRQCountdown();
 	}
 
 	if (scanline == (scanlinesperframe - (vBlankInterval + 1)) && scanlinestage == 0) {
@@ -700,30 +702,28 @@ void PPULoop() {
 	} else
 	if (scanline > 0 && scanline < (scanlinesperframe - (vBlankInterval + 1))) {
 		//CPU_LOG("Drawing Scanline %d", scanline);
-        drawsprite = true;
         if (PPUMask & 0x8)
             FetchBackgroundTile(scanline - 1);
 
         if ((PPUMask & 0x10))
             FetchSpriteTile(scanline - 1);
+
+        if (scanlinestage == 0)
+        {
+            MMC3IRQCountdown();
+        }
 	}
 	
 	if (scanline == (scanlinesperframe - 1) && scanlinestage == 0)
 	{
 		CPU_LOG("VBLANK End\n");
-        addr &= ~0x7BE0;
-        addr |= t & 0x7BE0;
-        addr &= ~0x41F;
-        addr |= t & 0x41F;
 	}
 	
 	
     scanlinestage++;
-    if (scanlinestage <= 32)
+    if (scanlinestage < 32)
     {
         dotCycles += 10;
-        if(scanlinestage==1)
-            MMC3IRQCountdown();
     }
     else
     {

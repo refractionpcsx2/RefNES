@@ -15,7 +15,7 @@ unsigned int cpuCycles = 0;
 unsigned int dotCycles = 0; //PPU clock
 int masterCycles = 0;
 unsigned int scanlinesperframe = 262;
-unsigned int vBlankInterval = 20;
+unsigned int vBlankInterval = 21;
 unsigned int masterClock = 21477270;
 unsigned int cpuClock = (masterClock / 12);
 unsigned int ppuClock = (masterClock / 4);
@@ -208,7 +208,7 @@ void cpuBPL() {
 }
 
 void cpuBIT() {
-	unsigned char value = memRead();
+	unsigned char value = memRead(false);
 	
 	P &= ~0xC0;
 	P |= value & 0xC0;
@@ -306,7 +306,7 @@ void cpuCLV() {
 	PC += 1;
 }
 void cpuCPX() {
-	unsigned short memvalue = memRead();
+	unsigned short memvalue = memRead(false);
 
 	memvalue = X - memvalue;
 
@@ -337,7 +337,7 @@ void cpuCPX() {
 #endif
 }
 void cpuCPY() {
-	unsigned short memvalue = memRead();
+	unsigned short memvalue = memRead(false);
 
 	memvalue = Y - memvalue;
 
@@ -562,7 +562,7 @@ void cpuSEI() {
 	PC += 1;
 }
 void cpuSHY() {
-	unsigned char temp = memRead();
+	unsigned char temp = memRead(false);
 	CPU_LOG("SHY Not Implemented\n");
 	temp = memReadPC(PC + 2) + 1;
 	temp &= Y;
@@ -779,8 +779,6 @@ void cpuSBC(){
 	CPU_LOG("SBC Flags=%x ", P);
 #endif
 
-
-
 	if ((temp & 0xff)== 0) {
 		P |= ZERO_FLAG;
 	}
@@ -819,6 +817,7 @@ void cpuSTA() {
 #ifdef CPU_LOGGING
 	CPU_LOG("STA PC=%x\n", PC);
 #endif
+    //cpuCycles -= 1;
 	PC += PCInc;
 }
 
@@ -831,7 +830,7 @@ void cpuASL() {
 		source = A;
 	}
 	else {
-		source = memRead();
+		source = memRead(false);
 	}
 
 	if (source & 0x80) {
@@ -870,7 +869,7 @@ void cpuASL() {
 }
 
 void cpuDEC() {
-	unsigned char memvalue = memRead();
+	unsigned char memvalue = memRead(false);
 	
 	memvalue -= 1;
 
@@ -922,7 +921,7 @@ void cpuDEX() {
 }
 
 void cpuINC() {
-	unsigned char memvalue = memRead();
+	unsigned char memvalue = memRead(false);
 
 	memvalue += 1;
 
@@ -976,7 +975,7 @@ void cpuLSR() {
 		source = A;
 	}
 	else {
-		source = memRead();
+		source = memRead(false);
 	}
 
 	if (source & 0x1) {
@@ -1028,7 +1027,7 @@ void cpuROL() {
 		source = A;
 	}
 	else {
-		source = memRead();
+		source = memRead(false);
 	}
 	//Grab carry bit and clear flag
 	carrybit = (P & CARRY_FLAG);
@@ -1077,7 +1076,7 @@ void cpuROR() {
 		source = A;
 	}
 	else {
-		source = memRead();
+		source = memRead(false);
 	}
 	//Grab carry bit and clear flag
 	carrybit = (P & CARRY_FLAG);
@@ -1133,6 +1132,7 @@ void cpuSTX() {
 #ifdef CPU_LOGGING
 	CPU_LOG("STX PC=%x value %x\n", PC, X);
 #endif
+    //cpuCycles -= 1;
 	PC += PCInc;
 }
 

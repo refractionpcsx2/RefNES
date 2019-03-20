@@ -7,7 +7,7 @@ void LoadRomToMemory(FILE * RomFile, long lSize);
 void CleanUpMem();
 
 /*CPU Memory Reads*/
-unsigned char memRead();
+unsigned char memRead(bool haspenalty = true);
 void memWrite(unsigned char value);
 void MemReset();
 unsigned short memReadPC(unsigned short address);

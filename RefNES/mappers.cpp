@@ -205,37 +205,36 @@ void MapperHandler(unsigned short address, unsigned char value) {
 		Change8KCHR(value);
 	}
 	if (mapper == 4) { //MMC3
-		MMCcontrol |= 0x10; //So we can make use of existing functions
 		switch (address & 0xE001) {
-		case 0x8000: //Bank Select Config
-			CPU_LOG("MAPPER MMC3 Control = %x\n", value);
-			MMCcontrol = value;
-			break;
-		case 0x8001: //Bank Data
-			MMC3ChangePRG(value);
-			break;
-		case 0xA000: //Nametable Mirroring
-			CPU_LOG("MAPPER MMC3 Mirroring set to = %x\n", ~value & 0x1);
-			flags6 = ~(value & 0x1);
-			break;
-		case 0xA001: //PRG RAM Protect (Don't implement, maybe?)
-			break;
-		case 0xC000: //IRQ latch/counter value
-			CPU_LOG("MAPPER MMC3 counter latch = %d\n", value);
-			MMCIRQCounterLatch = value;
-			break;
-		case 0xC001: //IRQ Reload (Any value)
-			CPU_LOG("MAPPER MMC3 IRQ Reload\n");
-			MMCIRQCounter = MMCIRQCounterLatch;
-			break;
-		case 0xE000: //Disable IRQ (any value)
-			CPU_LOG("MAPPER MMC3 Disable IRQ\n");
-			MMCIRQEnable = 0;
-			break;
-		case 0xE001: //Enable IRQ (any value)
-			CPU_LOG("MAPPER MMC3 Enable IRQ\n");
-			MMCIRQEnable = 1;
-			break;
+		    case 0x8000: //Bank Select Config
+			    CPU_LOG("MAPPER MMC3 Control = %x\n", value);
+			    MMCcontrol = value;
+			    break;
+		    case 0x8001: //Bank Data
+			    MMC3ChangePRG(value);
+			    break;
+		    case 0xA000: //Nametable Mirroring
+			    CPU_LOG("MAPPER MMC3 Mirroring set to = %x\n", ~value & 0x1);
+			    flags6 = ~(value & 0x1);
+			    break;
+		    case 0xA001: //PRG RAM Protect (Don't implement, maybe?)
+			    break;
+		    case 0xC000: //IRQ latch/counter value
+			    CPU_LOG("MAPPER MMC3 counter latch = %d\n", value);
+			    MMCIRQCounterLatch = value;
+			    break;
+		    case 0xC001: //IRQ Reload (Any value)
+			    CPU_LOG("MAPPER MMC3 IRQ Reload\n");
+			    MMCIRQCounter = MMCIRQCounterLatch;
+			    break;
+		    case 0xE000: //Disable IRQ (any value)
+			    CPU_LOG("MAPPER MMC3 Disable IRQ\n");
+			    MMCIRQEnable = 0;
+			    break;
+		    case 0xE001: //Enable IRQ (any value)
+			    CPU_LOG("MAPPER MMC3 Enable IRQ\n");
+			    MMCIRQEnable = 1;
+			    break;
 		}
 	}
 	if (mapper == 7) { //AOROM
