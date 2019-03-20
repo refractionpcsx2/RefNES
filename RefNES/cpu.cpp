@@ -28,6 +28,9 @@ void CPUReset() {
 	PC = memReadPC(0xFFFC);
 	SP = 0xFD;
 	P = 0x34;
+    cpuCycles = 0;
+    dotCycles = 0;
+    IOReset();
 	CPUPushAllStack();
 #ifdef CPU_LOGGING
 	CPU_LOG("CPU Reset start PC set to %x\n", PC);
@@ -860,6 +863,8 @@ void cpuASL() {
 	else {
 		memWrite(source);
 	}
+    if (Opcode == 0x06)
+        cpuCycles -= 1;
 	
 	PC += PCInc;
 }
@@ -887,6 +892,8 @@ void cpuDEC() {
 #ifdef CPU_LOGGING
 	CPU_LOG("DEC Result=%x Flags=%x\n", memvalue, P);
 #endif
+    if (Opcode == 0xC6)
+        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -937,6 +944,8 @@ void cpuINC() {
 #ifdef CPU_LOGGING
 	CPU_LOG("INC Result=%x Flags=%x\n", memvalue, P);
 #endif
+    if(Opcode == 0xE6)
+        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -998,6 +1007,8 @@ void cpuLSR() {
 	else {
 		memWrite((unsigned char)source);
 	}
+    if (Opcode == 0x46)
+        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -1052,6 +1063,8 @@ void cpuROL() {
 #ifdef CPU_LOGGING
 	CPU_LOG("ROL Result=%x Flags=%x\n", source, P);
 #endif
+    if (Opcode == 0x26)
+        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -1099,6 +1112,8 @@ void cpuROR() {
 #ifdef CPU_LOGGING
 	CPU_LOG("ROR Result=%x Flags=%x\n", source, P);
 #endif
+    if (Opcode == 0x66)
+        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -1716,6 +1731,7 @@ void CPULoop() {
 	Opcode = memReadValue(PC);
 	PCInc = 1;
 	cpuCycles += 2;
+    updateAPU(cpuCycles);
 	//CPU_LOG("Running Opcode %x PC = %x\n", Opcode, PC);
 	switch (Opcode & 0x3) {
 		case 0x0: //Control Instructions

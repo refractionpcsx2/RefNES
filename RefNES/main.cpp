@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include "main.h"
 #include "cpu.h"
+#include "iohandler.h"
 #include "memory.h"
 #include "romhandler.h"
 /*#define _CRTDBG_MAP_ALLOC
@@ -259,7 +260,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 							 //PPU Loop
 						PPULoop();
 						handleInput();
-						if (scanline == 0) {
+						if (scanline == 0 && scanlinestage == 0) {
 							fps2++;
 							//CPU_LOG("VBLN K%d masterCycles=%d\n", totalvblanks, masterCycles);
 						}
@@ -271,9 +272,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 							fps2 = 0;
 						}
 						if (cpuCycles >= 1000000) {
+                            next_counter_clock -= 900000;
                             cpuCycles -= 900000;
 							dotCycles -= 2700000;
                             nextCpuCycle -= 2700000;
+
 						}
 						//CPU_LOG("Master: %x, Next PPU at %x", dotCycles, nextCpuCycle);
 					}
