@@ -18,11 +18,14 @@ void MMC3IRQCountdown() {
 	if (mapper != 4) return;
 
 	if (MMCIRQEnable == 1) {
-		if (--MMCIRQCounter == 0) {
-			MMCIRQCounter = MMCIRQCounterLatch;
-			CPUPushAllStack();
-			PC = memReadPC(0xFFFE);
-		}
+        if (MMCIRQCounter > 0)
+        {
+            if (--MMCIRQCounter == 0) {
+                //MMCIRQCounter = MMCIRQCounterLatch;
+                CPUPushAllStack();
+                PC = memReadPC(0xFFFE);
+            }
+        }
 	}
 }
 
@@ -221,11 +224,11 @@ void MapperHandler(unsigned short address, unsigned char value) {
 			    break;
 		    case 0xC000: //IRQ latch/counter value
 			    CPU_LOG("MAPPER MMC3 counter latch = %d\n", value);
-			    MMCIRQCounterLatch = value;
+                MMCIRQCounterLatch = value;
 			    break;
 		    case 0xC001: //IRQ Reload (Any value)
 			    CPU_LOG("MAPPER MMC3 IRQ Reload\n");
-			    MMCIRQCounter = MMCIRQCounterLatch;
+                MMCIRQCounter = MMCIRQCounterLatch;
 			    break;
 		    case 0xE000: //Disable IRQ (any value)
 			    CPU_LOG("MAPPER MMC3 Disable IRQ\n");

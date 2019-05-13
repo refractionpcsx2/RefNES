@@ -79,7 +79,7 @@ unsigned short MemAddrAbsolute(bool iswrite) {
     if (iswrite == false)
         cpuCycles += 2;
     else
-        cpuCycles += 1;
+        cpuCycles += 2;
 
 	return fulladdress;
 
