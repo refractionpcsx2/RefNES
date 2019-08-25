@@ -351,7 +351,7 @@ void DrawBGPixel(unsigned int YPos, unsigned int XPos, unsigned int pixel_lb, un
 		  BackgroundBuffer[i][YPos] = pixel;
 
 		if (i >= 0 && i <= 255) {
-			DrawPixelBuffer(YPos, i, final_pixel);
+            ScreenBuffer[i][YPos] = final_pixel;
 		}
 	}
 }
@@ -429,8 +429,7 @@ void DrawPixel(unsigned int xpos, unsigned int scanlinepos, unsigned int ypos, u
 		
 		//CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
 		if ((pixel!= 0) && j >=0 && j <= 255) {
-			
-			DrawPixelBuffer(ypos, j, final_pixel);
+            ScreenBuffer[j][ypos] = final_pixel;
 		}
 	}
 }
