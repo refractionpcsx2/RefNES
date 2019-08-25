@@ -8,7 +8,7 @@ unsigned char SRwrites = 0; //Shift register for MMC1 wrappers
 unsigned char MMCbuffer;
 unsigned char MMCcontrol;
 unsigned char MMCIRQCounterLatch = 0;
-unsigned char MMCIRQCounter = 0;
+unsigned short MMCIRQCounter = 0;
 unsigned char MMCIRQEnable = 0;
 unsigned char MMC2LatchSelector = 0xFE;
 unsigned char MMC2LatchRegsiter1 = 0;
@@ -17,16 +17,22 @@ unsigned char MMC2LatchRegsiter2 = 0;
 void MMC3IRQCountdown() {
 	if (mapper != 4) return;
 
-	if (MMCIRQEnable == 1) {
-        if (MMCIRQCounter > 0)
+    if (MMCIRQCounter > 0)
+    {
+        if (--MMCIRQCounter == 0)
         {
-            if (--MMCIRQCounter == 0) {
-                //MMCIRQCounter = MMCIRQCounterLatch;
-                CPUPushAllStack();
-                PC = memReadPC(0xFFFE);
+            //MMCIRQCounter = MMCIRQCounterLatch;
+            if (MMCIRQEnable == 1) {
+                if (!(P & INTERRUPT_DISABLE_FLAG))
+                {
+                    P |= BREAK_FLAG | (1 << 5);
+                    CPUPushAllStack();
+                    P |= INTERRUPT_DISABLE_FLAG;
+                    PC = memReadPC(0xFFFE);
+                }
             }
         }
-	}
+    }
 }
 
 void MMC3ChangePRG(unsigned char PRGNum) {

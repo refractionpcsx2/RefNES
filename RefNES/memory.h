@@ -8,7 +8,7 @@ void CleanUpMem();
 
 /*CPU Memory Reads*/
 unsigned char memRead(bool haspenalty = true);
-void memWrite(unsigned char value);
+void memWrite(unsigned char value, bool writeonly = false);
 void MemReset();
 unsigned short memReadPC(unsigned short address);
 void memWriteValue(unsigned short address, unsigned char value);

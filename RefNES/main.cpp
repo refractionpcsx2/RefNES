@@ -250,9 +250,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					//if (nextPPUCycle - masterCycles < 1) 
 					//CPU Loop
 					
-
+                    
 					if (dotCycles > nextCpuCycle) {
-						
+                        if (NMITriggered)
+                        {
+                            CPUFireNMI();
+                        }
 						CPULoop();
 						nextCpuCycle = cpuCycles * 3;
 					} else { //Scanline
@@ -272,10 +275,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 							fps2 = 0;
 						}
 						if (cpuCycles >= 1000000) {
-                            next_counter_clock -= 900000;
                             cpuCycles -= 900000;
 							dotCycles -= 2700000;
                             nextCpuCycle -= 2700000;
+                            last_apu_cpucycle -= 900000;
 
 						}
 						//CPU_LOG("Master: %x, Next PPU at %x", dotCycles, nextCpuCycle);

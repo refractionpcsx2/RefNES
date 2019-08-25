@@ -15,10 +15,11 @@ unsigned int cpuCycles = 0;
 unsigned int dotCycles = 0; //PPU clock
 int masterCycles = 0;
 unsigned int scanlinesperframe = 262;
-unsigned int vBlankInterval = 21;
+unsigned int vBlankInterval = 19;
 unsigned int masterClock = 21477270;
 unsigned int cpuClock = (masterClock / 12);
 unsigned int ppuClock = (masterClock / 4);
+bool NMITriggered = false;
 
 
 typedef void(*JumpTable)(void);
@@ -30,6 +31,7 @@ void CPUReset() {
 	P = 0x34;
     cpuCycles = 0;
     dotCycles = 0;
+    NMITriggered = false;
     IOReset();
 	CPUPushAllStack();
 #ifdef CPU_LOGGING
@@ -98,7 +100,7 @@ void cpuBCC() {
 #endif
 
 	if (!(P & CARRY_FLAG)) {
-		if ((newPC & 0xff00) != ((PC+2) & 0xff00)) {
+		if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
 			cpuCycles += 2;
 		}
 		else {
@@ -572,7 +574,7 @@ void cpuSHY() {
 	PC += PCInc;
 }
 void cpuSTY() {
-	memWrite(Y);
+	memWrite(Y, true);
 #ifdef CPU_LOGGING
 	CPU_LOG("STY PC=%x\n", PC);
 #endif
@@ -813,11 +815,10 @@ void cpuSBC(){
 
 void cpuSTA() {
 
-	memWrite(A);
+	memWrite(A, true);
 #ifdef CPU_LOGGING
 	CPU_LOG("STA PC=%x\n", PC);
 #endif
-    //cpuCycles -= 1;
 	PC += PCInc;
 }
 
@@ -862,8 +863,6 @@ void cpuASL() {
 	else {
 		memWrite(source);
 	}
-    if (Opcode == 0x06)
-        cpuCycles -= 1;
 	
 	PC += PCInc;
 }
@@ -891,8 +890,6 @@ void cpuDEC() {
 #ifdef CPU_LOGGING
 	CPU_LOG("DEC Result=%x Flags=%x\n", memvalue, P);
 #endif
-    if (Opcode == 0xC6)
-        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -943,8 +940,6 @@ void cpuINC() {
 #ifdef CPU_LOGGING
 	CPU_LOG("INC Result=%x Flags=%x\n", memvalue, P);
 #endif
-    if(Opcode == 0xE6)
-        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -1006,8 +1001,6 @@ void cpuLSR() {
 	else {
 		memWrite((unsigned char)source);
 	}
-    if (Opcode == 0x46)
-        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -1062,8 +1055,6 @@ void cpuROL() {
 #ifdef CPU_LOGGING
 	CPU_LOG("ROL Result=%x Flags=%x\n", source, P);
 #endif
-    if (Opcode == 0x26)
-        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -1111,8 +1102,6 @@ void cpuROR() {
 #ifdef CPU_LOGGING
 	CPU_LOG("ROR Result=%x Flags=%x\n", source, P);
 #endif
-    if (Opcode == 0x66)
-        cpuCycles -= 1;
 
 	PC += PCInc;
 }
@@ -1128,11 +1117,10 @@ void cpuSHX() {
 }
 
 void cpuSTX() {
-	memWrite(X);
+	memWrite(X, true);
 #ifdef CPU_LOGGING
 	CPU_LOG("STX PC=%x value %x\n", PC, X);
 #endif
-    //cpuCycles -= 1;
 	PC += PCInc;
 }
 
@@ -1213,7 +1201,7 @@ void cpuAHX() {
 	temp = X & A;
 	temp &= 7;
 
-	memWrite(temp);
+	memWrite(temp, true);
 
 	PC += PCInc;
 }
@@ -1222,7 +1210,7 @@ void cpuALR() {
 
 	unsigned char source;
 
-	source = A & memRead();
+	source = A & memRead(false);
 
 	if (source & 0x1) {
 		P |= CARRY_FLAG;
@@ -1252,7 +1240,7 @@ void cpuALR() {
 void cpuANC() {
 	unsigned char temp;
 
-	temp = A & memRead();
+	temp = A & memRead(false);
 	
 	if (temp == 0) {
 		P |= ZERO_FLAG;
@@ -1275,7 +1263,7 @@ void cpuANC() {
 
 void cpuARR() {
 	unsigned char tempbit;
-	unsigned char temp = memRead();
+	unsigned char temp = memRead(false);
 
 	A = temp & A;
 
@@ -1315,7 +1303,7 @@ void cpuARR() {
 void cpuAXS() {
 	unsigned short temp;
 	X &= A;
-	temp = X - memRead();
+	temp = X - memRead(false);
 
 	if (temp < 0x100) {
 		P |= CARRY_FLAG;
@@ -1341,7 +1329,7 @@ void cpuAXS() {
 }
 
 void cpuDCP() {
-	unsigned char memvalue = memRead();
+	unsigned char memvalue = memRead(false);
 	unsigned short temp;
 
 	memvalue -= 1;
@@ -1376,7 +1364,7 @@ void cpuDCP() {
 }
 
 void cpuISC() {
-	unsigned char memvalue = memRead();
+	unsigned char memvalue = memRead(false);
 	unsigned int temp;
 	memvalue += 1;
 
@@ -1416,12 +1404,12 @@ void cpuISC() {
 }
 
 void cpuLAS() {
-	memRead();
+	memRead(false);
 	PC += PCInc;
 }
 
 void cpuLAX() {
-	unsigned char temp = memRead();
+	unsigned char temp = memRead(false);
 		
 	A = temp;
 	X = temp;
@@ -1446,7 +1434,7 @@ void cpuRLA() {
 	unsigned char source;
 	unsigned char carrybit;
 
-	source = memRead();
+	source = memRead(false);
 
 	//Grab carry bit and clear flag
 	carrybit = (P & CARRY_FLAG);
@@ -1495,7 +1483,7 @@ void cpuRRA() {
 	unsigned char source;
 	unsigned char carrybit;
 
-	source = memRead();
+	source = memRead(false);
 
 	//Grab carry bit and clear flag
 	carrybit = (P & CARRY_FLAG);
@@ -1557,7 +1545,7 @@ void cpuSAX() {
 
 	temp = X & A;
 	
-	memWrite(temp);
+	memWrite(temp, true);
 	CPU_LOG("Undocumented SAX\n");
 	PC += PCInc;
 }
@@ -1565,7 +1553,7 @@ void cpuSAX() {
 void cpuSLO() {
 	unsigned short source;
 
-	source = memRead();
+	source = memRead(false);
 
 	if (source & 0x80) {
 		P |= CARRY_FLAG;
@@ -1599,7 +1587,7 @@ void cpuSLO() {
 void cpuSRE() {
 	unsigned short source;
 
-	source = memRead();
+	source = memRead(false);
 
 	if (source & 0x1) {
 		P |= CARRY_FLAG;
@@ -1634,12 +1622,12 @@ void cpuSRE() {
 }
 
 void cpuTAS() {
-	memRead();
+	memRead(false);
 	PC += PCInc;
 }
 
 void cpuXAA() {
-	memRead();
+	memRead(false);
 	PC += PCInc;
 }
 
@@ -1649,7 +1637,7 @@ void cpuNOP() {
 	if (Opcode != 0xEA) {
 		CPU_LOG("Undocumented NOP %x, using memread to get the length right\n", Opcode);
 		//PCInc = 1;
-		memRead();		
+		memRead(false);
 	}
 	else {
 #ifdef CPU_LOGGING
@@ -1727,11 +1715,20 @@ JumpTable CPUUnofficial[64] = { cpuSLO, cpuSLO, cpuANC, cpuSLO, cpuSLO, cpuSLO, 
 								cpuDCP, cpuDCP, cpuAXS, cpuDCP, cpuDCP, cpuDCP, cpuDCP, cpuDCP,
 								cpuISC, cpuISC, cpuSBC, cpuISC, cpuISC, cpuISC, cpuISC, cpuISC };
 
+void CPUFireNMI()
+{
+    CPU_LOG("Executing NMI\n");
+    cpuCycles += 7;
+    P |= BREAK_FLAG | (1 << 5);
+    CPUPushAllStack();
+    P |= INTERRUPT_DISABLE_FLAG;
+    PC = memReadPC(0xFFFA);
+    NMITriggered = false;
+}
 void CPULoop() {
 	Opcode = memReadValue(PC);
 	PCInc = 1;
 	cpuCycles += 2;
-    updateAPU(cpuCycles);
 	//CPU_LOG("Running Opcode %x PC = %x\n", Opcode, PC);
 	switch (Opcode & 0x3) {
 		case 0x0: //Control Instructions
@@ -1750,5 +1747,7 @@ void CPULoop() {
 			//TODO undocumented opcodes
 			break;
 	}
+
+    updateAPU(cpuCycles);
 }
 

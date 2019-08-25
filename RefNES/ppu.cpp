@@ -27,6 +27,7 @@ unsigned short t = 0;
 unsigned short addr = 0;
 unsigned short x = 0;
 bool tfirstwrite = true;
+bool NMIDue = false;
 
 unsigned int masterPalette[64] = {  0xff545454, 0xFF001E74, 0xFF081090, 0xFF300088, 0xFF440064, 0xFF5C0030, 0xFF540400, 0xFF3C1800, 0xFF202A00, 0xFF083A00, 0xFF004000, 0xFF003C00, 0xFF00323C, 0xFF000000, 0xFF000000, 0xFF000000,
 									0xFF989698, 0xFF084CC4, 0xFF3032EC, 0xFF5C1EE4, 0xFF8814B0, 0xFFA01464, 0xFF982220, 0xFF783C00, 0xFF545A00, 0xFF287200, 0xFF087C00, 0xFF007628, 0xFF006678, 0xFF000000, 0xFF000000, 0xFF000000,
@@ -73,6 +74,7 @@ void PPUReset() {
 	PPUMask = 0;
 	PPUStatus = 0xA0;
 	PPUScroll = 0;
+    NMIDue = false;
 	memset(PPUMemory, 0, 0x4000);
 	memset(SPRMemory, 0, 0x100);
 }
@@ -84,6 +86,10 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 
 	switch (address & 0x7) {
 		case 0x00: //PPU Control
+            //If NMI is enabled during VBlank and NMI is triggered
+            if ((PPUStatus & 0x80) && (value & 0x80) && !(PPUCtrl & 0x80)) {
+                NMITriggered = true;
+            }
 			PPUCtrl = value;
 			t &= ~(0x3 << 10);
 			t |= (value & 0x3) << 10;
@@ -91,6 +97,10 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 			break;
 		case 0x01: //PPU Mask
 			PPUMask = value;
+            if (!(PPUMask & 0x8))
+                vBlankInterval = 15;
+            else
+                vBlankInterval = 19;
 			break;
 		case 0x02: //PPU Status (read only)
 			CPU_LOG("Attempt to write to status register\n");
@@ -674,13 +684,6 @@ void PPUDrawScanline() {
 void PPULoop() {
     bool drawsprite = false;
 	
-	if (scanline == (scanlinesperframe - (vBlankInterval + 1) + 1) && scanlinestage == 0) {
-		if ((PPUStatus & 0x80) && (PPUCtrl & 0x80)) {
-			CPU_LOG("Executing NMI\n");
-			CPUPushAllStack();
-			PC = memReadPC(0xFFFA);
-		}
-	}
 	if (scanline == 0 && scanlinestage == 0) {
 		PPUStatus &= ~0xE0;
 		//PPUCtrl &= ~0x3;
@@ -688,38 +691,50 @@ void PPULoop() {
 		memset(BackgroundBuffer, 0, sizeof(BackgroundBuffer));
 		memset(SpriteBuffer, 0, sizeof(SpriteBuffer));
 		zerospritehitenable = true;
+        zerospritehitscan = false;
         addr &= ~0x7BE0;
         addr |= t & 0x7BE0;
 		StartDrawing();
 		CPU_LOG("PPU T Update Start Drawing\n");
-		MMC3IRQCountdown();
+		//MMC3IRQCountdown();
 	}
+    
 
-	if (scanline == (scanlinesperframe - (vBlankInterval + 1)) && scanlinestage == 0) {
-		PPUStatus |= 0x80;
-		CPU_LOG("VBLANK Start\n");
-		
-	} else
-	if (scanline > 0 && scanline < (scanlinesperframe - (vBlankInterval + 1))) {
+    if (scanlinestage == 28 && scanline < 241)
+    {
+        MMC3IRQCountdown();
+    }
+
+	if (scanline > 0 && scanline < 241) {
 		//CPU_LOG("Drawing Scanline %d", scanline);
         if (PPUMask & 0x8)
             FetchBackgroundTile(scanline - 1);
 
         if ((PPUMask & 0x10))
             FetchSpriteTile(scanline - 1);
-
-        if (scanlinestage == 0)
-        {
-            MMC3IRQCountdown();
-        }
 	}
-	
-	if (scanline == (scanlinesperframe - 1) && scanlinestage == 0)
+    else if (scanline == 242 && scanlinestage == 0) {
+        PPUStatus |= 0x80;
+        NMIDue = true;
+        CPU_LOG("VBLANK Start\n");
+        if ((PPUStatus & 0x80) && (PPUCtrl & 0x80)) {
+            NMITriggered = true;
+            NMIDue = false;
+        }
+
+    }
+	if (scanline == (242 + vBlankInterval) && scanlinestage == 31)
 	{
 		CPU_LOG("VBLANK End\n");
+        scanline = 261;
 	}
-	
-	
+
+    if (scanline == 262 && scanlinestage == 0)
+    {
+        CPU_LOG("VBLANK Cleared\n");
+        NMIDue = false;
+        PPUStatus &= ~0x80;
+    }
     scanlinestage++;
     if (scanlinestage < 32)
     {
@@ -730,11 +745,10 @@ void PPULoop() {
         //Sprites
         addr &= ~0x41F;
         addr |= t & 0x41F;
-        dotCycles += 21;
+        dotCycles += 31;
         scanlinestage = 0;
         foundsprites = 0;
         scanline++;
-        zerospritehitscan = false;
         memset(TempSPR, 0, 0x20);
     }
     if (zerospriteirq == true && zerospritehitscan == false) {
@@ -742,7 +756,7 @@ void PPULoop() {
         zerospritehitscan = true;
         PPUStatus |= 0x40;
     }
-	if (scanline == scanlinesperframe) {
+	if (scanline > scanlinesperframe) {
 		scanline = 0;
         scanlinestage = 0;
 		DrawScreen();

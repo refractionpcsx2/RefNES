@@ -19,6 +19,7 @@ extern unsigned int vBlankInterval;
 extern unsigned int masterClock;
 extern unsigned int cpuClock;
 extern unsigned int ppuClock;
+extern bool NMITriggered;
 
 void CPUPushSingleStack(unsigned char value);
 unsigned char CPUPopSingleStack();
@@ -32,5 +33,6 @@ unsigned char CPUPopSingleStack();
 
 void CPULoop();
 void CPUPushAllStack();
+void CPUFireNMI();
 
 #endif

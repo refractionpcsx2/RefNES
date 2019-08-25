@@ -7,5 +7,5 @@ void ioRegWrite(unsigned short address, unsigned char value);
 void handleInput();
 void updateAPU(unsigned int cpu_cycles);
 
-extern unsigned int next_counter_clock;
+extern unsigned int last_apu_cpucycle;
 #endif
