@@ -28,6 +28,7 @@ unsigned short addr = 0;
 unsigned short x = 0;
 bool tfirstwrite = true;
 bool NMIDue = false;
+unsigned short lastA12bit = 0;
 
 unsigned int masterPalette[64] = {  0xff545454, 0xFF001E74, 0xFF081090, 0xFF300088, 0xFF440064, 0xFF5C0030, 0xFF540400, 0xFF3C1800, 0xFF202A00, 0xFF083A00, 0xFF004000, 0xFF003C00, 0xFF00323C, 0xFF000000, 0xFF000000, 0xFF000000,
 									0xFF989698, 0xFF084CC4, 0xFF3032EC, 0xFF5C1EE4, 0xFF8814B0, 0xFFA01464, 0xFF982220, 0xFF783C00, 0xFF545A00, 0xFF287200, 0xFF087C00, 0xFF007628, 0xFF006678, 0xFF000000, 0xFF000000, 0xFF000000,
@@ -77,6 +78,97 @@ void PPUReset() {
     NMIDue = false;
 	memset(PPUMemory, 0, 0x4000);
 	memset(SPRMemory, 0, 0x100);
+}
+
+unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting = false)
+{
+    unsigned short calculatedAddress;
+
+    //Pattern Table Area
+    if (address < 0x2000)
+    {
+        if ((lastA12bit & 0x1000) != 0x1000 && (address & 0x1000) == 0x1000 && scanline > 240) //scanline check is a hack until I completely rewrite the sprite and background rendering
+            MMC3IRQCountdown();
+
+        lastA12bit = address;
+
+        if (isWriting == false) {
+            if ((address >= 0x0FD8 && address <= 0x0FDF))
+                MMC2SetLatch(0, 0xFD);
+
+            if ((address >= 0x0FE8 && address <= 0x0FEF))
+                MMC2SetLatch(0, 0xFE);
+
+            if ((address >= 0x1FD8 && address <= 0x1FDF))
+                MMC2SetLatch(1, 0xFD);
+
+            if ((address >= 0x1FE8 && address <= 0x1FEF))
+                MMC2SetLatch(1, 0xFE);
+        }
+
+        calculatedAddress = address;
+    }
+    //Nametable area (0x3000 - 0x3EFF is a mirror of the nametable area)
+    //In vertical mirroring, Nametable 1 & 3 match (0x2000), 2 & 4 match (0x2400)
+    //In horizontal mirroring, Nametable 1 & 2 match (0x2000), 3 & 4 match (0x2800)
+    if (address >= 0x2000 && address < 0x3F00)
+    {
+        if (mapper == 7)
+        {
+            if (singlescreen)
+            {
+                calculatedAddress = 0x2400 | (address & 0x3FF);
+            }
+            else
+            {
+                calculatedAddress = 0x2000 | (address & 0x3FF);
+            }
+        }
+        else
+        if (!(ines_flags6 & 0x8)) //2 table mirroring
+        {
+            if ((address & 0x2C00) == 0x2000 || singlescreen) { //Nametable 1 is always the same and single screen games only use the first nametable
+                calculatedAddress = 0x2000 | (address & 0x3FF);
+            }
+            else if ((address & 0x2C00) == 0x2400) { //Nametable 2, this is 0x2400 in vertical mirroring, 0x2000 in horizontal
+                if ((ines_flags6 & 0x1))
+                    calculatedAddress = 0x2400 | (address & 0x3FF);
+                else
+                    calculatedAddress = 0x2000 | (address & 0x3FF);
+            }
+            else if ((address & 0x2C00) == 0x2800) { //Nametable 3, this is 0x2000 in vertical mirroring, 0x2400 in horizontal
+                if ((ines_flags6 & 0x1))
+                    calculatedAddress = 0x2000 | (address & 0x3FF);
+                else
+                    calculatedAddress = 0x2400 | (address & 0x3FF);
+            }
+            else if ((address & 0x2C00) == 0x2C00) { //Nametable 4, this is 0x2400 in vertical mirroring, 0x2400 in horizontal
+                if ((ines_flags6 & 0x1))
+                    calculatedAddress = 0x2400 | (address & 0x3FF);
+                else
+                    calculatedAddress = 0x2400 | (address & 0x3FF);
+            }
+        }
+        else // 4 tables available
+        {
+            calculatedAddress = 0x2000 | (address & 0xFFF);
+        }
+    }
+
+    //Pallete Memory and its mirrors
+    if (address >= 0x3F00 && address <= 0x3FFF)
+    {
+        if (address == 0x3f10 || address == 0x3f14 || address == 0x3f18 || address == 0x3f1c) {
+            calculatedAddress = address - 0x10;
+        }
+
+        if (address >= 0x3F20 && address <= 0x3FFF) {
+            calculatedAddress = address & 0x3F1F;
+        }
+    }
+
+
+    return calculatedAddress;
 }
 
 void PPUWriteReg(unsigned short address, unsigned char value) {
@@ -147,54 +239,9 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 		case 0x07: //VRAM Data
 			if(scanline != 0)
 		 	   CPU_LOG("PPU T Update Write to VRAM Address %x value %x on scanline %d\n", VRAMRamAddress, value, scanline);
-			unsigned short vramlocation = VRAMRamAddress;
+			unsigned short vramlocation = CalculatePPUMemoryAddress(VRAMRamAddress, true);
 
-			if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
-				vramlocation = vramlocation - 0x10;
-			}
-			if (vramlocation >= 0x3000 && vramlocation <= 0x3EFF) {
-				vramlocation &= ~0x1000;
-			}
-			if (vramlocation > 0x3F20 && vramlocation <= 0x3FFF) {
-				vramlocation &= 0x3F1F;
-			}
-
-            if (vramlocation >= 0x2000 && vramlocation < 0x3000)
-            {
-                if (mapper == 7)
-                {
-                    if (singlescreen)
-                    {
-                        vramlocation = 0x2400 | (vramlocation & 0x3FF);
-                    }
-                    else
-                    {
-                        vramlocation = 0x2000 | (vramlocation & 0x3FF);
-                    }
-                }
-                else
-                if (singlescreen)
-                {
-                    vramlocation &= ~0xC00;
-                }
-                else if ((flags6 & 0x1)) {
-                    if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
-                        vramlocation -= 0x800;
-                    }
-                }
-                else {
-                    if ((vramlocation & 0x400)) {
-                        vramlocation &= ~0x400;
-                    }
-                    if (vramlocation >= 0x2800) {
-                        vramlocation &= ~0x800;
-                        vramlocation += 0x400;
-                    }
-                    
-                }
-            }
 			PPUMemory[vramlocation] = value;
-			
 			
 			if (PPUCtrl & 0x4) { //Increment
 				VRAMRamAddress += 32;
@@ -228,73 +275,14 @@ unsigned char PPUReadReg(unsigned short address) {
 		break;
 	case 0x07: //VRAM Data
         {
-            unsigned short vramlocation = VRAMRamAddress;
+            unsigned short vramlocation = CalculatePPUMemoryAddress(VRAMRamAddress);
 
-            if (vramlocation >= 0x4000) {
-                CPU_LOG("BANANA VRAM Memory going crazy!");
-                vramlocation = vramlocation & 0x3FFF;
-            }
-
-            if (vramlocation == 0x3f10 || vramlocation == 0x3f14 || vramlocation == 0x3f18 || vramlocation == 0x3f1c) {
-                vramlocation = vramlocation - 0x10;
-            }
-            if (vramlocation >= 0x3000 && vramlocation <= 0x3EFF) {
-                vramlocation &= ~0x1000;
-            }
-            if (vramlocation >= 0x3F20 && vramlocation <= 0x3FFF) {
-                vramlocation &= 0x3F1F;
-            }
-
-            if (vramlocation >= 0x2000 && vramlocation < 0x3000)
-            {
-                if (mapper == 7)
-                {
-                    if (singlescreen)
-                    {
-                        vramlocation = 0x2400 | (vramlocation & 0x3FF);
-                    }
-                    else
-                    {
-                        vramlocation = 0x2000 | (vramlocation & 0x3FF);
-                    }
-                }
-                else
-                if (singlescreen)
-                {
-                    vramlocation &= ~0xC00;
-                }
-                else if ((flags6 & 0x1)) {
-                    if (vramlocation >= 0x2800 && vramlocation < 0x3000) {
-                        vramlocation -= 0x800;
-                    }
-                }
-                else {
-                    if ((vramlocation & 0x400)) {
-                        vramlocation &= ~0x400;
-                    }
-                    if (vramlocation >= 0x2800) {
-                        vramlocation &= ~0x800;
-                        vramlocation += 0x400;
-                    }
-
-                }
-            }
-
-            if (mapper == 9) {
-                if (vramlocation >= 0xFD0 && vramlocation <= 0x0FDF)
-                    MMC2SetLatch(0, 0xFD);
-
-                if (vramlocation >= 0xFD0 && vramlocation <= 0x0FDF)
-                    MMC2SetLatch(0, 0xFE);
-
-                if (vramlocation >= 0x1FD0 && vramlocation <= 0x1FDF)
-                    MMC2SetLatch(0, 0xFD);
-
-                if (vramlocation >= 0x1FE8 && vramlocation <= 0x1FEF)
-                    MMC2SetLatch(0, 0xFE);
-            }
             value = cachedvramread;
             cachedvramread = PPUMemory[vramlocation];
+
+            //Pallete doesn't delay
+            if((vramlocation & 0x3F00) == 0x3F00)
+                value = cachedvramread;
 
             if (PPUCtrl & 0x4) { //Increment
                 VRAMRamAddress += 32;
@@ -338,7 +326,7 @@ void DrawBGPixel(unsigned int YPos, unsigned int XPos, unsigned int pixel_lb, un
 		}
 
 		//Get 8 palette colour indicies
-		paletteaddr = 0x3F01 + (((attributein >> ((7- offset)*2)) & 0x3) * 4);
+		paletteaddr = CalculatePPUMemoryAddress(0x3F01 + (((attributein >> ((7- offset)*2)) & 0x3) * 4));
 		palette = PPUMemory[0x3F00] | (PPUMemory[paletteaddr] << 8) | (PPUMemory[paletteaddr + 1] << 16) | (PPUMemory[paletteaddr + 2] << 24);
 
 		pixel = ((pixel_lb & 0x1) | ((pixel_ub & 0x1) << 1));
@@ -366,7 +354,7 @@ void DrawPixel(unsigned int xpos, unsigned int scanlinepos, unsigned int ypos, u
 	unsigned int palette;
 	bool horizFlip = (attributein & 0x40) == 0x40;
 		
-	paletteAddr = 0x3F11 + (attribute * 4);
+	paletteAddr = CalculatePPUMemoryAddress(0x3F11 + (attribute * 4));
 	palette = PPUMemory[0x3F00] | (PPUMemory[paletteAddr] << 8) | (PPUMemory[paletteAddr + 1] << 16) | (PPUMemory[paletteAddr + 2] << 24);
 
 	//CPU_LOG("Palette is %x\n", palette);
@@ -473,7 +461,7 @@ void FetchBackgroundTile(unsigned int YPos) {
 		//Pixels across
 		for (int j = 0; j < 8; j++) 
         {
-            if (mapper == 7)
+            /*f (mapper == 7)
             {
                 if (singlescreen)
                 {
@@ -484,57 +472,34 @@ void FetchBackgroundTile(unsigned int YPos) {
                     BaseNametable = 0x2000;
                 }
             }
-            else
+            else*/
             {
                 //flags6(0) = vertical mirroring
-                if (nameTable == 0 || (singlescreen)) {
+                if (nameTable == 0) {
                     BaseNametable = 0x2000;
                 }
                 else if (nameTable == 1) {
-                    if ((flags6 & 0x1))
-                        BaseNametable = 0x2400;
-                    else
-                        BaseNametable = 0x2000;
+                    BaseNametable = 0x2400;
                 }
                 else if (nameTable == 2) {
-                    if ((flags6 & 0x1))
-                        BaseNametable = 0x2000;
-                    else
-                        BaseNametable = 0x2400;
+                    BaseNametable = 0x2800;
                 }
                 else if (nameTable == 3) {
-                    if ((flags6 & 0x1))
-                        BaseNametable = 0x2400;
-                    else
-                        BaseNametable = 0x2400;
+                    BaseNametable = 0x2C00;
                 }
             }
 
 			nameTableVerticalAddress = BaseNametable + ((coarseYScroll) * 32); //Get vertical position for nametable
-			nameTableAddress = nameTableVerticalAddress + coarseXScroll; //Get horizontal position
+			nameTableAddress = CalculatePPUMemoryAddress(nameTableVerticalAddress + coarseXScroll); //Get horizontal position
 
 	     	attributeTableBaseAddress = BaseNametable + 0x3c0 +  ((coarseYScroll / 4) * 8); //Get vertical position of attribute table
-			attributeAddress = attributeTableBaseAddress + ((coarseXScroll) / 4);
+			attributeAddress = CalculatePPUMemoryAddress(attributeTableBaseAddress + ((coarseXScroll) / 4));
 
             tileNumber = PPUMemory[nameTableAddress]; //Fetch tile number to load pixels from
 
-            unsigned int patternlower = patternTableBaseAddress + (tileNumber * 16);
-            unsigned int patternupper = patternTableBaseAddress + 8 + (tileNumber * 16);
-
-            if (mapper == 9) {
-                if ((patternlower >= 0xFD0 && patternlower <= 0x0FDF) || (patternupper >= 0xFD0 && patternupper <= 0x0FDF))
-                    MMC2SetLatch(0, 0xFD);
-
-                if ((patternlower >= 0xFE0 && patternlower <= 0x0FEF) || (patternupper >= 0xFE0 && patternupper <= 0x0FEF))
-                    MMC2SetLatch(0, 0xFE);
-
-                if ((patternlower >= 0x1FD0 && patternlower <= 0x1FDF) || (patternupper >= 0x1FD0 && patternupper <= 0x1FDF))
-                    MMC2SetLatch(0, 0xFD);
-
-                if ((patternlower >= 0x1FE8 && patternlower <= 0x1FEF) || (patternupper >= 0x1FE8 && patternupper <= 0x1FEF))
-                    MMC2SetLatch(0, 0xFE);
-            }
-            
+            unsigned int patternlower = CalculatePPUMemoryAddress(patternTableBaseAddress + (tileNumber * 16));
+            unsigned int patternupper = CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (tileNumber * 16));
+                        
 			//Read pixel bit values for upper and lower bits
 			lowerBits = lowerBits | ((PPUMemory[patternlower] >> (7-fineXScroll)) & 0x1) << j;
 			upperBits = upperBits | ((PPUMemory[patternupper] >> (7-fineXScroll)) & 0x1) << j;
@@ -570,7 +535,7 @@ void FetchBackgroundTile(unsigned int YPos) {
 	//}
 
 	//Increment the Y value
-    if (scanlinestage == 31)
+    if (scanlinestage == 32)
     {
         if (fineYScroll == 7) { //fine scroll has looped so increment the coarse
             fineYScroll = 0;
@@ -667,9 +632,9 @@ void FetchSpriteTile(unsigned int YPos) {
 				patternTableBaseAddress += 8;
 			}
 		}
-				
+
 		//CPU_LOG("Scanline %d Tile %d pixel %d Pos Lower %x Pos Upper %x \n", scanline, tilenumber, i*8, patternTableBaseAddress + (tilenumber * 16) + (YPos % 8), patternTableBaseAddress + 8 + (tilenumber * 16) + (YPos % 8));
-		DrawPixel(TempSPR[i+3], scanlinestage * 8, YPos, PPUMemory[patternTableBaseAddress + (tilenumber * 16)], PPUMemory[patternTableBaseAddress + 8 + (tilenumber * 16)], TempSPR[i+2], zerospritefound == true && zerospriteentry == i);
+		DrawPixel(TempSPR[i+3], scanlinestage * 8, YPos, PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (tilenumber * 16))], PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (tilenumber * 16))], TempSPR[i+2], zerospritefound == true && zerospriteentry == i);
 	}
 	
 	//CPU_LOG("EndScanline\n");
@@ -699,17 +664,18 @@ void PPULoop() {
 	}
     
 
-    if (scanlinestage == 28 && scanline < 241)
+    if ((((PPUMask & 0x8) && (PPUCtrl & 0x8) && scanlinestage == 28) || ((PPUMask & 0x10) && (PPUCtrl & 0x10) && scanlinestage == 30)) && scanline < 241)
     {
         MMC3IRQCountdown();
     }
 
 	if (scanline > 0 && scanline < 241) {
+        MMC2SwitchCHR();
 		//CPU_LOG("Drawing Scanline %d", scanline);
         if (PPUMask & 0x8)
             FetchBackgroundTile(scanline - 1);
 
-        if ((PPUMask & 0x10))
+        if ((PPUMask & 0x10) && scanlinestage < 32)
             FetchSpriteTile(scanline - 1);
 	}
     else if (scanline == 242 && scanlinestage == 0) {
@@ -735,7 +701,7 @@ void PPULoop() {
         PPUStatus &= ~0x80;
     }
     scanlinestage++;
-    if (scanlinestage < 32)
+    if (scanlinestage < 33)
     {
         dotCycles += 10;
     }

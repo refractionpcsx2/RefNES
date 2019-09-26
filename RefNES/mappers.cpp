@@ -10,9 +10,13 @@ unsigned char MMCcontrol;
 unsigned char MMCIRQCounterLatch = 0;
 unsigned short MMCIRQCounter = 0;
 unsigned char MMCIRQEnable = 0;
-unsigned char MMC2LatchSelector = 0xFE;
+unsigned char MMC2LatchSelector[2] = { 0xFE, 0xFE };
 unsigned char MMC2LatchRegsiter1 = 0;
 unsigned char MMC2LatchRegsiter2 = 0;
+unsigned char MMC2LatchRegsiter3 = 0;
+unsigned char MMC2LatchRegsiter4 = 0;
+bool MMC2Switch = false;
+int latchCountdown = 0;
 
 void MMC3IRQCountdown() {
 	if (mapper != 4) return;
@@ -128,10 +132,7 @@ void ChangeUpperCHR(unsigned char PRGNum) {
 void ChangeLowerCHR(unsigned char PRGNum) {
 	unsigned int PrgSizetotal = prgsize * 16384;
 	if (chrsize == 0) return;
-	if (mapper == 9)
-	{
-		PrgSizetotal = (prgsize * 2) * 8192;
-	}
+
 	if ((MMCcontrol & 0x10)) {
 		CPU_LOG("MAPPER Switching Lower CHR 4k number %d at 0x0000\n", PRGNum);
 		memcpy(PPUMemory, ROMCart + PrgSizetotal + (PRGNum * 4096), 0x1000);
@@ -149,17 +150,59 @@ void Change8KCHR(unsigned char PRGNum) {
 }
 
 void MMC2SetLatch(unsigned char latch, unsigned char value) {
-    MMC2LatchSelector = value;
-    if (MMC2LatchSelector == 0xFD)
+    if (mapper != 9)
+        return;
+    /*if (MMC2LatchSelector[latch] == value)
+        return;*/
+    MMC2LatchSelector[latch] = value;
+    /*if (latch == 0)
     {
-        ChangeUpperCHR(MMC2LatchRegsiter1);
+        if (MMC2LatchSelector[0] == 0xFD)
+        {
+            ChangeLowerCHR(MMC2LatchRegsiter3);
+        }
+        else
+        {
+            ChangeLowerCHR(MMC2LatchRegsiter4);
+        }
     }
     else
     {
-        ChangeUpperCHR(MMC2LatchRegsiter2);
-    }
+        if (MMC2LatchSelector[0] == 0xFD)
+        {
+            ChangeUpperCHR(MMC2LatchRegsiter3);
+        }
+        else
+        {
+            ChangeUpperCHR(MMC2LatchRegsiter4);
+        }
+    }*/
+    MMC2Switch = true;
 }
 
+void MMC2SwitchCHR()
+{
+    if (MMC2Switch)
+    {
+        if (MMC2LatchSelector[0] == 0xFD)
+        {
+            ChangeLowerCHR(MMC2LatchRegsiter1);
+        }
+        else
+        {
+            ChangeLowerCHR(MMC2LatchRegsiter2);
+        }
+        if (MMC2LatchSelector[1] == 0xFD)
+        {
+            ChangeUpperCHR(MMC2LatchRegsiter3);
+        }
+        else
+        {
+            ChangeUpperCHR(MMC2LatchRegsiter4);
+        }
+        MMC2Switch = false;
+    }
+}
 void MapperHandler(unsigned short address, unsigned char value) {
 	CPU_LOG("MAPPER HANDLER Mapper = %d\n", mapper);
 	if (mapper == 1) { //MMC1
@@ -177,13 +220,14 @@ void MapperHandler(unsigned short address, unsigned char value) {
 			if ((address & 0xe000) == 0x8000) { //Control register
 				CPU_LOG("MAPPER MMC1 Write to control reg %x\n", MMCbuffer);
 				MMCcontrol = MMCbuffer;
-                /*
-                {*/
-                    if ((MMCcontrol & 0x1)) flags6 &= ~1; 
-                    else flags6 |= 1;
-               /* }*/
-               if (!(MMCcontrol & 0x2))
-                   singlescreen |= 1;
+
+                if ((MMCcontrol & 0x3) == 3) ines_flags6 &= ~1; 
+                else if ((MMCcontrol & 0x3) == 2) ines_flags6 |= 1;
+
+                if ((MMCcontrol & 0x3) < 0x2)
+                    singlescreen = (MMCcontrol & 0x3) + 1;
+                else
+                    singlescreen = 0;
 			}
 			if ((address & 0xe000) == 0xA000) { //Change program rom in upper bits
 				if (!(value & 0x80)) {
@@ -224,7 +268,7 @@ void MapperHandler(unsigned short address, unsigned char value) {
 			    break;
 		    case 0xA000: //Nametable Mirroring
 			    CPU_LOG("MAPPER MMC3 Mirroring set to = %x\n", ~value & 0x1);
-			    flags6 = ~(value & 0x1);
+			    ines_flags6 = ~(value & 0x1) & 0x1;
 			    break;
 		    case 0xA001: //PRG RAM Protect (Don't implement, maybe?)
 			    break;
@@ -252,37 +296,39 @@ void MapperHandler(unsigned short address, unsigned char value) {
 		Change32KPRG(value & 0xf);
 	}
 	if (mapper == 9) { //MMC2
-		MMCcontrol |= 0x10;
+		MMCcontrol |= 0x10; //4K CHR size selection
 		switch (address & 0xF000) {
-		case 0xA000: //PRG ROM Select
-			CPU_LOG("MAPPER MMC2 PRG Select %d\n", value);
-			ChangeLower8KPRG(value & 0xF);
-			break;
-		case 0xB000: //CHR ROM Lower 4K select FD
-				CPU_LOG("MAPPER MMC2 CHR Lower FD Select %d\n", value);
-				ChangeLowerCHR(value & 0x1F);
-			break;
-		case 0xC000: //CHR ROM Lower 4K select FE
-				CPU_LOG("MAPPER MMC2 CHR Lower FE Select %d\n", value);
-				ChangeLowerCHR(value & 0x1F);
-			break;
-		case 0xD000: //CHR ROM Upper 4K select FD
-            MMC2LatchRegsiter1 = value & 0x1F;
-			CPU_LOG("MAPPER MMC2 CHR Upper FD Select %d\n", value);
-			//ChangeUpperCHR(value & 0x1F);
-			break;
-		case 0xE000: //CHR ROM Upper 4K select FE
-            MMC2LatchRegsiter2 = value & 0x1F;
-			//if (MMC2LatchSelector == 0xFE) {
-				CPU_LOG("MAPPER MMC2 CHR Upper FE Select %d\n", value);
-				//ChangeUpperCHR(value & 0x1F);
-			//}
-			break;
-		case 0xF000:
-			CPU_LOG("MAPPER MMC2 Set nametable mirroring %d\n", ~value & 0x1);
-            if ((value & 0x1)) flags6 &= ~1;
-            else flags6 |= 1;
-			break;
+		    case 0xA000: //PRG ROM Select
+			    CPU_LOG("MAPPER MMC2 PRG Select %d\n", value);
+			    ChangeLower8KPRG(value & 0xF);
+			    break;
+		    case 0xB000: //CHR ROM Lower 4K select FD
+			    CPU_LOG("MAPPER MMC2 CHR Lower FD Select %d\n", value);
+                MMC2LatchRegsiter1 = value & 0x1F;
+                ChangeLowerCHR(value & 0x1F);
+			    break;
+		    case 0xC000: //CHR ROM Lower 4K select FE
+			    CPU_LOG("MAPPER MMC2 CHR Lower FE Select %d\n", value);
+                MMC2LatchRegsiter2 = value & 0x1F;
+                ChangeLowerCHR(value & 0x1F);
+			    break;
+		    case 0xD000: //CHR ROM Upper 4K select FD
+                MMC2LatchRegsiter3 = value & 0x1F;
+                //ChangeUpperCHR(value & 0x1F);
+                /*if(MMC2LatchSelector[0] == 0xFD)*/
+			    CPU_LOG("MAPPER MMC2 CHR Upper FD Select %d\n", value);
+			    break;
+		    case 0xE000: //CHR ROM Upper 4K select FE
+                MMC2LatchRegsiter4 = value & 0x1F; // MMC2LatchRegsiter1 = value & 0x1F;
+                //ChangeUpperCHR(value & 0x1F);
+                /*if (MMC2LatchSelector[0] == 0xFE)
+                    */
+			    break;
+		    case 0xF000:
+			    CPU_LOG("MAPPER MMC2 Set nametable mirroring %d\n", ~value & 0x1);
+                if ((value & 0x1)) ines_flags6 &= ~1;
+                else ines_flags6 |= 1;
+			    break;
 		}
 	}
 }

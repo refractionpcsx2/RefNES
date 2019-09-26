@@ -7,9 +7,9 @@
 
 unsigned char prgsize;
 unsigned char chrsize;
-unsigned char flags6;
+unsigned char ines_flags6;
 unsigned char singlescreen;
-unsigned char flags10;
+unsigned char ines_flags10;
 unsigned char mapper;
 
 
@@ -41,12 +41,12 @@ int LoadRom(const char *Filename) {
 		{
 			prgsize = ROMHeader[4];
 			chrsize = ROMHeader[5];
-			flags6 = ROMHeader[6];
+			ines_flags6 = ROMHeader[6];
             singlescreen = 0;
-			flags10 = ROMHeader[10];
+			ines_flags10 = ROMHeader[10];
 			mapper = ((ROMHeader[6] >> 4) & 0xF) | (ROMHeader[7] & 0xF0);
 
-			CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags8=%x, flags10=%x\n", prgsize, chrsize, flags6, ROMHeader[8],  flags10);
+			CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags8=%x, flags10=%x\n", prgsize, chrsize, ines_flags6, ROMHeader[8],  ines_flags10);
 			fseek(pFile, 16, SEEK_SET); //Point it past the header
 			LoadRomToMemory(pFile, lSize);
 			//fread(CPUMemory, 1, lSize, pFile); //Read in the file
