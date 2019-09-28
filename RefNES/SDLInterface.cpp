@@ -100,6 +100,7 @@ void EndDrawing()
     int scale = SCREEN_WIDTH / 256;
     SDL_Rect srcrect;
     SDL_Rect destrect;
+    float elapsedMicroseconds;
 
     srcrect = { 0,0,256,240 };
     destrect = { 0,0,256*scale,240*scale };
@@ -110,14 +111,16 @@ void EndDrawing()
     {
         QueryPerformanceCounter(&nStopTime);
         nElapsed.QuadPart = (nStopTime.QuadPart - nStartTime.QuadPart) * 1000000;
-        nElapsed.QuadPart /= nFrequency.QuadPart;
 
-        while (nElapsed.QuadPart < 16667)
+        elapsedMicroseconds = (float)((float)nElapsed.QuadPart / (float)nFrequency.QuadPart);
+        //CPU_LOG("Frame took %f microseconds\n", elapsedMicroseconds);
+        while (elapsedMicroseconds < 16666.66667f)
         {
-            Sleep((long)(16667 - nElapsed.QuadPart) >> 10); //Divide by 1024, we want to be under the miliseconds if we can
+            Sleep((long)(16666 - elapsedMicroseconds) >> 10); //Divide by 1024, we want to be under the miliseconds if we can
             QueryPerformanceCounter(&nStopTime);
             nElapsed.QuadPart = (nStopTime.QuadPart - nStartTime.QuadPart) * 1000000;
-            nElapsed.QuadPart /= nFrequency.QuadPart;
+            elapsedMicroseconds = (float)((float)nElapsed.QuadPart / (float)nFrequency.QuadPart);
+            //CPU_LOG("%f microseconds now\n", elapsedMicroseconds);
         }
 
         QueryPerformanceFrequency(&nFrequency);
