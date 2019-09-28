@@ -13,6 +13,10 @@ extern char MenuVSync;
 unsigned int ScreenBuffer[256][240];
 Uint32* pixels = nullptr;
 int pitch = 0;
+LARGE_INTEGER nStartTime;
+LARGE_INTEGER nStopTime;
+LARGE_INTEGER nElapsed;
+LARGE_INTEGER nFrequency;
 
 void DestroyDisplay() {
     if (SDL_MUSTLOCK(SDL_Display)) {
@@ -63,6 +67,8 @@ void InitDisplay(int width, int height, HWND hWnd)
 
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
 
+    QueryPerformanceFrequency(&nFrequency);
+    QueryPerformanceCounter(&nStartTime);
 }
 unsigned int xpos = 0;
 
@@ -99,6 +105,24 @@ void EndDrawing()
     destrect = { 0,0,256*scale,240*scale };
     SDL_UnlockTexture(texture);
     SDL_RenderCopy(renderer, texture, &srcrect, &destrect);
+
+    if (MenuVSync)
+    {
+        QueryPerformanceCounter(&nStopTime);
+        nElapsed.QuadPart = (nStopTime.QuadPart - nStartTime.QuadPart) * 1000000;
+        nElapsed.QuadPart /= nFrequency.QuadPart;
+
+        while (nElapsed.QuadPart < 16667)
+        {
+            Sleep((long)(16667 - nElapsed.QuadPart) >> 10); //Divide by 1024, we want to be under the miliseconds if we can
+            QueryPerformanceCounter(&nStopTime);
+            nElapsed.QuadPart = (nStopTime.QuadPart - nStartTime.QuadPart) * 1000000;
+            nElapsed.QuadPart /= nFrequency.QuadPart;
+        }
+
+        QueryPerformanceFrequency(&nFrequency);
+        QueryPerformanceCounter(&nStartTime);
+    }
     SDL_RenderPresent(renderer);
 }
 
