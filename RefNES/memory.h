@@ -15,9 +15,6 @@ void memWriteValue(unsigned short address, unsigned char value);
 unsigned short memReadPCIndirect();
 unsigned char memReadValue(unsigned short address);
 void CopyRomToMemory();
-void MMC3IRQCountdown();
-void MMC2SetLatch(unsigned char latch, unsigned char value);
-void MMC2SwitchCHR();
 extern unsigned char CPUMemory[0x10000];
 extern char* ROMCart;
 #endif
