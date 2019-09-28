@@ -27,6 +27,8 @@ unsigned short t = 0;
 unsigned short fineX = 0;
 bool tfirstwrite = true;
 bool NMIDue = false;
+bool zerospritefound = false;
+int zerospriteentry = 99;
 unsigned short lastA12bit = 0;
 PPU_INTERNAL_REG t_reg;
 PPU_INTERNAL_REG v_reg;
@@ -305,7 +307,6 @@ void DrawBGPixel(unsigned int YPos, unsigned int XPos, unsigned int pixel_lb, un
 
         paletteSelect = attrByte | pixel;
         paletteaddr = CalculatePPUMemoryAddress(0x3F00 + paletteSelect);
-        CPU_LOG("BANANA Drawing from pallet address %x\n", 0x3F00 + paletteSelect);
         if(pixel == 0) //It looks like this is the unversal background colour for every palette? Breaks SMB1 otherwise
             colourIdx = PPUMemory[0x3F00];
         else
@@ -335,9 +336,7 @@ void DrawPixel(unsigned int xpos, unsigned int scanlinepos, unsigned int ypos, u
     bool horizFlip = (attributein & 0x40) == 0x40;
 
     attrByte = attribute << 2;
-
     
-
     //CPU_LOG("Palette is %x\n", palette);
     if (xpos < scanlinepos)
     {
@@ -376,13 +375,7 @@ void DrawPixel(unsigned int xpos, unsigned int scanlinepos, unsigned int ypos, u
         if (pixel == 0) //Pixel is transparent, no point in processing it
             continue;
 
-        paletteSelect = 0x10 | attrByte | pixel;
-        paletteAddr = CalculatePPUMemoryAddress(0x3F00 + paletteSelect);
-        colourIdx = PPUMemory[paletteAddr];
-
-        final_pixel = masterPalette[colourIdx & 0x3F];
-
-        if (zerosprite == true && pixel != 0 && zerospritehitenable == true) {
+        if (zerosprite == true && zerospritehitenable == true) {
             if (BackgroundBuffer[j][ypos] != 0) {
                 //Zero Sprite hit
                 CPU_LOG("PPU T Update Zero sprite hit at scanline %d\n", ypos);
@@ -396,8 +389,14 @@ void DrawPixel(unsigned int xpos, unsigned int scanlinepos, unsigned int ypos, u
             continue;
         }
 
+        paletteSelect = 0x10 | attrByte | pixel;
+        paletteAddr = CalculatePPUMemoryAddress(0x3F00 + paletteSelect);
+        colourIdx = PPUMemory[paletteAddr];
+
+        final_pixel = masterPalette[colourIdx & 0x3F];
+
         //CPU_LOG("Drawing pixel %x, Pallate Entry %x, Pallete No %x BGColour %x\n", final_pixel, pixel, attribute, PPUMemory[0x3F00]);
-        if (j >=0 && j <= 255) {
+        if (j >=0 && j <= 255 && SpriteBuffer[j][ypos] == 0) {
             SpriteBuffer[j][ypos] = pixel;
             ScreenBuffer[j][ypos] = final_pixel;
         }
@@ -517,8 +516,6 @@ void FetchBackgroundTile(unsigned int YPos) {
 
 void FetchSpriteTile(unsigned int YPos) {
     unsigned int patternTableBaseAddress; //The tiles themselves (8 bytes, each byte is a row of 8 pixels)
-    bool zerospritefound = false;
-    int zerospriteentry = 99;
     unsigned int YPosition = YPos-1;
     unsigned int spriteheight = 7;
     unsigned int startsprite = foundsprites;
@@ -530,11 +527,10 @@ void FetchSpriteTile(unsigned int YPos) {
     if (YPos == 0 || scanlinestage == 0)
         return;
 
-    if (foundsprites <= 8)
+    if (foundsprites < 8 && scanlinestage == 1)
     {
         for (int s = 0; s < 256; s += 4) {
-            if ((SPRMemory[s]) <= YPosition && ((SPRMemory[s]) + spriteheight) >= YPosition
-                && SPRMemory[s + 3] >= (scanlinestage * 8) && SPRMemory[s + 3] < (scanlinestage * 8) + 8) {
+            if ((SPRMemory[s]) <= YPosition && ((SPRMemory[s]) + spriteheight) >= YPosition) {
                 if (foundsprites == 8) {
                     PPUStatus |= 0x20;
                     break;
@@ -553,10 +549,11 @@ void FetchSpriteTile(unsigned int YPos) {
         }
     }
     //CPU_LOG("Scanline %d NTBase %x ATBase %x PTBase %x\n", YPos, nametableTableBaseAddress, attributeTableBaseAddress, patternTableBaseAddress);
-    for (int i = (foundsprites * 4); i >= 0 ; i -= 4) {
-        unsigned int tilenumber = TempSPR[i+1];
-        if ((TempSPR[i + 3] + (unsigned int)8) < (scanlinestage * 8) || TempSPR[i + 3] > ((scanlinestage * 8) + (unsigned int)8))
+    for (int i = 0; i < (foundsprites * 4); i += 4) {
+        if ((TempSPR[i + 3] + (unsigned int)8) <= (scanlinestage * 8) || TempSPR[i + 3] > ((scanlinestage * 8) + (unsigned int)8))
             continue;
+
+        unsigned int tilenumber = TempSPR[i + 1];
 
         if (!(PPUCtrl & 0x20)) {
             if (PPUCtrl & 0x8)
@@ -592,10 +589,6 @@ void FetchSpriteTile(unsigned int YPos) {
     //CPU_LOG("\n");
 }
 
-void PPUDrawScanline() {
-    //Background
-        
-}
 void PPULoop() {
     bool drawsprite = false;
     
@@ -607,6 +600,8 @@ void PPULoop() {
         memset(SpriteBuffer, 0, sizeof(SpriteBuffer));
         zerospritehitenable = true;
         zerospritehitscan = false;
+        zerospritefound = false;
+        zerospriteentry = 99;
         //Copy upper bit of Nametable (vertical nametable), Coarse Y and Fine Y to v_reg from t_reg
         v_reg.coarseY = t_reg.coarseY;
         v_reg.fineY = t_reg.fineY;
