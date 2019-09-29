@@ -22,7 +22,6 @@ void MMC3IRQCountdown() {
     {
         if (--MMCIRQCounter == 0)
         {
-            //MMCIRQCounter = MMCIRQCounterLatch;
             if (MMCIRQEnable == 1) {
                 if (!(P & INTERRUPT_DISABLE_FLAG))
                 {

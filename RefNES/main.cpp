@@ -245,42 +245,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 }
 
                 if (Running == true) {
-                    //masterCycles++;
-                     
-                    //if (nextPPUCycle - masterCycles < 1) 
-                    //CPU Loop
-                    
-                    
-                    if (dotCycles > nextCpuCycle) {
-                        if (NMITriggered)
+                    if (dotCycles >= nextCpuCycle) {
+                        //CPU Loop
+                        if (cpuCycles >= 1000000)
                         {
-                            CPUFireNMI();
-                        }
-                        CPULoop();
-                        nextCpuCycle = cpuCycles * 3;
-                    } else { //Scanline
-
-                             //PPU Loop
-                        PPULoop();
-                        handleInput();
-                        if (scanline == 0 && scanlinestage == 0) {
-                            fps2++;
-                            //CPU_LOG("VBLN K%d masterCycles=%d\n", totalvblanks, masterCycles);
-                        }
-                        if (counter < time(NULL))
-                        {
-                            UpdateTitleBar(hWnd);
-                            UpdateWindow(hWnd);
-                            counter = time(NULL);
-                            fps2 = 0;
-                        }
-                        if (cpuCycles >= 1000000) {
                             cpuCycles -= 900000;
                             dotCycles -= 2700000;
                             nextCpuCycle -= 2700000;
                             last_apu_cpucycle -= 900000;
 
                         }
+
+                        if (NMITriggered)
+                        {
+                            CPUFireNMI();
+                        }
+                        handleInput();
+                        CPULoop();
+                        nextCpuCycle = cpuCycles * 3;
+
+                    } else { //Scanline
+                        //PPU Loop
+                        PPULoop();
+                        if (scanline == 0 && scanlineCycles == 340){
+                            fps2++;
+                            if (counter < time(NULL))
+                            {
+                                UpdateTitleBar(hWnd);
+                                UpdateWindow(hWnd);
+                                counter = time(NULL);
+                                fps2 = 0;
+                            }
+                            //CPU_LOG("VBLN K%d masterCycles=%d\n", totalvblanks, masterCycles);                            
+                        }
+                        
                         //CPU_LOG("Master: %x, Next PPU at %x", dotCycles, nextCpuCycle);
                     }
                 }

@@ -7,7 +7,7 @@ unsigned char PPUReadReg(unsigned short address);
 
 void PPULoop();
 extern unsigned int scanline;
-extern unsigned int scanlinestage;
+extern unsigned int scanlineCycles;
 extern unsigned char PPUMemory[0x4000];
 extern unsigned char SPRMemory[0x100];
 void PPUReset();
@@ -22,5 +22,18 @@ union PPU_INTERNAL_REG
         unsigned short fineY : 3;
     };
     unsigned short reg;
+};
+
+struct PPU_TILE_INFO
+{
+    //256 tiles maximum
+    unsigned char nameTableByte; 
+    //4 pixels per byte, needs to be shifted to the correct pixel. Should be separate upper/lower bits but we can get away with this and a 16bit shifter
+    unsigned char attributeByte;
+    //Single lower bit of the colour index
+    unsigned char patternLowerByte;
+    //Single upper bit of the colour index
+    unsigned char patternUpperByte;
+
 };
 #endif
