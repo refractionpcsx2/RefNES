@@ -111,11 +111,11 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
         lastA12bit = address;
 
         if (isWriting == false) {
-            if ((address >= 0x0FD8 && address <= 0x0FDF))
+            /*if ((address >= 0x0FD8 && address <= 0x0FDF))
                 MMC2SetLatch(0xFD);
 
             if ((address >= 0x0FE8 && address <= 0x0FEF))
-                MMC2SetLatch(0xFE);
+                MMC2SetLatch(0xFE);*/
 
             if ((address >= 0x1FD8 && address <= 0x1FDF))
                 MMC2SetLatch(0xFD);
