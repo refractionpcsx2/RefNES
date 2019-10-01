@@ -824,6 +824,14 @@ void PPULoop()
                                 }
                                 else
                                 {
+                                    //Strange PPU bug, once 8 sprites have been found it seems to start searching diagonally for example
+                                    //The first digit is the sprite, the second digit is the "byte" of that sprite
+                                    //sprite[9][0]
+                                    //sprite[10][1]
+                                    //sprite[11][2]
+                                    //sprite[12][3]
+                                    //sprite[13][0]
+                                    //sprite[14][1] etc
                                     if((spriteEvaluationPos & 0x3) == 0x3)
                                         spriteEvaluationPos ++;
                                     else
@@ -831,12 +839,6 @@ void PPULoop()
                                 }
                             }
                         }
-                        /*if (foundSprites < 8)
-                        {
-                                //CPU_LOG("DEBUG Checking Sprite at Scanline %d Postion %d Y = %d\n", scanline, spritePos, SPRMemory[spritePos]);
-                                //Make sure the Y position is lower or the same as the current scanline, or the end point of the sprite fits in the scanline
-                                
-                        }*/
                         
                     }
                 }
