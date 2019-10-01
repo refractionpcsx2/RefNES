@@ -33,6 +33,7 @@ unsigned int foundSprites = 0;
 unsigned int spriteToDraw = 0;
 unsigned int processingSprite = 0;
 unsigned char spritesEvaluated = 0;
+unsigned short spriteEvaluationPos = 0;
 unsigned char spriteheight = 7;
 bool zeroSpriteHitEnable = true;
 bool zeroSpriteTriggered = false;
@@ -633,7 +634,7 @@ void PPULoop()
                 nextTileInfo.nameTableByte = 0;
                 nextTileInfo.patternLowerByte = 0;
                 nextTileInfo.patternUpperByte = 0;
-                //CPU_LOG("Starting New Frame, VBlank took %d cpu cycles\n", cpuVBlankCycles);
+                CPU_LOG("VBlank END took %d CPU cycles\n", cpuVBlankCycles);
             }
 
             //Secondary OAM clear
@@ -642,6 +643,7 @@ void PPULoop()
                 memset(TempSPR, 0xFF, sizeof(TempSPR));
                 processingSprite = 0;
                 spritesEvaluated = 0;
+                spriteEvaluationPos = 0;
                 foundSprites = 0;
                 //Probably only needs to be done per frame, but just in case there's some game which is awkward
                 if ((PPUCtrl & 0x20))
@@ -778,46 +780,64 @@ void PPULoop()
             }
 
             //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
-            if(scanlineCycles >= 65 && scanlineCycles <= 256)
+            if(scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240)
             {
-                if (spritesEvaluated < 64)
+                if (spriteEvaluationPos < 0x100)
                 {
                     //Sprites copied on even cycles
                     if (!(scanlineCycles & 0x1) && (PPUMask & 0x18))
                     {
-                        unsigned char spritePos = spritesEvaluated * 4;
                         unsigned char foundSpritePos = foundSprites * 4;
 
-                        if (foundSprites < 8)
+                        if ((spriteEvaluationPos & 0x3) && foundSprites < 8)
                         {
-                                //CPU_LOG("DEBUG Checking Sprite at Scanline %d Postion %d Y = %d\n", scanline, spritePos, SPRMemory[spritePos]);
-                                //Make sure the Y position is lower or the same as the current scanline, or the end point of the sprite fits in the scanline
-                                if (SPRMemory[spritePos] <= scanline && (unsigned short)(SPRMemory[spritePos] + spriteheight) >= scanline && scanline < 240)
-                                {
-                                
-                                    TempSPR[foundSpritePos] = SPRMemory[spritePos];
-                                    TempSPR[foundSpritePos + 1] = SPRMemory[spritePos + 1];
-                                    TempSPR[foundSpritePos + 2] = SPRMemory[spritePos + 2];
-                                    TempSPR[foundSpritePos + 3] = SPRMemory[spritePos + 3];
-                                    //CPU_LOG("DEBUG Found Sprite at Position %d\n", spritePos);
-                                    if (spritePos == 0)
-                                    {
-                                        zerospriteentry = foundSpritePos;
-                                    }
-                                    foundSprites++;
-                                }
-                                spritesEvaluated++;
+                            TempSPR[foundSpritePos + (spriteEvaluationPos & 0x3)] = SPRMemory[spriteEvaluationPos];
+                            spriteEvaluationPos++;
+                            if(!(spriteEvaluationPos & 0x3)) //If it's back to 0 we're on to the next sprite
+                                foundSprites++;
                         }
                         else
                         {
-                            if (SPRMemory[spritePos] <= scanline && (unsigned short)(SPRMemory[spritePos] + spriteheight) >= scanline)
+                            if (foundSprites < 8)
                             {
-                                PPUStatus |= 0x20;
-                                spritesEvaluated = 64; //If we overflow in range, we don't need to check any more sprites
+                                if (SPRMemory[spriteEvaluationPos] <= scanline && (unsigned short)(SPRMemory[spriteEvaluationPos] + spriteheight) >= scanline && scanline < 240)
+                                {
+
+                                    TempSPR[foundSpritePos] = SPRMemory[spriteEvaluationPos];
+                                    if (spriteEvaluationPos == 0)
+                                    {
+                                        zerospriteentry = foundSpritePos;
+                                    }
+                                    spriteEvaluationPos++;
+                                }
+                                else
+                                {
+                                    spriteEvaluationPos += 4;
+                                }
                             }
-                            else
-                                spritesEvaluated++;
+                            else 
+                            {
+                                if (SPRMemory[spriteEvaluationPos] <= scanline && (unsigned short)(SPRMemory[spriteEvaluationPos] + spriteheight) >= scanline)
+                                {
+                                    PPUStatus |= 0x20;
+                                    spriteEvaluationPos = 0x100; //If we overflow in range, we don't need to check any more sprites
+                                }
+                                else
+                                {
+                                    if((spriteEvaluationPos & 0x3) == 0x3)
+                                        spriteEvaluationPos ++;
+                                    else
+                                        spriteEvaluationPos+=5;
+                                }
+                            }
                         }
+                        /*if (foundSprites < 8)
+                        {
+                                //CPU_LOG("DEBUG Checking Sprite at Scanline %d Postion %d Y = %d\n", scanline, spritePos, SPRMemory[spritePos]);
+                                //Make sure the Y position is lower or the same as the current scanline, or the end point of the sprite fits in the scanline
+                                
+                        }*/
+                        
                     }
                 }
             }
