@@ -245,30 +245,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 }
 
                 if (Running == true) {
-                    if (dotCycles > nextCpuCycle) {
-                        //CPU Loop
-                        if (cpuCycles >= 1000000)
-                        {
-                            cpuCycles -= 900000;
-                            dotCycles -= 2700000;
-                            nextCpuCycle -= 2700000;
-                            last_apu_cpucycle -= 900000;
+                    if (cpuCycles >= 1000000)
+                    {
+                        cpuCycles -= 900000;
+                        dotCycles -= 2700000;
+                        nextCpuCycle -= 2700000;
+                        last_apu_cpucycle -= 900000;
 
-                        }
-
-                        if (NMITriggered)
-                        {
-                            CPUFireNMI();
-                        }
-                        handleInput();
-                        CPULoop();
-                        nextCpuCycle = cpuCycles * 3;
-
-                    } else { //Scanline
-                        //PPU Loop
-                        PPULoop();                        
-                        //CPU_LOG("Master: %x, Next PPU at %x", dotCycles, nextCpuCycle);
                     }
+					if (NMIRequested)
+					{
+						NMITriggered = true;
+						NMIRequested = false;
+					}
+
+                    handleInput();
+                    CPULoop();
+
+					if (NMITriggered)
+					{
+						CPUFireNMI();
+					}
                 }
                 else Sleep(100);    
     }

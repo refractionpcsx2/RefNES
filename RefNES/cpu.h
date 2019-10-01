@@ -21,6 +21,7 @@ extern unsigned int masterClock;
 extern unsigned int cpuClock;
 extern unsigned int ppuClock;
 extern bool NMITriggered;
+extern bool NMIRequested;
 
 void CPUPushSingleStack(unsigned char value);
 unsigned char CPUPopSingleStack();

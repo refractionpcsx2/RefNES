@@ -21,6 +21,7 @@ unsigned int masterClock = 21477270;
 unsigned int cpuClock = (masterClock / 12);
 unsigned int ppuClock = (masterClock / 4);
 bool NMITriggered = false;
+bool NMIRequested = false;
 
 
 typedef void(*JumpTable)(void);

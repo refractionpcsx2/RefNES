@@ -208,7 +208,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
         case 0x00: //PPU Control
             //If NMI is enabled during VBlank and NMI is triggered
             if ((PPUStatus & 0x80) && (value & 0x80) && !(PPUCtrl & 0x80)) {
-                NMITriggered = true;
+				NMIRequested = true;
             }
             PPUCtrl = value;
             t_reg.nametable = value & 0x3;
@@ -278,10 +278,15 @@ unsigned char cachedvramread = 0;
 unsigned char PPUReadReg(unsigned short address) {
     unsigned char value;
 
-    switch (address & 0x7) {
-    case 0x02: //PPU Status 
+	switch (address & 0x7) {
+	case 0x02: //PPU Status 
 		if (scanline == 241 && scanlineCycles == 1)
 			skipVBlank = true;
+		if (scanline == 241 && (scanlineCycles == 2 || scanlineCycles == 3))
+		{
+			NMIRequested = false;
+			NMITriggered = false;
+		}
         value = PPUStatus & 0xE0 | lastwrite & 0x1F;
         PPUStatus &= ~0x80;
         //CPU_LOG("PPU T Update tfirstwrite reset\n");
@@ -878,13 +883,11 @@ void PPULoop()
         {
             PPUStatus |= 0x80;
             isVBlank = true;
-            NMIDue = true;
             CPU_LOG("VBLANK Start at %d cpu cycles\n", cpuCycles);
             cpuVBlankCycles = cpuCycles;
             if ((PPUStatus & 0x80) && (PPUCtrl & 0x80))
             {
-                NMITriggered = true;
-                NMIDue = false;
+				NMITriggered = true; //NMIRequested = true;
             }
 
             DrawScreen();
@@ -902,9 +905,14 @@ void PPULoop()
     scanlineCycles++;
     dotCycles++;
 
+	if (scanlineCycles == 339 && scanline == 261 && oddFrame && (PPUMask & 0x8))
+	{
+		scanlineCycles = 340;
+	}
     //We've reached the end of the scanline
     if (scanlineCycles == 341)
     {
+
         if (scanline == 261)
         {
             scanline = 0;
@@ -915,16 +923,9 @@ void PPULoop()
             //CPU_LOG("Next Scanline\n");
             scanline++;
         }
-        //First cycle is skipped on the first scanline of odd frames
-        if(oddFrame && scanline == 0 && (PPUMask & 0x8))
-        {
-            scanlineCycles = 1; 
-        }
-        else
-        {
-            scanlineCycles = 0;
-        }
+
+        scanlineCycles = 0;
     }
-    UpdateFPSCounter();
+	UpdateFPSCounter();
 }
 
