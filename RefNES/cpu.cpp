@@ -38,7 +38,8 @@ void CPUIncrementCycles(int cycles)
 void CPUReset() {
     PC = memReadPC(0xFFFC);
     SP = 0xFD;
-    P = 0x34;
+    P = 0x24;
+    A = X = Y = 0;
     CPUIncrementCycles(7);
     dotCycles = 0;
     NMITriggered = false;
@@ -1251,7 +1252,7 @@ void cpuANC() {
     unsigned char temp;
 
     temp = A & memRead(false);
-    
+    A = temp;
     if (temp == 0) {
         P |= ZERO_FLAG;
     }
@@ -1272,39 +1273,51 @@ void cpuANC() {
 }
 
 void cpuARR() {
-    unsigned char tempbit;
+    unsigned char carrybit;
     unsigned char temp = memRead(false);
 
-    A = temp & A;
-
-    tempbit = A & 0x1;
-
-    A >>= 1;
-    A |= tempbit << 7;
+    A = A & temp;
 
     P &= ~NEGATIVE_FLAG;
+    //Negative
     P |= A & 0x80;
 
-    if (A == 0) {
+    //Grab carry bit and clear flag
+    carrybit = (P & CARRY_FLAG);
+    P &= ~CARRY_FLAG;
+    A >>= 1;
+    //Put carry flag (borrowed bit) in to bit 7 of the source
+    A |= carrybit << 7;
+
+    if (A & 0x40)
+    {
+        P |= CARRY_FLAG;
+    }
+    if (((A >> 6) & 0x1) ^ ((A >> 5) & 0x1))
+    {
+        P |= OVERFLOW_FLAG;
+    }
+    else
+    {
+        P &= ~OVERFLOW_FLAG;
+    }
+
+    if (!A)
+    {
         P |= ZERO_FLAG;
     }
-    else {
+    else
+    {
         P &= ~ZERO_FLAG;
     }
 
-    if ((P & 0x60) == 0x60) {
-        P |= CARRY_FLAG;
-        P &= ~OVERFLOW_FLAG;
+    if (A & 0x80)
+    {
+        P |= NEGATIVE_FLAG;
     }
-    else if ((P & 0x60) == 0x00) {
-        P &= ~(CARRY_FLAG | OVERFLOW_FLAG);
-    }
-    else if ((P & 0x60) == 0x40) {
-        P |= CARRY_FLAG | OVERFLOW_FLAG;
-    }
-    else if ((P & 0x60) == 0x20) {
-        P |= OVERFLOW_FLAG;
-        P &= ~CARRY_FLAG;
+    else
+    {
+        P &= ~NEGATIVE_FLAG;
     }
     //CPU_LOG("Undocumented ARR\n");
     PC += PCInc;
