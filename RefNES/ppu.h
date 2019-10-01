@@ -10,6 +10,7 @@ extern unsigned int scanline;
 extern unsigned int scanlineCycles;
 extern unsigned char PPUMemory[0x4000];
 extern unsigned char SPRMemory[0x100];
+extern unsigned short SPRRamAddress;
 void PPUReset();
 
 union PPU_INTERNAL_REG

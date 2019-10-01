@@ -25,6 +25,7 @@ signed short spriteX[8];
 unsigned char spriteY[8];
 bool isSpriteZero[8];
 unsigned char currentXPos, currentYPos;
+bool isVBlank = false;
 unsigned int scanline;
 unsigned int scanlinestage = 0;
 unsigned int scanlineCycles = 0;
@@ -63,10 +64,11 @@ void PPUReset() {
     PPUScroll = 0;
     NMIDue = false;
     oddFrame = false;
+    isVBlank = false;
     t_reg.reg = 0;
     v_reg.reg = 0;
     lastA12bit = 0;
-    scanline = 261;
+    scanline = 0;
     scanlineCycles = 0;
     currentXPos = 0;
     currentYPos = 0;
@@ -92,6 +94,8 @@ void PPUReset() {
     memset(spriteX, 0, sizeof(spriteX));
     memset(spriteY, 0, sizeof(spriteY));
     memset(isSpriteZero, 0, sizeof(isSpriteZero));
+    ZeroBuffer();
+    StartDrawing();
 }
 
 unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting = false)
@@ -178,7 +182,7 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
     if (address >= 0x3F00 && address < 0x4000)
     {
         if (address >= 0x3F20 && address < 0x4000) {
-            calculatedAddress = address & 0x3F1F;
+            address = address & 0x3F1F;
         }
         
 
@@ -196,8 +200,8 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
 
 void PPUWriteReg(unsigned short address, unsigned char value) {
 
-    if(address != 0x2007)
-        CPU_LOG("PPU Reg Write %x value %x\n", 0x2000 + (address & 0x7), value);
+    //if(address != 0x2007)
+        //CPU_LOG("PPU Reg Write %x value %x\n", 0x2000 + (address & 0x7), value);
 
     switch (address & 0x7) {
         case 0x00: //PPU Control
@@ -207,13 +211,13 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
             }
             PPUCtrl = value;
             t_reg.nametable = value & 0x3;
-            CPU_LOG("PPU T Update Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
+            //CPU_LOG("PPU T Update Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
         case 0x01: //PPU Mask
             PPUMask = value;
             break;
         case 0x02: //PPU Status (read only)
-            CPU_LOG("Attempt to write to status register\n");
+            //CPU_LOG("Attempt to write to status register\n");
             break;
         case 0x03: //SPR (OAM) Ram Address
             SPRRamAddress = value;
@@ -234,7 +238,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                 t_reg.fineY = value & 0x7;
                 t_reg.coarseY = value >> 3;
             }
-            CPU_LOG("PPU T Update 2005 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
+            //CPU_LOG("PPU T Update 2005 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
         case 0x06: //VRAM Address
             VRAMRamAddress = value | ((VRAMRamAddress & 0xFF) << 8);
@@ -248,14 +252,14 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                 t_reg.reg &= ~0xFF;
                 t_reg.reg |= value;
                 v_reg.reg = t_reg.reg;
+                //CPU_LOG("DEBUG VRAM Addr changed to %x\n", VRAMRamAddress);
             }
-            CPU_LOG("PPU T Update 2006 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
+            //CPU_LOG("PPU T Update 2006 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
         case 0x07: //VRAM Data
-            if(scanline != 0)
-                CPU_LOG("PPU T Update Write to VRAM Address %x value %x on scanline %d\n", VRAMRamAddress, value, scanline);
             unsigned short vramlocation = CalculatePPUMemoryAddress(VRAMRamAddress, true);
 
+            //CPU_LOG("DEBUG Addr %x Writing %x\n", vramlocation, value);
             PPUMemory[vramlocation] = value;
             
             if (PPUCtrl & 0x4) { //Increment
@@ -283,7 +287,7 @@ unsigned char PPUReadReg(unsigned short address) {
         break;    
     case 0x04: //OAM Data
         value = SPRMemory[SPRRamAddress];
-        if (!(PPUStatus & 0x80))
+        if (!isVBlank || (PPUMask & 0x18))
         {
             SPRRamAddress++;
         }
@@ -292,12 +296,23 @@ unsigned char PPUReadReg(unsigned short address) {
         {
             unsigned short vramlocation = CalculatePPUMemoryAddress(VRAMRamAddress);
 
-            value = cachedvramread;
-            cachedvramread = PPUMemory[vramlocation];
+            /*value = cachedvramread;
+            cachedvramread = PPUMemory[vramlocation];*/
 
-            //Pallete doesn't delay
-            if((vramlocation & 0x3F00) == 0x3F00)
+            //Pallete doesn't delay or affect the cache
+            if ((vramlocation & 0x3F00) == 0x3F00)
+            {
+                
+                value = PPUMemory[vramlocation];
+                cachedvramread = PPUMemory[CalculatePPUMemoryAddress(VRAMRamAddress & 0x2FFF)];
+                CPU_LOG("DEBUG Addr %x Reading Palette Only %x Caching %x from Addr %x\n", vramlocation, value, cachedvramread, CalculatePPUMemoryAddress(vramlocation & 0x2FFF));
+            }
+            else
+            {
                 value = cachedvramread;
+                cachedvramread = PPUMemory[vramlocation];
+                CPU_LOG("DEBUG Addr %x Caching %x reading %x\n", vramlocation, cachedvramread, value);
+            }
 
             if (PPUCtrl & 0x4) { //Increment
                 VRAMRamAddress += 32;
@@ -524,7 +539,7 @@ unsigned char FetchSpriteTile(bool isUpper)
         tilenumber &= ~1;
     }
 
-    CPU_LOG("DEBUG Sprite Pattern Table %x\n", patternTableAddress);
+    //CPU_LOG("DEBUG Sprite Pattern Table %x\n", patternTableAddress);
 
     if (TempSPR[spritePosition + 2] & 0x80)
     { //Flip Vertical
@@ -570,7 +585,7 @@ void AdvanceShifters()
     patternShifter[1] |= (nextTileInfo.patternUpperByte >> 7) & 0x1;
     nextTileInfo.patternUpperByte <<= 1;
 }
-
+unsigned int cpuVBlankCycles = 0;
 void PPULoop()
 {
     if (scanlineCycles != 0)
@@ -586,13 +601,19 @@ void PPULoop()
             if (scanline == 261 && scanlineCycles == 1)
             {
                 PPUStatus &= ~0xE0;
+                isVBlank = false;
+                cpuVBlankCycles = cpuCycles - cpuVBlankCycles;
                 ZeroBuffer();
                 StartDrawing();
                 zeroSpriteHitEnable = true;
                 zerospriteentry = 99;
                 currentYPos = 0;
                 currentXPos = 0; 
-                CPU_LOG("Starting New Frame\n");
+                nextTileInfo.attributeByte = 0;
+                nextTileInfo.nameTableByte = 0;
+                nextTileInfo.patternLowerByte = 0;
+                nextTileInfo.patternUpperByte = 0;
+                //CPU_LOG("Starting New Frame, VBlank took %d cpu cycles\n", cpuVBlankCycles);
             }
 
             //Secondary OAM clear
@@ -619,6 +640,7 @@ void PPULoop()
                     {
                         currentYPos++;
                         currentXPos = 0;
+                        spriteToDraw = 0; //All sprites will have been drawn for this line, stop false sprites being drawn on the prerender line
                     }
                     else
                         currentXPos++;
@@ -673,7 +695,7 @@ void PPULoop()
                         else
                             patternTableBaseAddress = 0x0000 + v_reg.fineY;
 
-                        CPU_LOG("DEBUG BG Lower Pattern Table %x\n", patternTableBaseAddress);
+                        //CPU_LOG("DEBUG BG Lower Pattern Table %x\n", patternTableBaseAddress);
                         //Retrieve Pattern Table Low Byte
                         currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
                         //CPU_LOG("Read Lower From %x Value %x Stored %x\n", patternTableBaseAddress + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternLowerByte);
@@ -686,7 +708,7 @@ void PPULoop()
                             patternTableBaseAddress = 0x1000 + v_reg.fineY;
                         else
                             patternTableBaseAddress = 0x0000 + v_reg.fineY;
-                        CPU_LOG("DEBUG BG Upper Pattern Table %x\n", patternTableBaseAddress);
+                        //CPU_LOG("DEBUG BG Upper Pattern Table %x\n", patternTableBaseAddress);
                         //Retrieve Pattern Table High Byte
                         currentTileInfo.patternUpperByte= PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
                         //CPU_LOG("Read Upper From %x Value %x Stored %x\n", patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternUpperByte);
@@ -852,8 +874,10 @@ void PPULoop()
         if (scanline == 241 && scanlineCycles == 1)
         {
             PPUStatus |= 0x80;
+            isVBlank = true;
             NMIDue = true;
             CPU_LOG("VBLANK Start\n");
+            cpuVBlankCycles = cpuCycles;
             if ((PPUStatus & 0x80) && (PPUCtrl & 0x80))
             {
                 NMITriggered = true;
@@ -885,7 +909,7 @@ void PPULoop()
         }
         else
         {
-            CPU_LOG("Next Scanline\n");
+            //CPU_LOG("Next Scanline\n");
             scanline++;
         }
         //First cycle is skipped on the first scanline of odd frames
@@ -898,5 +922,6 @@ void PPULoop()
             scanlineCycles = 0;
         }
     }
+    UpdateFPSCounter();
 }
 

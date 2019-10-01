@@ -13,6 +13,7 @@ extern unsigned char P;
 extern unsigned char SP;
 extern unsigned int cpuCycles;
 extern unsigned int dotCycles;
+extern unsigned int nextCpuCycle;
 extern int masterCycles;
 extern unsigned int scanlinesperframe;
 extern unsigned int vBlankInterval;
@@ -34,5 +35,6 @@ unsigned char CPUPopSingleStack();
 void CPULoop();
 void CPUPushAllStack();
 void CPUFireNMI();
+void CPUIncrementCycles(int cycles);
 
 #endif

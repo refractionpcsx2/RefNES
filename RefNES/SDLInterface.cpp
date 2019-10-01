@@ -132,7 +132,7 @@ void EndDrawing()
 void StartDrawing()
 {
     int scale = SCREEN_WIDTH / 256;
-    CPU_LOG("Start Scene");
+    //CPU_LOG("Start Scene\n");
     SDL_RenderClear(renderer);
 
     if (SDL_LockTexture(texture, nullptr, (void**)&pixels, &pitch))

@@ -77,9 +77,9 @@ unsigned short MemAddrAbsolute(bool iswrite, bool writeonly) {
     //Should be 2 on write, but it breaks SMB3 but this is ok for now
     //Needs investigation
     if (iswrite == false)
-        cpuCycles += 2;
+        CPUIncrementCycles(2);
     else
-        cpuCycles += 2;
+        CPUIncrementCycles(2);
 
     return fulladdress;
 
@@ -88,7 +88,7 @@ unsigned short MemAddrAbsolute(bool iswrite, bool writeonly) {
 unsigned short MemAddrAbsoluteY(bool iswrite, bool haspenalty, bool writeonly) {
     unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]);
     if (((fulladdress & 0xFF00) != ((fulladdress + Y) & 0xFF00) && haspenalty) || iswrite)
-        cpuCycles += 1;
+        CPUIncrementCycles(1);
 
     fulladdress += Y;
 #ifdef MEM_LOGGING
@@ -96,16 +96,16 @@ unsigned short MemAddrAbsoluteY(bool iswrite, bool haspenalty, bool writeonly) {
 #endif
     PCInc = 3;
     if (iswrite == false)
-        cpuCycles += 2;
+        CPUIncrementCycles(2);
     else
-        cpuCycles += 2;
+        CPUIncrementCycles(2);
     return fulladdress;
 }
 
 unsigned short MemAddrAbsoluteX(bool iswrite, bool haspenalty, bool writeonly) {
     unsigned short fulladdress = ((CPUMemory[(PC + 2)] << 8) | CPUMemory[PC + 1]);
     if (((fulladdress & 0xFF00) != ((fulladdress + X) & 0xFF00) && haspenalty) || iswrite)
-        cpuCycles += 1;
+        CPUIncrementCycles(1);
 
     fulladdress += X;
 #ifdef MEM_LOGGING
@@ -113,9 +113,9 @@ unsigned short MemAddrAbsoluteX(bool iswrite, bool haspenalty, bool writeonly) {
 #endif
     PCInc = 3;
     if (iswrite == false)
-        cpuCycles += 2;
+        CPUIncrementCycles(2);
     else
-        cpuCycles += 2;
+        CPUIncrementCycles(2);
 
     return fulladdress;
 }
@@ -129,7 +129,7 @@ unsigned short MemAddrPreIndexed(bool iswrite, bool writeonly) {
     CPU_LOG("Pre Indexed Mem %x PC = %x \n", fulladdress, PC);
 #endif
     PCInc = 2;
-    cpuCycles += 4;
+    CPUIncrementCycles(4);
 
     return fulladdress;
 }
@@ -140,17 +140,15 @@ unsigned short MemAddrPostIndexed(bool iswrite, bool haspenalty, bool writeonly)
 
     fulladdress = ((CPUMemory[(address + 1) & 0xFF] << 8) | CPUMemory[address & 0xFF]);
     if(((fulladdress & 0xFF00) != ((fulladdress + Y) & 0xFF00) && haspenalty) || iswrite)
-        cpuCycles += 1;
+        CPUIncrementCycles(1);
 
     fulladdress += Y;
 #ifdef MEM_LOGGING
     CPU_LOG("Post Indexed Mem %x PC = %x \n", fulladdress, PC);
 #endif
     PCInc = 2;
-    if (iswrite == false)
-        cpuCycles += 3;
-    else
-        cpuCycles += 3;
+    CPUIncrementCycles(3);
+
     return fulladdress;
 }
 
@@ -172,9 +170,9 @@ unsigned short MemAddrZeroPage(bool iswrite, bool writeonly) {
 #endif
     PCInc = 2;
     if (iswrite == false || writeonly)
-        cpuCycles += 1;
+        CPUIncrementCycles(1);
     else
-        cpuCycles += 2;
+        CPUIncrementCycles(2);
     return fulladdress;
 }
 
@@ -193,7 +191,7 @@ unsigned short MemAddrZeroPageIndexed(bool iswrite, bool writeonly) {
     CPU_LOG("Zero Page Indexed %x PC = %x \n", fulladdress, PC);
 #endif
     PCInc = 2;
-    cpuCycles += 2;
+    CPUIncrementCycles(2);
     return fulladdress;
 }
 

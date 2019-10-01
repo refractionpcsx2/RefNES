@@ -54,7 +54,7 @@ char LoggingEnable = 0;
 char MenuVSync = 1;
 int prev_v_cycle = 0;
 unsigned int v_cycle = prev_v_cycle;
-unsigned int nextCpuCycle = 0;
+
 unsigned int nextPPUCycle = 0;
 unsigned int fps = 0;
 time_t counter;
@@ -64,6 +64,7 @@ unsigned int nextsecond = (unsigned int)masterClock / 12;
 unsigned short SCREEN_WIDTH = 256;
 unsigned short SCREEN_HEIGHT = 240;
 RECT        rc;
+HWND hWnd;
 
 
 void CleanupRoutine()
@@ -175,7 +176,6 @@ void UpdateTitleBar(HWND hWnd)
 // The entry point for any Windows program
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    HWND hWnd;
     WNDCLASSEX wc;
     
     LPSTR RomName;
@@ -245,7 +245,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 }
 
                 if (Running == true) {
-                    if (dotCycles >= nextCpuCycle) {
+                    if (dotCycles > nextCpuCycle) {
                         //CPU Loop
                         if (cpuCycles >= 1000000)
                         {
@@ -266,19 +266,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
                     } else { //Scanline
                         //PPU Loop
-                        PPULoop();
-                        if (scanline == 0 && scanlineCycles == 340){
-                            fps2++;
-                            if (counter < time(NULL))
-                            {
-                                UpdateTitleBar(hWnd);
-                                UpdateWindow(hWnd);
-                                counter = time(NULL);
-                                fps2 = 0;
-                            }
-                            //CPU_LOG("VBLN K%d masterCycles=%d\n", totalvblanks, masterCycles);                            
-                        }
-                        
+                        PPULoop();                        
                         //CPU_LOG("Master: %x, Next PPU at %x", dotCycles, nextCpuCycle);
                     }
                 }
@@ -298,6 +286,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define     ID_WINDOWX2    1007
 #define     ID_WINDOWX3    1008
 
+void UpdateFPSCounter()
+{
+    if (scanline == 0 && scanlineCycles == 340)
+    {
+        fps2++;
+        if (counter < time(NULL))
+        {
+            UpdateTitleBar(hWnd);
+            UpdateWindow(hWnd);
+            counter = time(NULL);
+            fps2 = 0;
+        }
+    }
+}
 void ToggleVSync(HWND hWnd)
 {
     HMENU hmenuBar = GetMenu(hWnd);
@@ -543,7 +545,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
                     DestroyWindow(hWnd);
                     return 0;
                 }
-                break;                                
+                break;
                 default:
                     return 0;
             }
@@ -558,7 +560,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             SaveIni();
             if(LoggingEnable)
                 fclose(LogFile);
-            PostQuitMessage(0);            
+            PostQuitMessage(0);
             return 0;
         } 
         break;

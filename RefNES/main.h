@@ -11,4 +11,5 @@
 
 void __Log(char *fmt, ...);
 void OpenLog();
+void UpdateFPSCounter();
 #endif

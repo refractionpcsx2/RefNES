@@ -43,8 +43,17 @@ void IOReset()
 }
 
 void SPRTransfer(unsigned char memvalue) {
-    memcpy(SPRMemory, &CPUMemory[memvalue << 8], 256);
-    cpuCycles += 513;
+    if (SPRRamAddress > 0)
+    {
+        for(int i = 0; i < 256; i++)
+            SPRMemory[(SPRRamAddress + i) & 0xFF] = CPUMemory[(memvalue << 8) + i];
+    }
+    else
+        memcpy(SPRMemory, &CPUMemory[memvalue << 8], 256);
+
+    if (cpuCycles & 0x1)
+        CPUIncrementCycles(1);
+    CPUIncrementCycles(513);
 }
 void ioRegWrite(unsigned short address, unsigned char value) {
     //CPU_LOG("IO Reg Write address %x keyevents=%x value=%x\n", address, keyevents, value);
@@ -190,7 +199,7 @@ void updateAPU(unsigned int cpu_cycles)
     if (apu_cycles >= next_counter_clock && (apu_cycles- newcycles) < next_counter_clock)
     {
         updatelength = true;
-        CPU_LOG("BANANA Hitting APU Clock %d\n", apu_cycles);
+        //CPU_LOG("BANANA Hitting APU Clock %d\n", apu_cycles);
         if (next_counter_clock == length_triggers[0])
         {
             next_counter_clock = length_triggers[1];
