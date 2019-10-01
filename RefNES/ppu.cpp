@@ -783,7 +783,7 @@ void PPULoop()
                 if (spritesEvaluated < 64)
                 {
                     //Sprites copied on even cycles
-                    if (!(scanlineCycles & 0x1))
+                    if (!(scanlineCycles & 0x1) && (PPUMask & 0x18))
                     {
                         unsigned char spritePos = spritesEvaluated * 4;
                         unsigned char foundSpritePos = foundSprites * 4;
