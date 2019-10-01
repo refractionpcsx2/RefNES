@@ -47,6 +47,7 @@ bool NMIDue = false;
 int zerospriteentry = 99;
 unsigned short lastA12bit = 0;
 bool oddFrame = false;
+bool skipVBlank;
 PPU_INTERNAL_REG t_reg;
 PPU_INTERNAL_REG v_reg;
 
@@ -279,6 +280,8 @@ unsigned char PPUReadReg(unsigned short address) {
 
     switch (address & 0x7) {
     case 0x02: //PPU Status 
+		if (scanline == 241 && scanlineCycles == 1)
+			skipVBlank = true;
         value = PPUStatus & 0xE0 | lastwrite & 0x1F;
         PPUStatus &= ~0x80;
         //CPU_LOG("PPU T Update tfirstwrite reset\n");
@@ -474,7 +477,7 @@ void ProcessPixel()
                     if (isSpriteZero[i] && selectedBGPattern)
                     {
                         //Zero Sprite hit doesn't happen at position 255
-                        if (zeroSpriteHitEnable == true && currentXPos < 255)
+                        if (zeroSpriteHitEnable == true && currentXPos < 255 && currentYPos < 240)
                         {
                             //Zero Sprite hit
                             //CPU_LOG("DEBUG Zero sprite hit at scanline %d pos %d\n", scanline, currentXPos);
@@ -593,15 +596,27 @@ void PPULoop()
         unsigned short byteAddress;
         unsigned short patternTableBaseAddress;
 
+		//Clear the last used sprites at this point
+		if (scanlineCycles == 261)
+		{
+			memset(spritePatternLower, 0, sizeof(spritePatternLower));
+			memset(spritePatternUpper, 0, sizeof(spritePatternUpper));
+			memset(spriteAttribute, 0, sizeof(spriteAttribute));
+			memset(spriteX, 0, sizeof(spriteX));
+			memset(isSpriteZero, 0, sizeof(isSpriteZero));
+			spriteToDraw = foundSprites;
+		}
         //Visible scanlines and Pre-Render line
         if (scanline < 240 || scanline == 261)
         {
             MMC2SwitchCHR();
+			
             //End of VBlank and clear sprite overflow, execute Pre-Render line
             if (scanline == 261 && scanlineCycles == 1)
             {
-                PPUStatus &= ~0xE0;
-                isVBlank = false;
+				PPUStatus &= ~0xE0;
+				isVBlank = false;
+				skipVBlank = false;
                 cpuVBlankCycles = cpuCycles - cpuVBlankCycles;
                 ZeroBuffer();
                 StartDrawing();
@@ -772,7 +787,7 @@ void PPULoop()
                         {
                                 //CPU_LOG("DEBUG Checking Sprite at Scanline %d Postion %d Y = %d\n", scanline, spritePos, SPRMemory[spritePos]);
                                 //Make sure the Y position is lower or the same as the current scanline, or the end point of the sprite fits in the scanline
-                                if (SPRMemory[spritePos] <= scanline && (unsigned short)(SPRMemory[spritePos] + spriteheight) >= scanline)
+                                if (SPRMemory[spritePos] <= scanline && (unsigned short)(SPRMemory[spritePos] + spriteheight) >= scanline && scanline < 240)
                                 {
                                 
                                     TempSPR[foundSpritePos] = SPRMemory[spritePos];
@@ -809,18 +824,6 @@ void PPULoop()
             {
                 if (processingSprite < foundSprites)
                 {
-                    //Clear the last used sprites at this point
-                    if (scanlineCycles == 261)
-                    {
-                        memset(spritePatternLower, 0, sizeof(spritePatternLower));
-                        memset(spritePatternUpper, 0, sizeof(spritePatternUpper));
-                        memset(spriteAttribute, 0, sizeof(spriteAttribute));
-                        memset(spriteX, 0, sizeof(spriteX));
-                        memset(isSpriteZero, 0, sizeof(isSpriteZero));
-                        spriteToDraw = foundSprites;
-                    }
-
-
                     switch (scanlineCycles % 8)
                     {
                     case 1:
@@ -871,12 +874,12 @@ void PPULoop()
         }
 
         //VBlank Start, show frame
-        if (scanline == 241 && scanlineCycles == 1)
+        if (scanline == 241 && scanlineCycles == 1 && skipVBlank == false)
         {
             PPUStatus |= 0x80;
             isVBlank = true;
             NMIDue = true;
-            CPU_LOG("VBLANK Start\n");
+            CPU_LOG("VBLANK Start at %d cpu cycles\n", cpuCycles);
             cpuVBlankCycles = cpuCycles;
             if ((PPUStatus & 0x80) && (PPUCtrl & 0x80))
             {
@@ -913,7 +916,7 @@ void PPULoop()
             scanline++;
         }
         //First cycle is skipped on the first scanline of odd frames
-        if(oddFrame && scanline == 0)
+        if(oddFrame && scanline == 0 && (PPUMask & 0x8))
         {
             scanlineCycles = 1; 
         }
