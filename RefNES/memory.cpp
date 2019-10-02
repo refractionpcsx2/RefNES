@@ -74,8 +74,6 @@ unsigned short MemAddrAbsolute(bool iswrite, bool writeonly) {
 #endif
     PCInc = 3;
 
-    //Should be 2 on write, but it breaks SMB3 but this is ok for now
-    //Needs investigation
     if (iswrite == false)
         CPUIncrementCycles(2);
     else
