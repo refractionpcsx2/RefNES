@@ -13,6 +13,7 @@ unsigned char MMCIRQEnable = 0;
 unsigned char MMC2LatchSelector = 0xFE;
 unsigned char MMC2LatchRegsiter1 = 0;
 unsigned char MMC2LatchRegsiter2 = 0;
+bool MMC3Interrupt = false;
 bool MMC2Switch = false;
 
 void MMC3IRQCountdown() {
@@ -23,13 +24,7 @@ void MMC3IRQCountdown() {
         if (--MMCIRQCounter == 0)
         {
             if (MMCIRQEnable == 1) {
-                if (!(P & INTERRUPT_DISABLE_FLAG))
-                {
-                    P |= BREAK_FLAG | (1 << 5);
-                    CPUPushAllStack();
-                    P |= INTERRUPT_DISABLE_FLAG;
-                    PC = memReadPC(0xFFFE);
-                }
+                    MMC3Interrupt = true;
             }
         }
     }

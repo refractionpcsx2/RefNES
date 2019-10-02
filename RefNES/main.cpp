@@ -262,6 +262,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                     handleInput();
                     CPULoop();
 
+                    if (MMC3Interrupt)
+                    {
+                        if (!(P & INTERRUPT_DISABLE_FLAG))
+                        {
+                            MMC3Interrupt = false;
+                            P |= BREAK_FLAG | (1 << 5);
+                            CPUPushAllStack();
+                            P |= INTERRUPT_DISABLE_FLAG;
+                            PC = memReadPC(0xFFFE);
+                        }
+                    }
 					if (NMITriggered)
 					{
 						CPUFireNMI();
