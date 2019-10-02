@@ -907,14 +907,22 @@ void PPULoop()
             isVBlank = true;
             CPU_LOG("VBLANK Start at %d cpu cycles\n", cpuCycles);
             cpuVBlankCycles = cpuCycles;
+
             if ((PPUStatus & 0x80) && (PPUCtrl & 0x80))
             {
-				NMITriggered = true; //NMIRequested = true;
+                NMITriggered = true; //NMIRequested = true;
             }
-
             DrawScreen();
             EndDrawing();
         }
+        //Moving this here stops Battletoads shaking
+        /*if (scanline == 241 && scanlineCycles == 12 && isVBlank)
+        {
+            if ((PPUStatus & 0x80) && (PPUCtrl & 0x80))
+            {
+                NMITriggered = true; //NMIRequested = true;
+            }
+        }*/
     }
 
     if (zeroSpriteTriggered == true)

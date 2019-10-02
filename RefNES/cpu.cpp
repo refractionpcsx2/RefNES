@@ -31,6 +31,7 @@ void CPUIncrementCycles(int cycles)
     cpuCycles += cycles;
     nextCpuCycle = cpuCycles * 3;
 
+    updateAPU(cpuCycles);
     while(dotCycles < nextCpuCycle)
         PPULoop();
 }
@@ -575,7 +576,7 @@ void cpuSEI() {
     PC += 1;
 }
 void cpuSHY() {
-    unsigned char temp = memRead(false);
+    unsigned char temp;// = memRead(false);
     CPU_LOG("SHY Not Implemented\n");
     temp = memReadPC(PC + 2) + 1;
     temp &= Y;
@@ -1434,7 +1435,7 @@ void cpuISC() {
 }
 
 void cpuLAS() {
-    memRead(false);
+    memRead(true);
     PC += PCInc;
 }
 
@@ -1668,6 +1669,7 @@ void cpuSRE() {
 
 void cpuTAS() {
     memRead(false);
+    CPUIncrementCycles(1);
     PC += PCInc;
 }
 
@@ -1731,34 +1733,34 @@ void CPUALUInst(unsigned char Opcode) {
 }
 
 /* Control Instruction table */
-JumpTable CPUControl[64] = { cpuBRK, cpuNOP, cpuPHP, cpuNOP, cpuBPL, cpuNOP, cpuCLC, cpuNOP,
-                             cpuJSR, cpuBIT, cpuPLP, cpuBIT, cpuBMI, cpuNOP, cpuSEC, cpuNOP, 
-                             cpuRTI, cpuNOP, cpuPHA, cpuJMP, cpuBVC, cpuNOP, cpuCLI, cpuNOP, 
-                             cpuRTS, cpuNOP, cpuPLA, cpuJMP, cpuBVS, cpuNOP, cpuSEI, cpuNOP, 
-                             cpuNOP, cpuSTY, cpuDEY, cpuSTY, cpuBCC, cpuSTY, cpuTYA, cpuSHY,
-                             cpuLDY, cpuLDY, cpuTAY, cpuLDY, cpuBCS, cpuLDY, cpuCLV, cpuLDY,
-                             cpuCPY, cpuCPY, cpuINY, cpuCPY, cpuBNE, cpuNOP, cpuCLD, cpuNOP,
-                             cpuCPX, cpuCPX, cpuINX, cpuCPX, cpuBEQ, cpuNOP, cpuSED, cpuNOP };
+JumpTable CPUControl[64] = { cpuBRK, cpuNOP, cpuPHP, cpuNOP, cpuBPL, cpuNOP, cpuCLC, cpuNOP, //7
+                             cpuJSR, cpuBIT, cpuPLP, cpuBIT, cpuBMI, cpuNOP, cpuSEC, cpuNOP, //15
+                             cpuRTI, cpuNOP, cpuPHA, cpuJMP, cpuBVC, cpuNOP, cpuCLI, cpuNOP, //23
+                             cpuRTS, cpuNOP, cpuPLA, cpuJMP, cpuBVS, cpuNOP, cpuSEI, cpuNOP, //31
+                             cpuNOP, cpuSTY, cpuDEY, cpuSTY, cpuBCC, cpuSTY, cpuTYA, cpuSHY, //39
+                             cpuLDY, cpuLDY, cpuTAY, cpuLDY, cpuBCS, cpuLDY, cpuCLV, cpuLDY, //47
+                             cpuCPY, cpuCPY, cpuINY, cpuCPY, cpuBNE, cpuNOP, cpuCLD, cpuNOP, //55
+                             cpuCPX, cpuCPX, cpuINX, cpuCPX, cpuBEQ, cpuNOP, cpuSED, cpuNOP }; //63
 
 /* Read Write Modify Instruction table*/
-JumpTable CPURWM[64]    = { cpuSTP, cpuASL, cpuASL, cpuASL, cpuSTP, cpuASL, cpuNOP, cpuASL,
-                            cpuSTP, cpuROL, cpuROL, cpuROL, cpuSTP, cpuROL, cpuNOP, cpuROL,
-                            cpuSTP, cpuLSR, cpuLSR, cpuLSR, cpuSTP, cpuLSR, cpuNOP, cpuLSR,
-                            cpuSTP, cpuROR, cpuROR, cpuROR, cpuSTP, cpuROR, cpuNOP, cpuROR,
-                            cpuNOP, cpuSTX, cpuTXA, cpuSTX, cpuSTP, cpuSTX, cpuTXS, cpuSHX,
-                            cpuLDX, cpuLDX, cpuTAX, cpuLDX, cpuSTP, cpuLDX, cpuTSX, cpuLDX,
-                            cpuNOP, cpuDEC, cpuDEX, cpuDEC, cpuSTP, cpuDEC, cpuNOP, cpuDEC,
-                            cpuNOP, cpuINC, cpuNOP, cpuINC, cpuSTP, cpuINC, cpuNOP, cpuINC };
+JumpTable CPURWM[64]    = { cpuSTP, cpuASL, cpuASL, cpuASL, cpuSTP, cpuASL, cpuNOP, cpuASL, //7
+                            cpuSTP, cpuROL, cpuROL, cpuROL, cpuSTP, cpuROL, cpuNOP, cpuROL, //15
+                            cpuSTP, cpuLSR, cpuLSR, cpuLSR, cpuSTP, cpuLSR, cpuNOP, cpuLSR, //23
+                            cpuSTP, cpuROR, cpuROR, cpuROR, cpuSTP, cpuROR, cpuNOP, cpuROR, //31
+                            cpuNOP, cpuSTX, cpuTXA, cpuSTX, cpuSTP, cpuSTX, cpuTXS, cpuSHX, //39
+                            cpuLDX, cpuLDX, cpuTAX, cpuLDX, cpuSTP, cpuLDX, cpuTSX, cpuLDX, //47
+                            cpuNOP, cpuDEC, cpuDEX, cpuDEC, cpuSTP, cpuDEC, cpuNOP, cpuDEC, //55
+                            cpuNOP, cpuINC, cpuNOP, cpuINC, cpuSTP, cpuINC, cpuNOP, cpuINC }; //63
 
 /* Read Write Modify Instruction table*/
-JumpTable CPUUnofficial[64] = { cpuSLO, cpuSLO, cpuANC, cpuSLO, cpuSLO, cpuSLO, cpuSLO, cpuSLO,
-                                cpuRLA, cpuRLA, cpuANC, cpuRLA, cpuRLA, cpuRLA, cpuRLA, cpuRLA,
-                                cpuSRE, cpuSRE, cpuALR, cpuSRE, cpuSRE, cpuSRE, cpuSRE, cpuSRE,
-                                cpuRRA, cpuRRA, cpuARR, cpuRRA, cpuRRA, cpuRRA, cpuRRA, cpuRRA,
-                                cpuSAX, cpuSAX, cpuXAA, cpuSAX, cpuAHX, cpuSAX, cpuTAS, cpuAHX,
-                                cpuLAX, cpuLAX, cpuLAX, cpuLAX, cpuLAX, cpuLAX, cpuLAS, cpuLAX,
-                                cpuDCP, cpuDCP, cpuAXS, cpuDCP, cpuDCP, cpuDCP, cpuDCP, cpuDCP,
-                                cpuISC, cpuISC, cpuSBC, cpuISC, cpuISC, cpuISC, cpuISC, cpuISC };
+JumpTable CPUUnofficial[64] = { cpuSLO, cpuSLO, cpuANC, cpuSLO, cpuSLO, cpuSLO, cpuSLO, cpuSLO, //7
+                                cpuRLA, cpuRLA, cpuANC, cpuRLA, cpuRLA, cpuRLA, cpuRLA, cpuRLA, //15
+                                cpuSRE, cpuSRE, cpuALR, cpuSRE, cpuSRE, cpuSRE, cpuSRE, cpuSRE, //23
+                                cpuRRA, cpuRRA, cpuARR, cpuRRA, cpuRRA, cpuRRA, cpuRRA, cpuRRA, //31
+                                cpuSAX, cpuSAX, cpuXAA, cpuSAX, cpuAHX, cpuSAX, cpuTAS, cpuAHX, //39
+                                cpuLAX, cpuLAX, cpuLAX, cpuLAX, cpuLAX, cpuLAX, cpuLAS, cpuLAX, //47
+                                cpuDCP, cpuDCP, cpuAXS, cpuDCP, cpuDCP, cpuDCP, cpuDCP, cpuDCP, //55
+                                cpuISC, cpuISC, cpuSBC, cpuISC, cpuISC, cpuISC, cpuISC, cpuISC }; //63
 
 void CPUFireNMI()
 {
@@ -1794,6 +1796,6 @@ void CPULoop() {
             break;
     }
 
-    updateAPU(cpuCycles);
+    
 }
 

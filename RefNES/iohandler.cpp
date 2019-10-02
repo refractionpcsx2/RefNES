@@ -8,12 +8,19 @@ unsigned char writes;
 unsigned char sq1_vol, sq2_vol;
 unsigned char sq1_sweep, sq2_sweep;
 unsigned short sq1_length, sq2_length;
+unsigned char triangle_linear;
+unsigned short triangle_timer;
+unsigned short triangle_length;
+unsigned char noise_envelope;
+unsigned short noise_period;
+unsigned short noise_length;
 unsigned short sq1_wave, sq2_wave;
 unsigned char apu_status_channels, apu_status_interrupts, apu_frame_counter;
-unsigned int apu_cycles;
+signed int apu_cycles;
 unsigned int last_apu_cpucycle, apu_cyclelimit;
 unsigned int next_counter_clock;
 unsigned int length_triggers[2];
+unsigned int apu_irq_set = 0;
 
 unsigned char length_table[32] = { 10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14,
                                    12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
@@ -35,14 +42,20 @@ void IOReset()
     sq2_vol = 0;
     keyevents = 0;
     apu_frame_counter = 0;
-    apu_cyclelimit = 29830;
+    apu_irq_set = 0;
+    apu_cyclelimit = 29831;
     //These are equal to CPU cycles
-    length_triggers[0] = 14913;
+    length_triggers[0] = 14915;
     length_triggers[1] = 29829;
-    next_counter_clock = 14913;
+    next_counter_clock = 14915;
 }
 
 void SPRTransfer(unsigned char memvalue) {
+
+    if (cpuCycles & 0x1)
+        CPUIncrementCycles(1);
+    CPUIncrementCycles(513);
+
     if (SPRRamAddress > 0)
     {
         for(int i = 0; i < 256; i++)
@@ -51,9 +64,6 @@ void SPRTransfer(unsigned char memvalue) {
     else
         memcpy(SPRMemory, &CPUMemory[memvalue << 8], 256);
 
-    if (cpuCycles & 0x1)
-        CPUIncrementCycles(1);
-    CPUIncrementCycles(513);
 }
 void ioRegWrite(unsigned short address, unsigned char value) {
     //CPU_LOG("IO Reg Write address %x keyevents=%x value=%x\n", address, keyevents, value);
@@ -68,14 +78,58 @@ void ioRegWrite(unsigned short address, unsigned char value) {
             break;
         case 0x4002:
             CPU_LOG("BANANA APU SQ1 LENGTH LO Reg write at %x value %x\n", address, value);
-            sq1_wave = (sq1_wave & 0x100) | value;
+            sq1_wave = (sq1_wave & 0x700) | value;
             break;
         case 0x4003:
             CPU_LOG("BANANA APU SQ1 LENGTH HI Reg write at %x value %x\n", address, value);
             sq1_wave = (sq1_wave & 0xFF) | ((value & 0x7) << 8);
             if(apu_status_channels & 0x1)
-                sq1_length = length_table[value >> 3] + 1;
+                sq1_length = length_table[value >> 3];
             CPU_LOG("BANANA APU SQ1 LENGTH HI Reg write at Length loaded with %d from value %x\n", sq1_length, value >> 3);
+            break;
+        case 0x4004:
+            CPU_LOG("BANANA APU SQ2 VOL Reg write at %x value %x\n", address, value);
+            sq2_vol = value;
+            break;
+        case 0x4005:
+            CPU_LOG("BANANA APU SQ2 SWEEP Reg write at %x value %x\n", address, value);
+            sq2_sweep = value;
+            break;
+        case 0x4006:
+            CPU_LOG("BANANA APU SQ2 LENGTH LO Reg write at %x value %x\n", address, value);
+            sq2_wave = (sq2_wave & 0x700) | value;
+            break;
+        case 0x4007:
+            CPU_LOG("BANANA APU SQ2 LENGTH HI Reg write at %x value %x\n", address, value);
+            sq2_wave = (sq2_wave & 0xFF) | ((value & 0x7) << 8);
+            if (apu_status_channels & 0x2)
+                sq2_length = length_table[value >> 3];
+            CPU_LOG("BANANA APU SQ2 LENGTH HI Reg write at Length loaded with %d from value %x\n", sq2_length, value >> 3);
+            break;
+        case 0x4008:
+            CPU_LOG("BANANA APU TRIANGLE Linear Control Reg write at %x value %x\n", address, value);
+            triangle_linear = value;
+            break;
+        case 0x400A:
+            CPU_LOG("BANANA APU Triangle Timer Low Reg write at %x value %x\n", address, value);
+            triangle_timer = (triangle_timer & 0x700) | value;
+            break;
+        case 0x400B:
+            CPU_LOG("BANANA APU Triangle LENGTH/Timer Reg write at %x value %x\n", address, value);
+            triangle_timer = (triangle_timer & 0xFF) | ((value & 0x7) << 8);
+            if (apu_status_channels & 0x4)
+                triangle_length = length_table[value >> 3];
+            CPU_LOG("BANANA APU Triangle LENGTH/Timer Reg write at Length loaded with %d from value %x\n", triangle_length, value >> 3);
+            break;
+        case 0x400C:
+            CPU_LOG("BANANA APU Noise Envelope Control Reg write at %x value %x\n", address, value);
+            noise_envelope = value;
+            break;
+        case 0x400F:
+            CPU_LOG("BANANA APU Noise LENGTH Reg write at %x value %x\n", address, value);
+            if (apu_status_channels & 0x8)
+                noise_length = length_table[value >> 3];
+            CPU_LOG("BANANA APU Noise LENGTH Reg write at Length loaded with %d from value %x\n", noise_length, value >> 3);
             break;
         case 0x4014:
             SPRTransfer(value);
@@ -87,6 +141,18 @@ void ioRegWrite(unsigned short address, unsigned char value) {
             {
                 sq1_length = 0;
             }
+            if (!(apu_status_channels & 0x2))
+            {
+                sq2_length = 0;
+            }
+            if (!(apu_status_channels & 0x4))
+            {
+                triangle_length = 0;
+            }
+            if (!(apu_status_channels & 0x8))
+            {
+                noise_length = 0;
+            }
             break;
         case 0x4016:
             writes = 0;
@@ -94,22 +160,47 @@ void ioRegWrite(unsigned short address, unsigned char value) {
         case 0x4017:
             CPU_LOG("BANANA APU Frame Counter Reg write at %x value %x\n", address, value);
             apu_frame_counter = value;
-            if (apu_frame_counter & 0x40)
+            if (apu_frame_counter & 0x80)
             {
-                apu_cyclelimit = 37282;
-                length_triggers[0] = 14913;
-                length_triggers[1] = 37281;
+                apu_cyclelimit = 37284;
+                length_triggers[0] = 14916;
+                length_triggers[1] = 37284;
             }
             else
             {
-                apu_cyclelimit = 29830;
-                length_triggers[0] = 14913;
-                length_triggers[1] = 29829;
+                apu_cyclelimit = 29832;
+                length_triggers[0] = 14916;
+                length_triggers[1] = 29832;
             }
+
+            next_counter_clock = length_triggers[0];
             //If the counter is not halted and the MODE is written to, clear the counter immediately
-            if (apu_frame_counter & 0x80 && !(sq1_vol & 0x20))
+            if (apu_frame_counter & 0x80 && !(sq1_vol & 0x20) && sq1_length)
             {
-                sq1_length = 0;
+                sq1_length--;
+            }
+            if (apu_frame_counter & 0x80 && !(sq2_vol & 0x20) && sq2_length)
+            {
+                sq2_length--;
+            }
+            if (apu_frame_counter & 0x80 && !(triangle_linear & 0x80) && triangle_length)
+            {
+                triangle_length--;
+            }
+            if (apu_frame_counter & 0x80 && !(noise_envelope & 0x20) && noise_length)
+            {
+                noise_length--;
+            }
+            
+            if (apu_cycles & 0x1)
+                apu_cycles = -1;
+            else
+                apu_cycles = 0;
+
+            if (value & 0x40)
+            {
+                apu_status_interrupts &= ~0x40;
+                apu_irq_set = 0;
             }
             break;
         default:
@@ -145,8 +236,13 @@ int ioRegRead(unsigned short address) {
             return ((sq1_length & 0xFF00) >> 8);
             break;
         case 0x15:
-            value = ((sq1_length > 0) & 0x1) | (apu_status_interrupts & 0xF0);
-            CPU_LOG("BANANA APU Status Reg read at %x value %x sq1_length %d compare %d\n", address, value, sq1_length, (sq1_length > 0) & 0x1);
+            value = (apu_status_interrupts & 0xF0);
+            value |= (sq2_length > 0) ? 2 : 0;
+            value |= (sq1_length > 0) ? 1 : 0;
+            value |= (triangle_length > 0) ? 4 : 0;
+            value |= (noise_length > 0) ? 8 : 0;
+            //value = (((sq2_length > 0) << 1) & 0x2) | ((sq1_length > 0) & 0x1) | (apu_status_interrupts & 0xC0);
+            CPU_LOG("BANANA APU Status Reg read at %x value %x sq1_length %d sq2_length %d\n", address, value, sq1_length, sq2_length);
             apu_status_interrupts &= ~0x40;
             return value;
             break;
@@ -206,11 +302,6 @@ void updateAPU(unsigned int cpu_cycles)
         }
         else
         {
-            if (!(apu_frame_counter & 0x60))
-            {
-                apu_status_interrupts |= 0x40;
-            }
-
             next_counter_clock = length_triggers[0];
         }
     }
@@ -224,10 +315,49 @@ void updateAPU(unsigned int cpu_cycles)
             CPU_LOG("reg write at Decreasing sql_length now %d\n", sq1_length);
         }
     }
+    if (apu_status_channels & 0x2)
+    {
+        if (sq2_length && !(sq2_vol & 0x20) && updatelength)
+        {
+
+            sq2_length -= 1;
+            CPU_LOG("reg write at Decreasing sq2_length now %d\n", sq2_length);
+        }
+    }
+    if (apu_status_channels & 0x4)
+    {
+        if (triangle_length && !(triangle_linear & 0x80) && updatelength)
+        {
+
+            triangle_length -= 1;
+            CPU_LOG("reg write at Decreasing triangle_length now %d\n", triangle_length);
+        }
+    }
+    if (apu_status_channels & 0x8)
+    {
+        if (noise_length && !(noise_envelope & 0x20) && updatelength)
+        {
+            noise_length -= 1;
+            CPU_LOG("reg write at Decreasing triangle_length now %d\n", noise_length);
+        }
+    }
+
+    if (apu_cycles >= 29831 && (apu_cycles - newcycles) < 29831)
+    {
+        apu_irq_set = 2;
+    }
+    if(apu_irq_set)
+    {
+        apu_irq_set--;
+        if (!(apu_frame_counter & 0xC0))
+        {
+            apu_status_interrupts |= 0x40;
+        }
+    }
 
     if (apu_cycles >= apu_cyclelimit)
     {
-        apu_cycles -= apu_cyclelimit;
+        apu_cycles -= apu_cyclelimit-2;
         CPU_LOG("APU Cycle Reset\n");
     }
 }
