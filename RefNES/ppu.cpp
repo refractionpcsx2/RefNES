@@ -907,7 +907,10 @@ void PPULoop()
             if ((PPUCtrl & 0x80))
             {
                 NMITriggered = true; //NMIRequested = true;
-                NMITriggerCycle = cpuCycles;
+                if(dotCycles + 2 < nextCpuCycle)
+                    NMITriggerCycle = cpuCycles;
+                else
+                    NMITriggerCycle = cpuCycles+1;
                 //NMITriggerCycle = cpuCycles+5; //Battletoads fix
             }
             StartDrawing();
