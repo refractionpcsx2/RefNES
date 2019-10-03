@@ -267,6 +267,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         if (!(P & INTERRUPT_DISABLE_FLAG))
                         {
                             MMC3Interrupt = false;
+                            CPUIncrementCycles(7);
                             P |= BREAK_FLAG | (1 << 5);
                             CPUPushAllStack();
                             P |= INTERRUPT_DISABLE_FLAG;
