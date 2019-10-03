@@ -206,7 +206,8 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
         case 0x00: //PPU Control
             //If NMI is enabled during VBlank and NMI is triggered
             if ((PPUStatus & 0x80) && (value & 0x80) && !(PPUCtrl & 0x80)) {
-                NMIRequested = true;
+                NMITriggered = true;
+                NMITriggerCycle = cpuCycles + 2;
             }
             PPUCtrl = value;
             t_reg.nametable = value & 0x3;
@@ -895,9 +896,6 @@ void PPULoop()
                 v_reg.nametable = (v_reg.nametable & 0x1) | (t_reg.nametable & 0x2);
             }
         }
-
-        
-
         //VBlank Start, show frame
         if (scanline == 241 && scanlineCycles == 1 && skipVBlank == false)
         {
@@ -906,24 +904,17 @@ void PPULoop()
             CPU_LOG("VBLANK Start at %d cpu cycles\n", cpuCycles);
             cpuVBlankCycles = cpuCycles;
 
-            if ((PPUStatus & 0x80) && (PPUCtrl & 0x80))
+            if ((PPUCtrl & 0x80))
             {
                 NMITriggered = true; //NMIRequested = true;
+                NMITriggerCycle = cpuCycles;
+                //NMITriggerCycle = cpuCycles+5; //Battletoads fix
             }
             StartDrawing();
             DrawScreen();
             EndDrawing();
         }
-        //Moving this here stops Battletoads shaking
-        /*if (scanline == 241 && scanlineCycles == 12 && isVBlank)
-        {
-            if ((PPUStatus & 0x80) && (PPUCtrl & 0x80))
-            {
-                NMITriggered = true; //NMIRequested = true;
-            }
-        }*/
     }
-
     //Update PPU clocks
     scanlineCycles++;
     dotCycles++;

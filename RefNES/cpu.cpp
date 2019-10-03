@@ -21,6 +21,7 @@ unsigned int masterClock = 21477270;
 unsigned int cpuClock = (masterClock / 12);
 unsigned int ppuClock = (masterClock / 4);
 bool NMITriggered = false;
+unsigned int NMITriggerCycle = 0;
 bool NMIRequested = false;
 
 

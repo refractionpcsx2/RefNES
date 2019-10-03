@@ -20,6 +20,7 @@ extern unsigned int vBlankInterval;
 extern unsigned int masterClock;
 extern unsigned int cpuClock;
 extern unsigned int ppuClock;
+extern unsigned int NMITriggerCycle;
 extern bool NMITriggered;
 extern bool NMIRequested;
 
