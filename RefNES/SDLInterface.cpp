@@ -39,7 +39,7 @@ void InitDisplay(int width, int height, HWND hWnd)
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
         width, height,
-        SDL_WINDOW_MAXIMIZED | SDL_WINDOW_BORDERLESS | SDL_WINDOW_OPENGL);
+        SDL_WINDOW_MAXIMIZED | SDL_WINDOW_BORDERLESS | SDL_WINDOW_OPENGL | SDL_WINDOW_INPUT_FOCUS);
 
     struct SDL_SysWMinfo wmInfo;
     SDL_VERSION(&wmInfo.version);
@@ -65,7 +65,7 @@ void InitDisplay(int width, int height, HWND hWnd)
     SetFocus(hwndSDL);
 
 
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
 
     QueryPerformanceFrequency(&nFrequency);
     QueryPerformanceCounter(&nStartTime);
@@ -82,14 +82,14 @@ void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
 }
 
 void DrawScreen() {
-
+    unsigned int pitchDivider = (pitch / sizeof(unsigned int));
     for (int xpos = 0; xpos < 256; xpos++) {
         for (int ypos = 1; ypos < 240; ypos++) {
             if (ScreenBuffer[xpos][ypos])
             {
                 //CPU_LOG("Start Scene draw pixel\n");
-                unsigned int position = ypos * (pitch / sizeof(unsigned int)) + xpos;
-                pixels[position] = (ScreenBuffer[xpos][ypos] & 0xFF) << 8 | ((ScreenBuffer[xpos][ypos] >> 8) & 0xFF) << 16 | ((ScreenBuffer[xpos][ypos] >> 16) & 0xFF) << 24 | ((ScreenBuffer[xpos][ypos] >> 24) & 0xFF);
+                unsigned int position = ypos * pitchDivider + xpos;
+                pixels[position] = ScreenBuffer[xpos][ypos];
             }
         }
     }

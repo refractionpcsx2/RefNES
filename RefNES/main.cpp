@@ -140,6 +140,14 @@ int LoadIni(){
                 SCREEN_WIDTH = 768;
                 SCREEN_HEIGHT = 720;
                 break;
+            case 4:
+                SCREEN_WIDTH = 1024;
+                SCREEN_HEIGHT = 960;
+                break;
+            case 5:
+                SCREEN_WIDTH = 1280;
+                SCREEN_HEIGHT = 1200;
+                break;
             }
         }
         else
@@ -294,6 +302,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define     ID_WINDOWX1    1006
 #define     ID_WINDOWX2    1007
 #define     ID_WINDOWX3    1008
+#define     ID_WINDOWX4    1009
+#define     ID_WINDOWX5    1010
 
 void UpdateFPSCounter()
 {
@@ -390,6 +400,14 @@ void ChangeScale(HWND hWnd, int ID)
         SCREEN_WIDTH = 768;
         SCREEN_HEIGHT = 720;
         break;
+    case 4:
+        SCREEN_WIDTH = 1024;
+        SCREEN_HEIGHT = 960;
+        break;
+    case 5:
+        SCREEN_WIDTH = 1280;
+        SCREEN_HEIGHT = 1200;
+        break;
     }
 
     RECT wr = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };    // set the size, but not the position
@@ -431,6 +449,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
           AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 1 ? MF_CHECKED : 0), ID_WINDOWX1, "WindowScale 320x240 (x&1)");
           AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 2 ? MF_CHECKED : 0), ID_WINDOWX2, "WindowScale 640x480 (x&2)");
           AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 3 ? MF_CHECKED : 0), ID_WINDOWX3, "WindowScale 960x720 (x&3)");
+          AppendMenu(hSubMenu2, MF_STRING | (MenuScale == 2 ? MF_CHECKED : 0), ID_WINDOWX4, "WindowScale 640x480 (x&4)");
+          AppendMenu(hSubMenu2, MF_STRING | (MenuScale == 3 ? MF_CHECKED : 0), ID_WINDOWX5, "WindowScale 960x720 (x&5)");
           
          
           AppendMenu(hSubMenu2, MF_STRING | (MenuVSync == 1 ? MF_CHECKED : 0), ID_VSYNC, "&Vertical Sync");
@@ -534,6 +554,12 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
           case ID_WINDOWX3:
               ChangeScale(hWnd, ID_WINDOWX3);
               break;
+          case ID_WINDOWX4:
+              ChangeScale(hWnd, ID_WINDOWX4);
+              break;
+          case ID_WINDOWX5:
+              ChangeScale(hWnd, ID_WINDOWX5);
+              break;
           case ID_ABOUT:
                  MessageBox(hWnd, "refNES V1.0 Written by Refraction", "refNES", 0);             
              break;
@@ -581,22 +607,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 void Reset()
 {
     CPUReset();
-    /*Flag._u16 = 0;
-    PC = 0;
-    StackPTR = 0xFDF0;
-    cycles = 0;
-    nextsecond = 0;
-    srand((int)time(NULL));
-
-    for (int i = 0; i < 16; i++)
-        GPR[i] = 0;
-    memset(Memory, 0, sizeof(Memory));
-
-    D3DReset();
-    RefChip16Sound->StopVoice();
-    RefChip16Sound->SetADSR(0, 0, 15, 0, 15, TRIANGLE);*/
-
-
+    PPUReset();
 }
 
 
