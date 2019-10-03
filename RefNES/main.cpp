@@ -253,11 +253,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         last_apu_cpucycle -= 900000;
 
                     }
-					if (NMIRequested)
-					{
-						NMITriggered = true;
-						NMIRequested = false;
-					}
+                    if (NMIRequested)
+                    {
+                        NMITriggered = true;
+                        NMIRequested = false;
+                    }
 
                     handleInput();
                     CPULoop();
@@ -274,10 +274,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                             PC = memReadPC(0xFFFE);
                         }
                     }
-					if (NMITriggered)
-					{
-						CPUFireNMI();
-					}
+                    if (NMITriggered)
+                    {
+                        CPUFireNMI();
+                    }
                 }
                 else Sleep(100);    
     }

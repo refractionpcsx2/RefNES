@@ -209,7 +209,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
         case 0x00: //PPU Control
             //If NMI is enabled during VBlank and NMI is triggered
             if ((PPUStatus & 0x80) && (value & 0x80) && !(PPUCtrl & 0x80)) {
-				NMIRequested = true;
+                NMIRequested = true;
             }
             PPUCtrl = value;
             t_reg.nametable = value & 0x3;
@@ -279,15 +279,15 @@ unsigned char cachedvramread = 0;
 unsigned char PPUReadReg(unsigned short address) {
     unsigned char value;
 
-	switch (address & 0x7) {
-	case 0x02: //PPU Status 
-		if (scanline == 241 && scanlineCycles == 1)
-			skipVBlank = true;
-		if (scanline == 241 && (scanlineCycles == 2 || scanlineCycles == 3))
-		{
-			NMIRequested = false;
-			NMITriggered = false;
-		}
+    switch (address & 0x7) {
+    case 0x02: //PPU Status 
+        if (scanline == 241 && scanlineCycles == 1)
+            skipVBlank = true;
+        if (scanline == 241 && (scanlineCycles == 2 || scanlineCycles == 3))
+        {
+            NMIRequested = false;
+            NMITriggered = false;
+        }
         value = PPUStatus & 0xE0 | lastwrite & 0x1F;
         PPUStatus &= ~0x80;
         //CPU_LOG("PPU T Update tfirstwrite reset\n");
@@ -602,27 +602,27 @@ void PPULoop()
         unsigned short byteAddress;
         unsigned short patternTableBaseAddress;
 
-		//Clear the last used sprites at this point
-		if (scanlineCycles == 261)
-		{
-			memset(spritePatternLower, 0, sizeof(spritePatternLower));
-			memset(spritePatternUpper, 0, sizeof(spritePatternUpper));
-			memset(spriteAttribute, 0, sizeof(spriteAttribute));
-			memset(spriteX, 0, sizeof(spriteX));
-			memset(isSpriteZero, 0, sizeof(isSpriteZero));
-			spriteToDraw = foundSprites;
-		}
+        //Clear the last used sprites at this point
+        if (scanlineCycles == 261)
+        {
+            memset(spritePatternLower, 0, sizeof(spritePatternLower));
+            memset(spritePatternUpper, 0, sizeof(spritePatternUpper));
+            memset(spriteAttribute, 0, sizeof(spriteAttribute));
+            memset(spriteX, 0, sizeof(spriteX));
+            memset(isSpriteZero, 0, sizeof(isSpriteZero));
+            spriteToDraw = foundSprites;
+        }
         //Visible scanlines and Pre-Render line
         if (scanline < 240 || scanline == 261)
         {
             MMC2SwitchCHR();
-			
+            
             //End of VBlank and clear sprite overflow, execute Pre-Render line
             if (scanline == 261 && scanlineCycles == 1)
             {
-				PPUStatus &= ~0xE0;
-				isVBlank = false;
-				skipVBlank = false;
+                PPUStatus &= ~0xE0;
+                isVBlank = false;
+                skipVBlank = false;
                 cpuVBlankCycles = cpuCycles - cpuVBlankCycles;
                 ZeroBuffer();
                 StartDrawing();
@@ -935,10 +935,10 @@ void PPULoop()
     scanlineCycles++;
     dotCycles++;
 
-	if (scanlineCycles == 339 && scanline == 261 && oddFrame && (PPUMask & 0x8))
-	{
-		scanlineCycles = 340;
-	}
+    if (scanlineCycles == 339 && scanline == 261 && oddFrame && (PPUMask & 0x8))
+    {
+        scanlineCycles = 340;
+    }
     //We've reached the end of the scanline
     if (scanlineCycles == 341)
     {
@@ -956,6 +956,6 @@ void PPULoop()
 
         scanlineCycles = 0;
     }
-	UpdateFPSCounter();
+    UpdateFPSCounter();
 }
 
