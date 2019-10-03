@@ -10,9 +10,11 @@ unsigned char MMCcontrol;
 unsigned char MMCIRQCounterLatch = 0;
 unsigned short MMCIRQCounter = 0;
 unsigned char MMCIRQEnable = 0;
-unsigned char MMC2LatchSelector = 0xFE;
+unsigned char MMC2LatchSelector[2] = { 0xFE, 0xFE };
 unsigned char MMC2LatchRegsiter1 = 0;
 unsigned char MMC2LatchRegsiter2 = 0;
+unsigned char MMC2LatchRegsiter3 = 0;
+unsigned char MMC2LatchRegsiter4 = 0;
 bool MMC3Interrupt = false;
 bool MMC2Switch = false;
 
@@ -124,7 +126,7 @@ void ChangeLowerCHR(unsigned char PRGNum) {
     unsigned int PrgSizetotal = prgsize * 16384;
     if (chrsize == 0) return;
 
-    if ((MMCcontrol & 0x10)) {
+    if ((MMCcontrol & 0x10) || mapper != 1) {
         CPU_LOG("MAPPER Switching Lower CHR 4k number %d at 0x0000\n", PRGNum);
         memcpy(PPUMemory, ROMCart + PrgSizetotal + (PRGNum * 4096), 0x1000);
     }
@@ -140,13 +142,13 @@ void Change8KCHR(unsigned char PRGNum) {
     memcpy(&PPUMemory[0x0000], ROMCart + (prgsize * 16384) + (program * 8192), 0x2000);
 }
 
-void MMC2SetLatch(unsigned char value) {
+void MMC2SetLatch(unsigned char latch, unsigned char value) {
     if (mapper != 9)
         return;
-    if (MMC2LatchSelector == value)
+    if (MMC2LatchSelector[latch] == value)
         return;
 
-    MMC2LatchSelector = value;
+    MMC2LatchSelector[latch] = value;
 
     MMC2Switch = true;
 }
@@ -155,13 +157,22 @@ void MMC2SwitchCHR()
 {
     if (MMC2Switch)
     {
-        if (MMC2LatchSelector == 0xFD)
+        if (MMC2LatchSelector[0] == 0xFD)
         {
-            ChangeUpperCHR(MMC2LatchRegsiter1);
+            ChangeLowerCHR(MMC2LatchRegsiter1);
         }
         else
         {
-            ChangeUpperCHR(MMC2LatchRegsiter2);
+            ChangeLowerCHR(MMC2LatchRegsiter2);
+        }
+
+        if (MMC2LatchSelector[1] == 0xFD)
+        {
+            ChangeUpperCHR(MMC2LatchRegsiter3);
+        }
+        else
+        {
+            ChangeUpperCHR(MMC2LatchRegsiter4);
         }
         MMC2Switch = false;
     }
@@ -268,18 +279,18 @@ void MapperHandler(unsigned short address, unsigned char value) {
                 break;
             case 0xB000: //CHR ROM Lower 4K select FD
                 CPU_LOG("MAPPER MMC2 CHR Lower Select %d\n", value);
-                ChangeLowerCHR(value & 0x1F);
+                MMC2LatchRegsiter1 = value & 0x1F;
                 break;
             case 0xC000: //CHR ROM Lower 4K select FE
                 CPU_LOG("MAPPER MMC2 CHR Lower Select %d\n", value);
-                ChangeLowerCHR(value & 0x1F);
+                MMC2LatchRegsiter2 = value & 0x1F;
                 break;
             case 0xD000: //CHR ROM Upper 4K select FD
-                MMC2LatchRegsiter1 = value & 0x1F;
+                MMC2LatchRegsiter3 = value & 0x1F;
                 CPU_LOG("MAPPER MMC2 CHR Upper FD Select %d\n", value);
                 break;
             case 0xE000: //CHR ROM Upper 4K select FE
-                MMC2LatchRegsiter2 = value & 0x1F;
+                MMC2LatchRegsiter4 = value & 0x1F;
                 CPU_LOG("MAPPER MMC2 CHR Upper FE Select %d\n", value);
                 break;
             case 0xF000:

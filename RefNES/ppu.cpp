@@ -117,17 +117,17 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
         lastA12bit = address;
 
         if (isWriting == false) {
-            /*if ((address >= 0x0FD8 && address <= 0x0FDF))
-                MMC2SetLatch(0xFD);
+            if ((address & 0x1FF8) == 0x0FD8)
+                MMC2SetLatch(0, 0xFD);
 
-            if ((address >= 0x0FE8 && address <= 0x0FEF))
-                MMC2SetLatch(0xFE);*/
+            if ((address & 0x1FF8) == 0x0FE8)
+                MMC2SetLatch(0, 0xFE);
 
-            if ((address >= 0x1FD8 && address <= 0x1FDF))
-                MMC2SetLatch(0xFD);
+            if ((address & 0x1FF8) == 0x1FD8)
+                MMC2SetLatch(1, 0xFD);
 
-            if ((address >= 0x1FE8 && address <= 0x1FEF))
-                MMC2SetLatch(0xFE);
+            if ((address & 0x1FF8) == 0x1FE8)
+                MMC2SetLatch(1, 0xFE);
         }
 
         calculatedAddress = address;
@@ -263,7 +263,9 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 
             //CPU_LOG("DEBUG Addr %x Writing %x\n", vramlocation, value);
             PPUMemory[vramlocation] = value;
-            
+
+            MMC2SwitchCHR();
+
             if (PPUCtrl & 0x4) { //Increment
                 VRAMRamAddress += 32;
             }
