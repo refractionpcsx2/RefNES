@@ -905,7 +905,7 @@ void PPULoop()
             }
 
             //Reload vertical v_reg.  Actually happens from 280-304 of the pre-render scanline but we can just do this
-            if (scanline == 261 && scanlineCycles == 304)
+            if (scanline == 261 && scanlineCycles == 304 && !backgroundRenderingDisabled)
             {
                 v_reg.coarseY = t_reg.coarseY;
                 v_reg.fineY = t_reg.fineY;

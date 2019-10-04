@@ -371,8 +371,8 @@ void ChangeScale(HWND hWnd, int ID)
 
     memset(&mii, 0, sizeof(MENUITEMINFO));
     mii.cbSize = sizeof(MENUITEMINFO);
-    mii.fMask = MIIM_STATE;    // information to get 
-                               //Grab Recompiler state
+    mii.fMask = MIIM_STATE;
+
     GetMenuItemInfo(hSubMenu2, 1005 + MenuScale, FALSE, &mii);
     // Move this state to the Interpreter flag
     SetMenuItemInfo(hSubMenu2, ID, FALSE, &mii);
@@ -413,11 +413,8 @@ void ChangeScale(HWND hWnd, int ID)
 
     SaveIni();
 
-    if (Running == true)
-    {
-        DestroyDisplay();
-        InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
-    }
+    DestroyDisplay();
+    InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
 }
 
 
@@ -445,8 +442,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
           AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 1 ? MF_CHECKED : 0), ID_WINDOWX1, "WindowScale 320x240 (x&1)");
           AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 2 ? MF_CHECKED : 0), ID_WINDOWX2, "WindowScale 640x480 (x&2)");
           AppendMenu(hSubMenu2, MF_STRING| (MenuScale == 3 ? MF_CHECKED : 0), ID_WINDOWX3, "WindowScale 960x720 (x&3)");
-          AppendMenu(hSubMenu2, MF_STRING | (MenuScale == 2 ? MF_CHECKED : 0), ID_WINDOWX4, "WindowScale 640x480 (x&4)");
-          AppendMenu(hSubMenu2, MF_STRING | (MenuScale == 3 ? MF_CHECKED : 0), ID_WINDOWX5, "WindowScale 960x720 (x&5)");
+          AppendMenu(hSubMenu2, MF_STRING | (MenuScale == 4 ? MF_CHECKED : 0), ID_WINDOWX4, "WindowScale 640x480 (x&4)");
+          AppendMenu(hSubMenu2, MF_STRING | (MenuScale == 5 ? MF_CHECKED : 0), ID_WINDOWX5, "WindowScale 960x720 (x&5)");
           
          
           AppendMenu(hSubMenu2, MF_STRING | (MenuVSync == 1 ? MF_CHECKED : 0), ID_VSYNC, "&Vertical Sync");
