@@ -265,6 +265,7 @@ void MapperHandler(unsigned short address, unsigned char value) {
                 CPU_LOG("MAPPER MMC3 IRQ Reload\n");
                 //Counter is reloaded at the next rising edge of A12 (which MMC3 counts on)
                 MMC3Reload = true;
+                MMCIRQCounter = MMCIRQCounterLatch;
                 break;
             case 0xE000: //Disable IRQ (any value)
                 CPU_LOG("MAPPER MMC3 Disable IRQ\n");

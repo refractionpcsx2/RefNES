@@ -205,6 +205,14 @@ void UpdateTitleBar(HWND hWnd)
     sprintf_s(headingstr, "refNES V1.0 FPS: %d", fps2 );
     SetWindowText(hWnd, headingstr);
 }
+
+void ResetCycleCounts()
+{
+    cpuCycles = 0;
+    dotCycles = 0;
+    nextCpuCycle = 0;
+    last_apu_cpucycle = 0;
+}
 // The entry point for any Windows program
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -525,14 +533,17 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
                 else if(LoadSuccess == 2) MessageBox(hWnd, "Error Loading Game - Spec too new, please check for update", "Error!",0);
                 else 
                 {
+                    Running = false;
                     strcpy_s(CurFilename, szFileName);
+                    DestroyDisplay();
+                    InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
                     MemReset();
                     PPUReset();
                     CopyRomToMemory();
-                    //refNESRecCPU->ResetRecMem();
-                    //
+                    IOReset();
+                    ResetCycleCounts();
                     CPUReset();
-                    Running = true;                    
+                    Running = true;
                     counter = time(NULL);
                 }
             }            
@@ -548,7 +559,16 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
                      /*refNESRecCPU->ResetRecMem();*/
                     /* DestroyDisplay();
                      InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);    */
+                     Running = false;
+                     DestroyDisplay();
+                     InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
+                     MemReset();
+                     PPUReset();
+                     IOReset();
+                     ResetCycleCounts();
                      CPUReset();
+                     Running = true;
+                     counter = time(NULL);
                  }
              }
              break;

@@ -43,9 +43,7 @@ void CPUReset() {
     P = 0x24;
     A = X = Y = 0;
     CPUIncrementCycles(7);
-    dotCycles = 0;
     NMITriggered = false;
-    IOReset();
     CPUPushAllStack();
 #ifdef CPU_LOGGING
     CPU_LOG("CPU Reset start PC set to %x\n", PC);
