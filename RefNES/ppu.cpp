@@ -26,6 +26,8 @@ unsigned char spriteY[8];
 bool isSpriteZero[8];
 unsigned char currentXPos, currentYPos;
 bool isVBlank = false;
+bool backgroundRenderingDisabled = false;
+bool spriteRenderingDisabled = false;
 unsigned int scanline;
 unsigned int scanlinestage = 0;
 unsigned int scanlineCycles = 0;
@@ -638,10 +640,24 @@ void PPULoop()
                     spriteheight = 15;
                 else
                     spriteheight = 7;
+
+                if (!(PPUMask & 0x8))
+                {
+                    backgroundRenderingDisabled = true;
+                }
+                else
+                    backgroundRenderingDisabled = false;
+
+                if (!(PPUMask & 0x10))
+                {
+                    spriteRenderingDisabled = true;
+                }
+                else
+                    spriteRenderingDisabled = false;
             }
 
             //Load background and shifters
-            if ((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337))
+            if (((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337)) && !backgroundRenderingDisabled)
             {
                 if (scanline < 240 && scanlineCycles >= 2 && scanlineCycles <= 257)
                 {
@@ -768,7 +784,7 @@ void PPULoop()
             }
 
             //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
-            if(scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240)
+            if(scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240 && !spriteRenderingDisabled)
             {
                 if (spriteEvaluationPos < 0x100)
                 {
@@ -911,7 +927,6 @@ void PPULoop()
                     NMITriggerCycle = cpuCycles;
                 else
                     NMITriggerCycle = cpuCycles+1;
-                //NMITriggerCycle = cpuCycles+5; //Battletoads fix
             }
             StartDrawing();
             DrawScreen();
