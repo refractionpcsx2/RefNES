@@ -52,7 +52,7 @@ char inisettings[5];
 char MenuScale = 1;
 char LoggingEnable = 0;
 char MenuVSync = 1;
-
+const char* path;
 unsigned int nextPPUCycle = 0;
 unsigned int fps = 0;
 time_t counter;
@@ -74,8 +74,34 @@ void CleanupRoutine()
         fclose(LogFile);
 }
 
+char storagePath[2048];
+char iniFullPath[2048];
+char logFullPath[2048];
+const char * mainPath;
+const char * iniPath;
+
+void SetIniPath()
+{
+    memcpy(iniFullPath, storagePath, sizeof(iniFullPath));
+    
+    strcat_s(iniFullPath, "refNES.ini");
+}
+
+void SetLogPath()
+{
+    memcpy(logFullPath, storagePath, sizeof(iniFullPath));
+
+    strcat_s(logFullPath, "refNESLog.txt");
+}
+
+void SetStoragePath(void)
+{
+    GetCurrentDirectoryA(sizeof(storagePath), storagePath);
+    strcat_s(storagePath, "/");
+}
+
 int SaveIni(){
-    fopen_s(&iniFile, "./refNES.ini", "w+");     //Open the file, args r = read, b = binary
+    fopen_s(&iniFile, iniFullPath, "w+");     //Open the file, args r = read, b = binary
     
 
     if (iniFile!=NULL)  //If the file exists
@@ -110,7 +136,7 @@ int SaveIni(){
 
 int LoadIni(){
 
-    fopen_s(&iniFile, "./refNES.ini","rb");     //Open the file, args r+ = read, b = binary
+    fopen_s(&iniFile, iniFullPath,"rb");     //Open the file, args r+ = read, b = binary
 
     if (iniFile!=NULL)  //If the file exists
     {
@@ -197,7 +223,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.lpszClassName = "WindowClass";
     
     RegisterClassEx(&wc);
-
+    SetStoragePath();
+    SetIniPath();
+    SetLogPath();
     LoadIni();
     if (LoggingEnable)
         OpenLog();
@@ -211,6 +239,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     ShowWindow(hWnd, nCmdShow);
 
     InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
+
     
     //refNESRecCPU->InitRecMem();
     
@@ -600,7 +629,7 @@ void Reset()
 
 void OpenLog()
 {
-    fopen_s(&LogFile, ".\\c16Log.txt", "w");
+    fopen_s(&LogFile, logFullPath, "w");
 //    setbuf( LogFile, NULL );
 }
 
