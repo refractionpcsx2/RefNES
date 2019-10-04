@@ -17,14 +17,23 @@ unsigned char MMC2LatchRegsiter3 = 0;
 unsigned char MMC2LatchRegsiter4 = 0;
 bool MMC3Interrupt = false;
 bool MMC2Switch = false;
+bool MMC3Reload = false;
 
 void MMC3IRQCountdown() {
     if (mapper != 4) return;
 
+    if (MMC3Reload)
+    {
+        //Counter is reloaded at the next rising edge of A12 (which MMC3 counts on)
+        MMCIRQCounter = MMCIRQCounterLatch;
+        MMC3Reload = false;
+    }
+    else
     if (MMCIRQCounter > 0)
     {
         if (--MMCIRQCounter == 0)
         {
+            MMC3Reload = true;
             if (MMCIRQEnable == 1) {
                     MMC3Interrupt = true;
             }
@@ -239,6 +248,7 @@ void MapperHandler(unsigned short address, unsigned char value) {
                 MMCcontrol = value;
                 break;
             case 0x8001: //Bank Data
+                CPU_LOG("MAPPER MMC3 change program = %x\n", value);
                 MMC3ChangePRG(value);
                 break;
             case 0xA000: //Nametable Mirroring
@@ -253,7 +263,8 @@ void MapperHandler(unsigned short address, unsigned char value) {
                 break;
             case 0xC001: //IRQ Reload (Any value)
                 CPU_LOG("MAPPER MMC3 IRQ Reload\n");
-                MMCIRQCounter = MMCIRQCounterLatch;
+                //Counter is reloaded at the next rising edge of A12 (which MMC3 counts on)
+                MMC3Reload = true;
                 break;
             case 0xE000: //Disable IRQ (any value)
                 CPU_LOG("MAPPER MMC3 Disable IRQ\n");

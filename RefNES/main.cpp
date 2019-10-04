@@ -283,7 +283,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         }
                     }
                 }
-                else Sleep(100);    
+                else Sleep(100);
     }
     
     return (int)msg.wParam;
