@@ -8,7 +8,6 @@ SDL_Texture *texture = NULL;
 SDL_Window *screen = NULL;
 
 extern HWND hwndSDL;
-extern int prev_v_cycle;
 extern char MenuVSync;
 unsigned int ScreenBuffer[256][240];
 Uint32* pixels = nullptr;
@@ -61,7 +60,6 @@ void InitDisplay(int width, int height, HWND hWnd)
 
     SetParent(hwndSDL, hWnd);
     SetWindowPos(hwndSDL, HWND_TOP, 0, 0, width, height, NULL);
-    prev_v_cycle = SDL_GetTicks();
     SetFocus(hwndSDL);
 
 

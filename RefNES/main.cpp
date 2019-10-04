@@ -52,8 +52,6 @@ char inisettings[5];
 char MenuScale = 1;
 char LoggingEnable = 0;
 char MenuVSync = 1;
-int prev_v_cycle = 0;
-unsigned int v_cycle = prev_v_cycle;
 
 unsigned int nextPPUCycle = 0;
 unsigned int fps = 0;
@@ -505,12 +503,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
                     //refNESRecCPU->ResetRecMem();
                     //
                     CPUReset();
-                    Running = true;
-                    
-                    
-                    //v_cycle = SDL_GetTicks();
-                    
-                    //prev_v_cycle = v_cycle;
+                    Running = true;                    
                     counter = time(NULL);
                 }
             }            
@@ -527,8 +520,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
                     /* DestroyDisplay();
                      InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);    */
                      CPUReset();
-                     v_cycle = SDL_GetTicks();
-                     prev_v_cycle = v_cycle;
                  }
              }
              break;
@@ -592,8 +583,11 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             return 0;
         } 
         break;
+        case SC_MONITORPOWER:
+        case SC_SCREENSAVE:
+            return 0;
     }
-    prev_v_cycle = SDL_GetTicks() - (int)((float)(1000.0f / 60.0f) * fps);
+
     return DefWindowProc (hWnd, message, wParam, lParam);
 }
 
