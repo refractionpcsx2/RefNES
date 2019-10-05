@@ -31,12 +31,15 @@ void MMC3IRQCountdown() {
     else
     if (MMCIRQCounter > 0)
     {
-        if (--MMCIRQCounter == 0)
+        MMCIRQCounter--;
+    }
+    
+    if(MMCIRQCounter == 0)
+    {
+        MMC3Reload = true;
+        if (MMCIRQEnable == 1)
         {
-            MMC3Reload = true;
-            if (MMCIRQEnable == 1) {
-                    MMC3Interrupt = true;
-            }
+            MMC3Interrupt = true;
         }
     }
 }
@@ -269,6 +272,7 @@ void MapperHandler(unsigned short address, unsigned char value) {
                 break;
             case 0xE000: //Disable IRQ (any value)
                 CPU_LOG("MAPPER MMC3 Disable IRQ\n");
+                MMC3Interrupt = false;
                 MMCIRQEnable = 0;
                 break;
             case 0xE001: //Enable IRQ (any value)

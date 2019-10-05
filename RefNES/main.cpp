@@ -305,7 +305,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                     handleInput();
                     CPULoop();
 
-                    if (MMC3Interrupt)
+                    if (MMC3Interrupt && MMCIRQEnable)
                     {
                         if (!(P & INTERRUPT_DISABLE_FLAG))
                         {
