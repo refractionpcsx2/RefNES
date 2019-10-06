@@ -15,4 +15,10 @@ extern unsigned char MMC5ScanlineNumberIRQ;
 extern unsigned char MMC5ScanlineIRQStatus;
 extern bool MMC5ScanlineIRQEnabled;
 extern unsigned short MMC5ScanlineCounter;
+extern unsigned char ExpansionRAM[65536];
+extern unsigned char MMC5FillTile;
+extern unsigned char MMC5FillColour;
+extern unsigned char MMC5NametableMap;
+extern unsigned char MMC5ExtendedRAMMode;
+extern bool MMC5CHRisBankB;
 #endif

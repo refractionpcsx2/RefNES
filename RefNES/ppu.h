@@ -10,6 +10,8 @@ extern unsigned int scanline;
 extern unsigned int scanlineCycles;
 extern unsigned char PPUMemory[0x4000];
 extern unsigned char SPRMemory[0x100];
+extern unsigned char MMC5CHRBankA[0x2000];
+extern unsigned char MMC5CHRBankB[0x2000];
 extern unsigned short SPRRamAddress;
 extern unsigned char PPUCtrl;
 void PPUReset();
