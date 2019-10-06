@@ -23,6 +23,7 @@ extern unsigned int ppuClock;
 extern unsigned int NMITriggerCycle;
 extern bool NMITriggered;
 extern bool NMIRequested;
+extern bool CPUInterruptTriggered;
 
 void CPUPushSingleStack(unsigned char value);
 unsigned char CPUPopSingleStack();

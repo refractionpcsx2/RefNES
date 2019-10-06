@@ -137,7 +137,49 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
     //In horizontal mirroring, Nametable 1 & 2 match (0x2000), 3 & 4 match (0x2800)
     if (address >= 0x2000 && address < 0x3F00)
     {
-        if (mapper == 7)
+        if (mapper == 5)
+        {
+            if (MMC5NametableMap == 0x44)
+            { //Vertical Mirroring
+                if ((address & 0x2C00) == 0x2000)
+                {
+                    calculatedAddress = 0x2000 | (address & 0x3FF);
+                }
+                else if ((address & 0x2C00) == 0x2400)
+                {
+                    calculatedAddress = 0x2400 | (address & 0x3FF);
+                }
+                else if ((address & 0x2C00) == 0x2800)
+                {
+                    calculatedAddress = 0x2000 | (address & 0x3FF);
+                }
+                else if ((address & 0x2C00) == 0x2C00)
+                {
+                    calculatedAddress = 0x2400 | (address & 0x3FF);
+                }
+            }
+            else if (MMC5NametableMap == 0xE4)
+            {
+                //No mirroring, NT3 = Expansion RAM (ugh) NT4 = Fill mode data (ugh again)
+                calculatedAddress = address;
+            }
+            else if (MMC5NametableMap == 0x55)
+            { //Single screen nametable at 0x2400
+                calculatedAddress = 0x2400 | (address & 0x3FF);
+            }
+        }
+        else if (mapper == 1 && singlescreen > 0)
+        {
+            if (singlescreen == 2)
+            {
+                calculatedAddress = 0x2400 | (address & 0x3FF);
+            }
+            else
+            {
+                calculatedAddress = 0x2000 | (address & 0x3FF);
+            }
+        }
+        else if (mapper == 7)
         {
             if (singlescreen)
             {
@@ -148,8 +190,7 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
                 calculatedAddress = 0x2000 | (address & 0x3FF);
             }
         }
-        else
-        if (!(ines_flags6 & 0x8)) //2 table mirroring
+        else if (!(ines_flags6 & 0x8)) //2 table mirroring
         {
             if ((address & 0x2C00) == 0x2000 || singlescreen) { //Nametable 1 is always the same and single screen games only use the first nametable
                 calculatedAddress = 0x2000 | (address & 0x3FF);
@@ -611,6 +652,26 @@ void AdvanceShifters()
 unsigned int cpuVBlankCycles = 0;
 void PPULoop()
 {
+    if (mapper == 5)
+    {
+        if (scanline < 240 && scanlineCycles == 0)
+        {
+            MMC5ScanlineIRQStatus |= 0x40;
+        }
+        if (scanline >= 240 && scanlineCycles == 0)
+        {
+            MMC5ScanlineIRQStatus &= ~0x40;
+        }
+        if (scanline < 239 && MMC5ScanlineNumberIRQ != 0 && scanlineCycles == 322)
+        {
+            if (((scanline+1) % 262) == MMC5ScanlineNumberIRQ && MMC5ScanlineIRQEnabled)
+            {
+                MMC5ScanlineCounter = 0;
+                MMC5ScanlineIRQStatus |= 0x80;
+                CPUInterruptTriggered = true;
+            }
+        }
+    }
     if (scanlineCycles != 0 && (scanline <= 241 || scanline == 261))
     {
         unsigned short byteAddress;

@@ -260,6 +260,15 @@ unsigned char memRead(bool haspenalty) {
         return ioRegRead(address);
     }
     else
+    if (address >= 0x4020 && address < 0x6000)
+    {
+        return CartridgeExpansionRead(address);
+    }
+    else if(address >= 0x6000 && address < 0x8000)
+    {
+        CPU_LOG("Reading External RAM\n");
+    }
+    else
     if (address >= 0x800 && address < 0x2000) {
         //CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
         address = address & 0x7FF;
@@ -287,6 +296,15 @@ void memWrite(unsigned char value, bool writeonly) {
     if (address >= 0x4000 && address < 0x4020) {
         ioRegWrite(address, value);
         return;
+    }
+    else
+    if (address >= 0x4020 && address < 0x6000)
+    {
+        return CartridgeExpansionWrite(address, value);
+    }
+    else if(address >= 0x6000 && address < 0x8000)
+    {
+        CPU_LOG("Writing to External RAM\n");
     }
     else
     if (address >= 0x800 && address < 0x2000) {

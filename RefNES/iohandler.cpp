@@ -352,6 +352,7 @@ void updateAPU(unsigned int cpu_cycles)
         if (!(apu_frame_counter & 0xC0))
         {
             apu_status_interrupts |= 0x40;
+            CPUInterruptTriggered = true;
         }
     }
 

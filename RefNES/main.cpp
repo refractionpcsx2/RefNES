@@ -304,7 +304,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
                     handleInput();
                     CPULoop();
-
+                    if (CPUInterruptTriggered)
+                    {
+                        if (!(P & INTERRUPT_DISABLE_FLAG))
+                        {
+                            CPUInterruptTriggered = false;
+                            CPUIncrementCycles(7);
+                            P |= BREAK_FLAG | (1 << 5);
+                            CPUPushAllStack();
+                            P |= INTERRUPT_DISABLE_FLAG;
+                            PC = memReadPC(0xFFFE);
+                        }
+                    }
                     if (MMC3Interrupt && MMCIRQEnable)
                     {
                         if (!(P & INTERRUPT_DISABLE_FLAG))
@@ -556,15 +567,13 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
                  else if(LoadSuccess == 2) MessageBox(hWnd, "Error Loading Game - Spec too new, please check for update", "Error!",0);
                  else 
                  {
-                     /*refNESRecCPU->ResetRecMem();*/
-                    /* DestroyDisplay();
-                     InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);    */
                      Running = false;
                      DestroyDisplay();
                      InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
                      MemReset();
                      PPUReset();
                      IOReset();
+                     CopyRomToMemory();
                      ResetCycleCounts();
                      CPUReset();
                      Running = true;

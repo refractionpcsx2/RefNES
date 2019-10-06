@@ -23,6 +23,7 @@ unsigned int ppuClock = (masterClock / 4);
 bool NMITriggered = false;
 unsigned int NMITriggerCycle = 0;
 bool NMIRequested = false;
+bool CPUInterruptTriggered = false;
 
 
 typedef void(*JumpTable)(void);
@@ -44,6 +45,7 @@ void CPUReset() {
     A = X = Y = 0;
     CPUIncrementCycles(7);
     NMITriggered = false;
+    CPUInterruptTriggered = false;
     CPUPushAllStack();
 #ifdef CPU_LOGGING
     CPU_LOG("CPU Reset start PC set to %x\n", PC);
@@ -1772,8 +1774,8 @@ void CPUFireNMI()
     NMITriggered = false;
 }
 void CPULoop() {
-    //CPU_LOG("A:%02x X:%02x Y:%02x P:%02x SP:%02x PPU:%3d,%3d CYC:%d\n", A, X, Y, P, SP, scanlineCycles, scanline, cpuCycles);
     Opcode = memReadValue(PC);
+    //CPU_LOG("Addr: %04x Opcode %04x A:%02x X:%02x Y:%02x P:%02x SP:%02x PPU:%3d,%3d CYC:%d\n", PC, Opcode, A, X, Y, P, SP, scanlineCycles, scanline, cpuCycles);
     PCInc = 1;
     CPUIncrementCycles(2);
     //CPU_LOG("Running Opcode %x PC = %x\n", Opcode, PC);
