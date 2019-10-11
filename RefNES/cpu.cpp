@@ -1771,7 +1771,9 @@ void CPUFireNMI()
     CPUPushAllStack();
     P |= INTERRUPT_DISABLE_FLAG;
     PC = memReadPC(0xFFFA);
-    NMITriggered = false;
+    NMITriggered = false; 
+    MMC5ScanlineIRQStatus &= ~0x80;
+    //MMC5ScanlineCounter = 0;
 }
 void CPULoop() {
     Opcode = memReadValue(PC);

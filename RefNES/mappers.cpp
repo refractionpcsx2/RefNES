@@ -15,8 +15,8 @@ unsigned char MMC2LatchRegsiter1 = 0;
 unsigned char MMC2LatchRegsiter2 = 0;
 unsigned char MMC2LatchRegsiter3 = 0;
 unsigned char MMC2LatchRegsiter4 = 0;
-unsigned char MMC5PRGMode = 0;
-unsigned char MMC5CHRMode = 0;
+unsigned char MMC5PRGMode = 3;
+unsigned char MMC5CHRMode = 1;
 unsigned char MMC5RAMProtect1 = 0;
 unsigned char MMC5RAMProtect2 = 0;
 unsigned char MMC5ExtendedRAMMode = 0;
@@ -29,6 +29,9 @@ unsigned char MMC5VerticalSplitBank = 0;
 unsigned char MMC5ScanlineNumberIRQ = 0;
 unsigned char MMC5ScanlineIRQStatus = 0;
 unsigned short MMC5ScanlineCounter = 0;
+unsigned short MMC5CalculationResult = 0;
+unsigned char MMC5Multiplicand = 0;
+unsigned char MMC5Multiplier = 0;
 bool MMC5CHRisBankB = false;
 bool MMC5ScanlineIRQEnabled = false;
 bool MMC3Interrupt = false;
@@ -213,7 +216,7 @@ void MMC2SwitchCHR()
 
 void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
 {
-    PRGBankSwitchMode[address - 5113] = value;
+    PRGBankSwitchMode[address - 5113] = value & 0x7F;
 
     if (MMC5PRGMode == 0) //32K bank switching, 5117 only, maybe 5113 in RAM too?? I'll do that later.. :P
     {
@@ -225,8 +228,8 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
             return;
         }
 
-        bank = value & 0x7C;
-        CPU_LOG("MMC5 32k Bankswitch on address %x to 0x8000\n", address);
+        bank = (value & 0x7C)/* % (prgsize * 2)*/;
+        CPU_LOG("MMC5 32k Bankswitch on address %x to 0x8000 Bank %d value %d\n", address, bank, value);
         memcpy(&CPUMemory[0x8000], ROMCart + (bank * 8192), 0x8000);
     }
     else if (MMC5PRGMode == 1) //16K bank switching, 5115+5117 only?  5115 could be ram, 5113 could be ram too
@@ -237,26 +240,26 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
             return;
         }
 
-        unsigned char bank = value & 0x7E;
+        unsigned char bank = value & 0x7E/* % (prgsize * 2)*/;
 
         if (address == 0x5115)
         {
             bool isROM = (value >> 7) & 0x1;
 
-            if (isROM)
-            {
-                CPU_LOG("MMC5 16k Bankswitch on address %x to 0x8000\n", address);
+            /*if (isROM)
+            {*/
+                CPU_LOG("MMC5 16k Bankswitch on address %x to 0x8000 Bank %d value %d\n", address, bank, value);
                 memcpy(&CPUMemory[0x8000], ROMCart + (bank * 8192), 0x4000);
-            }
+           /* }
             else
             {
-                CPU_LOG("MMC5 16k Bankswitch on address %x to Expansion RAM\n", address);
+                CPU_LOG("MMC5 16k Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
                 memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x4000);
-            }
+            }*/
         }
         else if (address == 0x5117)
         {
-            CPU_LOG("MMC5 16k Bankswitch on address %x to 0xC000\n", address);
+            CPU_LOG("MMC5 16k Bankswitch on address %x to 0xC000 Bank %d value %d\n", address, bank, value);
             memcpy(&CPUMemory[0xC000], ROMCart + (bank * 8192), 0x4000);
         }
     }
@@ -267,103 +270,113 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
             CPU_LOG("MMC5 Attempted 16,8,8 Bankswitch on address %x, cancelling\n", address);
             return;
         }
-        unsigned char bank = value & 0x7F;
+        unsigned char bank = (value & 0x7F)/* % (prgsize * 2)*/;
 
         if (address == 0x5115)
         {
             bool isROM = (value >> 7) & 0x1;
             bank &= ~0x1;
 
-            if (isROM)
-            {
-                CPU_LOG("MMC5 16k (16,8,8) Bankswitch on address %x to 0x8000\n", address);
+            /*if (isROM)
+            {*/
+                CPU_LOG("MMC5 16k (16,8,8) Bankswitch on address %x to 0x8000 Bank %d value %d\n", address, bank, value);
                 memcpy(&CPUMemory[0x8000], ROMCart + (bank * 8192), 0x4000);
-            }
+            /*}
             else
             {
-                CPU_LOG("MMC5 16k (16,8,8) Bankswitch on address %x to Expansion RAM\n", address);
+                CPU_LOG("MMC5 16k (16,8,8) Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
                 memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x4000);
-            }
+            }*/
         }
         else if (address == 0x5116)
         {
             bool isROM = (value >> 7) & 0x1;
 
-            if (isROM)
-            {
-                CPU_LOG("MMC5 8k (16,8,8) Bankswitch on address %x to 0xC000\n", address);
+            /*if (isROM)
+            {*/
+                CPU_LOG("MMC5 8k (16,8,8) Bankswitch on address %x to 0xC000 Bank %d value %d\n", address, bank, value);
                 memcpy(&CPUMemory[0xC000], ROMCart + (bank * 8192), 0x2000);
-            }
+           /* }
             else
             {
-                CPU_LOG("MMC5 8k (16,8,8) Bankswitch on address %x to Expansion RAM\n", address);
+                CPU_LOG("MMC5 8k (16,8,8) Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
                 memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x2000);
-            }
+            }*/
         }
         else if (address == 0x5117)
         {
-            CPU_LOG("MMC5 8k (16,8,8) Bankswitch on address %x to 0xE000\n", address);
+            CPU_LOG("MMC5 8k (16,8,8) Bankswitch on address %x to 0xE000 Bank %d value %d\n", address, bank, value);
             memcpy(&CPUMemory[0xE000], ROMCart + (bank * 8192), 0x2000);
         }
     }
     else if (MMC5PRGMode == 3) //One 8KB banks 5114-5117 only
     {
-        if (address < 0x5114)
-        {
-            CPU_LOG("MMC5 Attempted 8k Bankswitch on address %x, cancelling\n", address);
-            return;
-        }
-        unsigned char bank = value & 0x7F;
+        unsigned char bank = (value & 0x7F)/* % (prgsize * 2)*/;
 
-        if (address == 0x5114)
+        if (address == 0x5113)
         {
-            bool isROM = (value >> 7) & 0x1;
-
-            if (isROM)
+            if (MMC5ExtendedRAMMode == 2)
             {
-                CPU_LOG("MMC5 8k Bankswitch on address %x to 0x8000\n", address);
-                memcpy(&CPUMemory[0x8000], ROMCart + (bank * 8192), 0x2000);
+                CPU_LOG("MMC5 8k Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
+                memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x2000);
             }
             else
             {
-                CPU_LOG("MMC5 8k Bankswitch on address %x to Expansion RAM\n", address);
-                memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x2000);
+                CPU_LOG("MMC5 Attempted 8k Bankswitch on address %x, cancelling\n", address);
+                return;
             }
+        }
+        else if (address == 0x5114)
+        {
+            bool isROM = (value >> 7) & 0x1;
+
+            /*if (isROM)
+            {*/
+                CPU_LOG("MMC5 8k Bankswitch on address %x to 0x8000 Bank %d value %d\n", address, bank, value);
+                memcpy(&CPUMemory[0x8000], ROMCart + (bank * 8192), 0x2000);
+            /*}
+            else
+            {
+                CPU_LOG("MMC5 8k Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
+                //memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x2000);
+                memset(&CPUMemory[0x8000], 0xff, 0x2000);
+            }*/
         }
         else if(address == 0x5115)
         {
             bool isROM = (value >> 7) & 0x1;
 
-            if (isROM)
-            {
-                CPU_LOG("MMC5 8k Bankswitch on address %x to 0xA000\n", address);
+            /*if (isROM)
+            {*/
+                CPU_LOG("MMC5 8k Bankswitch on address %x to 0xA000 Bank %d value %d\n", address, bank, value);
                 memcpy(&CPUMemory[0xA000], ROMCart + (bank * 8192), 0x2000);
-            }
+            /*}
             else
             {
-                CPU_LOG("MMC5 8k Bankswitch on address %x to Expansion RAM\n", address);
-                memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x2000);
-            }
+                CPU_LOG("MMC5 8k Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
+                //memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x2000);
+                memset(&CPUMemory[0xA000], 0xff, 0x2000);
+            }*/
         }
         else if(address == 0x5116)
         {
             bool isROM = (value >> 7) & 0x1;
 
-            if (isROM)
-            {
-                CPU_LOG("MMC5 8k (16,8,8) Bankswitch on address %x to 0xC000\n", address);
+            /*if (isROM)
+            {*/
+                CPU_LOG("MMC5 8k Bankswitch on address %x to 0xC000 Bank %d value %d\n", address, bank, value);
                 memcpy(&CPUMemory[0xC000], ROMCart + (bank * 8192), 0x2000);
-            }
+            /*}
             else
             {
-                CPU_LOG("MMC5 8k (16,8,8) Bankswitch on address %x to Expansion RAM\n", address);
+                CPU_LOG("MMC5 8k Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
                 memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x2000);
-            }
+            }*/
         }
         else if (address == 0x5117)
         {
             
-            CPU_LOG("MMC5 8k (16,8,8) Bankswitch on address %x to 0xE000\n", address);
+            CPU_LOG("MMC5 8k Bankswitch on address %x to 0xE000 Bank %d value %d\n", address, bank, value);
             memcpy(&CPUMemory[0xE000], ROMCart + (bank * 8192), 0x2000);
         }
     }
@@ -598,6 +611,7 @@ unsigned char CartridgeExpansionRead(unsigned short address)
             case 0x5116:
             case 0x5117:
                 value = PRGBankSwitchMode[address - 5113];
+                CPU_LOG("Reading Current PRG Bank at %x returning %d\n", address, value);
                 break;
             case 0x5120:
             case 0x5121:
@@ -612,6 +626,7 @@ unsigned char CartridgeExpansionRead(unsigned short address)
             case 0x512A:
             case 0x512B:
                 value = CHRBankSwitchMode[address - 5120];
+                CPU_LOG("Reading Current CHR Bank at %x returning %d\n", address, value);
                 break;
             case 0x5203:
                 CPU_LOG("MMC5 Scanline Number IRQ = %x\n", MMC5ScanlineNumberIRQ);
@@ -622,14 +637,30 @@ unsigned char CartridgeExpansionRead(unsigned short address)
                 value = MMC5ScanlineIRQStatus;
                 MMC5ScanlineIRQStatus &= ~0x80;
                 break;
+            case 0x5205:
+                value = MMC5CalculationResult & 0xFF;
+                CPU_LOG("MMC5 Read Multiplication Result Lower = %x\n", MMC5CalculationResult & 0xFF);
+                break;
+            case 0x5206:
+                value = (MMC5CalculationResult >> 8) & 0xFF;
+                CPU_LOG("MMC5 Read Multiplication Result Upper = %x\n", (MMC5CalculationResult >> 8) & 0xFF);
+                break;
             default:
-                CPU_LOG("MMC5 unknown read to address %x\n", address);
+                if(address < 0x5c00)
+                    CPU_LOG("MMC5 unknown read to address %x\n", address);
                 value = 0;
                 break;
         }
     }
     else
         value = 0;
+
+    if (address >= 0x5c00 && address <= 0x5FFF)
+    {
+        value = ExpansionRAM[address - 0x5c00];
+        CPU_LOG("MMC5 Read from Expansion RAM address %x value %x\n", address - 0x5c00, value);
+    }
+
     return value;
 }
 
@@ -700,15 +731,29 @@ void CartridgeExpansionWrite(unsigned short address, unsigned char value)
                 CPU_LOG("MMC5 Write Scanline IRQ Enable = %x\n", value);
                 MMC5ScanlineIRQEnabled = (value >> 7) & 0x1;
                 break;
+            case 0x5205:
+                CPU_LOG("MMC5 Write Multiplicand = %x\n", value);
+                MMC5Multiplicand = value;
+                MMC5CalculationResult = MMC5Multiplicand * MMC5Multiplier;
+                break;
+            case 0x5206:
+                CPU_LOG("MMC5 Write Multiplier = %x\n", value);
+                MMC5Multiplier = value;
+                MMC5CalculationResult = MMC5Multiplicand * MMC5Multiplier;
+                break;
             default:
-                CPU_LOG("MMC5 unknown write to address %x value %x\n", address, value);
+                if(address < 0x5c00)
+                    CPU_LOG("MMC5 unknown write to address %x value %x\n", address, value);
                 break;
         }
 
         if (address >= 0x5c00 && address <= 0x5FFF)
         {
-            if(MMC5ExtendedRAMMode < 3)
+            if (MMC5ExtendedRAMMode < 3)
+            {
+                CPU_LOG("MMC5 Write to Expansion RAM address %x value %x\n", address - 0x5c00, value);
                 ExpansionRAM[address - 0x5c00] = value;
+            }
         }
     }
 }

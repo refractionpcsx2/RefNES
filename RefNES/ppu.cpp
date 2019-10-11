@@ -698,21 +698,28 @@ void PPULoop()
 {
     if (mapper == 5)
     {
-        if (scanline < 240 && scanlineCycles == 0)
+        if (scanlineCycles == 4 && scanline < 240)
         {
             MMC5ScanlineIRQStatus |= 0x40;
         }
-        if (scanline >= 240 && scanlineCycles == 0)
+
+        if (scanlineCycles == 336 && scanline == 0)
         {
             MMC5ScanlineIRQStatus &= ~0x40;
+            MMC5ScanlineIRQStatus &= ~0x80;
+            MMC5ScanlineCounter = 0;
+            CPUInterruptTriggered = false;
         }
-        if (scanline < 239 && MMC5ScanlineNumberIRQ != 0 && scanlineCycles == 322)
+
+        if ( MMC5ScanlineNumberIRQ != 0 && scanlineCycles == 4 && (PPUMask & 0x18) && scanline < 240)
         {
-            if (((scanline+1) % 262) == MMC5ScanlineNumberIRQ && MMC5ScanlineIRQEnabled)
+            MMC5ScanlineCounter++;
+            if ((scanline == MMC5ScanlineNumberIRQ))
             {
-                MMC5ScanlineCounter = 0;
+                CPU_LOG("MMC5 triggering IRQ\n");
                 MMC5ScanlineIRQStatus |= 0x80;
-                CPUInterruptTriggered = true;
+                if(MMC5ScanlineIRQEnabled)
+                    CPUInterruptTriggered = true;
             }
         }
     }
@@ -1109,9 +1116,15 @@ void PPULoop()
             isVBlank = true;
             //CPU_LOG("VBLANK Start at %d cpu cycles\n", cpuCycles);
             cpuVBlankCycles = cpuCycles;
+            MMC5ScanlineIRQStatus &= ~0x40;
 
             if ((PPUCtrl & 0x80))
             {
+                if (MMC5ScanlineIRQStatus & 0x80)
+                {
+                    CPUInterruptTriggered = false;
+                }
+
                 NMITriggered = true; //NMIRequested = true;
                 if(dotCycles + 2 < nextCpuCycle)
                     NMITriggerCycle = cpuCycles;

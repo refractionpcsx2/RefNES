@@ -266,7 +266,8 @@ unsigned char memRead(bool haspenalty) {
     }
     else if(address >= 0x6000 && address < 0x8000)
     {
-        CPU_LOG("Reading External RAM\n");
+        CPU_LOG("Reading External RAM %x\n", address - 0x6000);
+        return ExpansionRAM[address - 0x6000];
     }
     else
     if (address >= 0x800 && address < 0x2000) {
@@ -304,7 +305,9 @@ void memWrite(unsigned char value, bool writeonly) {
     }
     else if(address >= 0x6000 && address < 0x8000)
     {
-        CPU_LOG("Writing to External RAM\n");
+        CPU_LOG("Writing to External RAM %x\n", address - 0x6000);
+        ExpansionRAM[address - 0x6000] = value;
+        return;
     }
     else
     if (address >= 0x800 && address < 0x2000) {
@@ -326,6 +329,12 @@ unsigned short memReadPC(unsigned short address) {
         //CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
         address = address & 0x7FF;
     }
+    else if (address >= 0x6000 && address < 0x8000)
+    {
+        CPU_LOG("Reading External RAM PC %x\n", address - 0x6000);
+        value = (ExpansionRAM[(address - 0x6000)+1] << 8) | ExpansionRAM[(address - 0x6000)];
+        return value;
+    }
     //CPU_LOG("value = %x\n", (CPUMemory[address + 1] << 8) | CPUMemory[address]);
     value = (CPUMemory[address + 1] << 8) | CPUMemory[address];
     return value;
@@ -344,6 +353,12 @@ unsigned short memReadPCIndirect() {
     if (address >= 0x800 && address < 0x2000) {
         //CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
         address = address & 0x7FF;        
+    }
+    else if (address >= 0x6000 && address < 0x8000)
+    {
+        CPU_LOG("Reading External RAM Indirect %x\n", address - 0x6000);
+        value = (ExpansionRAM[(address - 0x6000) + 1] << 8) | ExpansionRAM[(address - 0x6000)];
+        return value;
     }
     masked = (address & 0xFF00) | ((address+1) & 0xFF);
     //CPU_LOG("Indirect read from %x ", address);
@@ -366,6 +381,12 @@ void memWriteValue(unsigned short address, unsigned char value) {
         CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
         address = address & 0x7FF;
     }
+    else if (address >= 0x6000 && address < 0x8000)
+    {
+        CPU_LOG("Writing External RAM %x\n", address - 0x6000);
+       ExpansionRAM[(address - 0x6000)] = value;
+       return;
+    }
     CPUMemory[address] = value;
 }
 
@@ -384,6 +405,11 @@ unsigned char memReadValue(unsigned short address) {
     if (address >= 0x800 && address < 0x2000) {
         CPU_LOG("Wrapping CPU mem address %x\n", address & 0x7FF);
         address = address & 0x7FF;
+    }
+    else if (address >= 0x6000 && address < 0x8000)
+    {
+        CPU_LOG("Reading External RAM %x\n", address - 0x6000);
+        return ExpansionRAM[(address - 0x6000)];
     }
     //CPU_LOG("single value = %x\n", CPUMemory[address]);
     return CPUMemory[address];
