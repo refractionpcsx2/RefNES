@@ -16,6 +16,7 @@ extern unsigned char MMC5ScanlineIRQStatus;
 extern bool MMC5ScanlineIRQEnabled;
 extern unsigned short MMC5ScanlineCounter;
 extern unsigned char ExpansionRAM[65536];
+extern unsigned char ExpansionRAM2[65536];
 extern unsigned char MMC5FillTile;
 extern unsigned char MMC5FillColour;
 extern unsigned char MMC5NametableMap;

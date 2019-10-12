@@ -62,7 +62,6 @@ unsigned int masterPalette[64] = {  0xFF545454, 0xFF001E74, 0xFF081090, 0xFF3000
 
 void PPUReset() {
     PPUCtrl = 0;
-    VRAMRamAddress = 0;
     SPRRamAddress = 0;
     PPUMask = 0;
     PPUStatus = 0xA0;
@@ -277,7 +276,6 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
             //CPU_LOG("PPU T Update 2005 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
         case 0x06: //VRAM Address
-            VRAMRamAddress = value | ((VRAMRamAddress & 0xFF) << 8);
             if (tfirstwrite == true) {
                 tfirstwrite = false;
                 t_reg.reg &= ~0xFF00;
@@ -288,15 +286,15 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                 t_reg.reg &= ~0xFF;
                 t_reg.reg |= value;
                 v_reg.reg = t_reg.reg;
-                //CPU_LOG("DEBUG VRAM Addr changed to %x lastA12Bit = %x\n", VRAMRamAddress, lastA12bit);
-                if ((lastA12bit & 0x1000) != 0x1000 && (VRAMRamAddress & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
+                //CPU_LOG("DEBUG VRAM Addr changed to %x lastA12Bit = %x\n", v_reg.reg, lastA12bit);
+                if ((lastA12bit & 0x1000) != 0x1000 && (v_reg.reg & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
                     MMC3IRQCountdown();
-                lastA12bit = VRAMRamAddress;
+                lastA12bit = v_reg.reg;
             }
             //CPU_LOG("PPU T Update 2006 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
         case 0x07: //VRAM Data
-            unsigned short vramlocation = CalculatePPUMemoryAddress(VRAMRamAddress, true);
+            unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg, true);
 
             //CPU_LOG("DEBUG Addr %x Writing %x\n", vramlocation, value);
             if ((vramlocation & 0xF000) < 0x4000)
@@ -319,16 +317,16 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
             MMC2SwitchCHR();
 
             if (PPUCtrl & 0x4) { //Increment
-                VRAMRamAddress += 32;
+                v_reg.reg += 32;
             }
             else {
-                VRAMRamAddress++;
+                v_reg.reg++;
             }
 
-            if ((lastA12bit & 0x1000) != 0x1000 && (VRAMRamAddress & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
+            if ((lastA12bit & 0x1000) != 0x1000 && (v_reg.reg & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
                 MMC3IRQCountdown();
 
-            lastA12bit = VRAMRamAddress;
+            lastA12bit = v_reg.reg;
             break;
     }
     lastwrite = value;
@@ -362,17 +360,17 @@ unsigned char PPUReadReg(unsigned short address) {
         break;
     case 0x07: //VRAM Data
         {
-            unsigned short vramlocation = CalculatePPUMemoryAddress(VRAMRamAddress);
+            unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg);
 
             /*value = cachedvramread;
             cachedvramread = PPUMemory[vramlocation];*/
-
+            //CPU_LOG("DEBUG Addr %x Reading\n", vramlocation);
             //Pallete doesn't delay or affect the cache
             if ((vramlocation & 0x3F00) == 0x3F00)
             {
                 
                 value = PPUMemory[vramlocation];
-                cachedVRAMRead = PPUMemory[CalculatePPUMemoryAddress(VRAMRamAddress & 0x2FFF)];
+                cachedVRAMRead = PPUMemory[CalculatePPUMemoryAddress(v_reg.reg & 0x2FFF)];
                // CPU_LOG("DEBUG Addr %x Reading Palette Only %x Caching %x from Addr %x\n", vramlocation, value, cachedvramread, CalculatePPUMemoryAddress(vramlocation & 0x2FFF));
             }
             else
@@ -400,15 +398,15 @@ unsigned char PPUReadReg(unsigned short address) {
             }
 
             if (PPUCtrl & 0x4) { //Increment
-                VRAMRamAddress += 32;
+                v_reg.reg += 32;
             }
             else {
-                VRAMRamAddress++;
+                v_reg.reg++;
             }
-            if ((lastA12bit & 0x1000) != 0x1000 && (VRAMRamAddress & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
+            if ((lastA12bit & 0x1000) != 0x1000 && (v_reg.reg & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
                 MMC3IRQCountdown();
 
-            lastA12bit = VRAMRamAddress;
+            lastA12bit = v_reg.reg;
         }
         break;
     case 0x00: //PPU Control (write only)

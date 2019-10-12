@@ -38,6 +38,7 @@ bool MMC3Interrupt = false;
 bool MMC2Switch = false;
 bool MMC3Reload = false;
 unsigned char ExpansionRAM[65536]; //up to 64k expanded RAM
+unsigned char ExpansionRAM2[65536];
 unsigned char PRGBankSwitchMode[5] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 unsigned char CHRBankSwitchMode[20];
 
@@ -240,7 +241,7 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
             return;
         }
 
-        unsigned char bank = value & 0x7E/* % (prgsize * 2)*/;
+        unsigned char bank = value & 0x7E % (prgsize * 2);
 
         if (address == 0x5115)
         {
@@ -270,7 +271,7 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
             CPU_LOG("MMC5 Attempted 16,8,8 Bankswitch on address %x, cancelling\n", address);
             return;
         }
-        unsigned char bank = (value & 0x7F)/* % (prgsize * 2)*/;
+        unsigned char bank = (value & 0x7F) % (prgsize * 2);
 
         if (address == 0x5115)
         {
@@ -311,20 +312,20 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
     }
     else if (MMC5PRGMode == 3) //One 8KB banks 5114-5117 only
     {
-        unsigned char bank = (value & 0x7F)/* % (prgsize * 2)*/;
+        unsigned char bank = (value & 0x7F) % (prgsize * 2);
 
         if (address == 0x5113)
         {
-            if (MMC5ExtendedRAMMode == 2)
-            {
+           /* if (MMC5ExtendedRAMMode == 2)
+            {*/
                 CPU_LOG("MMC5 8k Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
-                memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x2000);
-            }
+                memcpy(ExpansionRAM2, ROMCart + (bank * 8192), 0x2000);
+           /* }
             else
             {
                 CPU_LOG("MMC5 Attempted 8k Bankswitch on address %x, cancelling\n", address);
                 return;
-            }
+            }*/
         }
         else if (address == 0x5114)
         {
