@@ -332,7 +332,7 @@ unsigned short memReadPC(unsigned short address) {
     else if (address >= 0x6000 && address < 0x8000)
     {
         CPU_LOG("Reading External RAM PC %x\n", address - 0x6000);
-        value = (ExpansionRAM2[(address - 0x6000)+1] << 8) | ExpansionRAM[(address - 0x6000)];
+        value = (ExpansionRAM2[(address - 0x6000)+1] << 8) | ExpansionRAM2[(address - 0x6000)];
         return value;
     }
     //CPU_LOG("value = %x\n", (CPUMemory[address + 1] << 8) | CPUMemory[address]);
@@ -357,7 +357,7 @@ unsigned short memReadPCIndirect() {
     else if (address >= 0x6000 && address < 0x8000)
     {
         CPU_LOG("Reading External RAM Indirect %x\n", address - 0x6000);
-        value = (ExpansionRAM2[(address - 0x6000) + 1] << 8) | ExpansionRAM[(address - 0x6000)];
+        value = (ExpansionRAM2[(address - 0x6000) + 1] << 8) | ExpansionRAM2[(address - 0x6000)];
         return value;
     }
     masked = (address & 0xFF00) | ((address+1) & 0xFF);
