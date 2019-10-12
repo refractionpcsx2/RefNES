@@ -816,26 +816,29 @@ void PPULoop()
                 else
                     currentXPos++;
             }
+
             //Load background and shifters
-            if (((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337)) && !backgroundRenderingDisabled)
+            if (((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337)))
             {
-                AdvanceShifters();
-
-                unsigned short address;
-
-                switch (scanlineCycles % 8)
+                //At cycle 257 reload v_reg horizontal
+                if (scanlineCycles == 257)
                 {
+                    v_reg.coarseX = t_reg.coarseX;
+                    v_reg.nametable = (v_reg.nametable & 0x2) | (t_reg.nametable & 0x1);
+                }
+
+                if (!backgroundRenderingDisabled)
+                {
+                    AdvanceShifters();
+
+                    unsigned short address;
+
+                    switch (scanlineCycles % 8)
+                    {
                     case 1:
                     {
                         //Update shifters and refil lower 8
                         UpdateNextShifterTile();
-
-                        //At cycle 257 reload v_reg horizontal
-                        if (scanlineCycles == 257)
-                        {
-                            v_reg.coarseX = t_reg.coarseX;
-                            v_reg.nametable = (v_reg.nametable & 0x2) | (t_reg.nametable & 0x1);
-                        }
                     }
                     break;
                     case 2:
@@ -923,14 +926,14 @@ void PPULoop()
                         //Retrieve Pattern Table Low Byte
                         if (mapper == 5)
                         {
-                           /* if (!(PPUCtrl & 0x20))
-                            {
-                                //currentTileInfo.patternLowerByte = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                                currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                            }
-                            else
-                            {*/
-                                currentTileInfo.patternLowerByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
+                            /* if (!(PPUCtrl & 0x20))
+                             {
+                                 //currentTileInfo.patternLowerByte = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
+                                 currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
+                             }
+                             else
+                             {*/
+                            currentTileInfo.patternLowerByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
                             //}
                         }
                         else
@@ -956,11 +959,11 @@ void PPULoop()
                             }
                             else
                             {*/
-                                currentTileInfo.patternUpperByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
+                            currentTileInfo.patternUpperByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
                             //}
                         }
                         else
-                            currentTileInfo.patternUpperByte= PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
+                            currentTileInfo.patternUpperByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
                         //CPU_LOG("Read Upper From %x Value %x Stored %x\n", patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternUpperByte);
 
                         //Cycle 256 increase vertical
@@ -1004,16 +1007,18 @@ void PPULoop()
                     default:
                         //do nothing
                         break;
+                    }
                 }
             }
 
+
             //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
-            if(scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240 && !spriteRenderingDisabled)
+            if(scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240)
             {
                 if (spriteEvaluationPos < 0x100)
                 {
                     //Sprites copied on even cycles
-                    if (!(scanlineCycles & 0x1) && (PPUMask & 0x18))
+                    if ((scanlineCycles & 0x1) && (PPUMask & 0x18))
                     {
                         unsigned char foundSpritePos = foundSprites * 4;
 
@@ -1084,9 +1089,9 @@ void PPULoop()
                     memset(spriteAttribute, 0, sizeof(spriteAttribute));
                     memset(spriteX, 0, sizeof(spriteX));
                     memset(isSpriteZero, 0, sizeof(isSpriteZero));
-                    spriteToDraw = foundSprites;
+                    spriteToDraw = spriteRenderingDisabled == true ? 0 : foundSprites;
                 }
-                if (processingSprite < foundSprites)
+                if (processingSprite < foundSprites && !spriteRenderingDisabled)
                 {
                     switch (scanlineCycles % 8)
                     {
@@ -1129,7 +1134,7 @@ void PPULoop()
             }
 
             //Reload vertical v_reg.  Actually happens from 280-304 of the pre-render scanline but we can just do this
-            if (scanline == 261 && scanlineCycles == 304 && !backgroundRenderingDisabled)
+            if (scanline == 261 && scanlineCycles == 304)
             {
                 v_reg.coarseY = t_reg.coarseY;
                 v_reg.fineY = t_reg.fineY;
