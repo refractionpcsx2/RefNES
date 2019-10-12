@@ -38,7 +38,10 @@ bool MMC3Interrupt = false;
 bool MMC2Switch = false;
 bool MMC3Reload = false;
 unsigned char ExpansionRAM[65536]; //up to 64k expanded RAM
-unsigned char ExpansionRAM2[65536];
+unsigned char CartridgeSRAM[0x40000]; //SRAM
+unsigned char CartridgeSRAMBank6000 = 0;
+unsigned char CartridgeSRAMBankA000 = 0;
+bool PRGA000SRAM = false;
 unsigned char PRGBankSwitchMode[5] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 unsigned char CHRBankSwitchMode[20];
 
@@ -218,7 +221,10 @@ void MMC2SwitchCHR()
 void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
 {
     PRGBankSwitchMode[address - 5113] = value & 0x7F;
-
+    if (!((value >> 7) & 0x1))
+    {
+        CPU_LOG("MMC5 SRAM Bankswitch at address %x to bank %d\n", address, value);
+    }
     if (MMC5PRGMode == 0) //32K bank switching, 5117 only, maybe 5113 in RAM too?? I'll do that later.. :P
     {
         unsigned char bank;
@@ -229,7 +235,7 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
             return;
         }
 
-        bank = (value & 0x7C)/* % (prgsize * 2)*/;
+        bank = (value & 0x7C) % (prgsize * 2);
         CPU_LOG("MMC5 32k Bankswitch on address %x to 0x8000 Bank %d value %d\n", address, bank, value);
         memcpy(&CPUMemory[0x8000], ROMCart + (bank * 8192), 0x8000);
     }
@@ -316,16 +322,8 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
 
         if (address == 0x5113)
         {
-           /* if (MMC5ExtendedRAMMode == 2)
-            {*/
-                CPU_LOG("MMC5 8k Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
-                memcpy(ExpansionRAM2, ROMCart + (bank * 8192), 0x2000);
-           /* }
-            else
-            {
-                CPU_LOG("MMC5 Attempted 8k Bankswitch on address %x, cancelling\n", address);
-                return;
-            }*/
+            CPU_LOG("MMC5 8k Bankswitch on address %x to SRAM Bank %d value %d\n", address, bank, value);
+            CartridgeSRAMBank6000 = bank;
         }
         else if (address == 0x5114)
         {
@@ -347,17 +345,19 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
         {
             bool isROM = (value >> 7) & 0x1;
 
-            /*if (isROM)
-            {*/
+            if (isROM)
+            {
                 CPU_LOG("MMC5 8k Bankswitch on address %x to 0xA000 Bank %d value %d\n", address, bank, value);
                 memcpy(&CPUMemory[0xA000], ROMCart + (bank * 8192), 0x2000);
-            /*}
+                PRGA000SRAM = false;
+            }
             else
             {
                 CPU_LOG("MMC5 8k Bankswitch on address %x to Expansion RAM Bank %d value %d\n", address, bank, value);
                 //memcpy(ExpansionRAM, ROMCart + (bank * 8192), 0x2000);
-                memset(&CPUMemory[0xA000], 0xff, 0x2000);
-            }*/
+                CartridgeSRAMBankA000 = bank;
+                PRGA000SRAM = true;
+            }
         }
         else if(address == 0x5116)
         {
@@ -383,9 +383,40 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
     }
 }
 
+bool LastWrite4k = false;
+unsigned short lastAddress = 0x0000;
+unsigned char lastBank = 0;
+unsigned char lastSpriteMode = 0;
+
+void MMC5Load4KCHRBank(unsigned char value, unsigned short address)
+{
+    unsigned int prgarea = prgsize * 16384;
+    if (LastWrite4k == false || lastAddress != address || lastBank != value || lastSpriteMode != (PPUCtrl & 0x20))
+    {
+        
+       /*if (!(PPUCtrl & 0x20))
+        {
+            MMC5CHRisBankB = false;
+            memcpy(&PPUMemory[address], ROMCart + prgarea + (value * 4096), 0x1000);
+            //memcpy(&MMC5CHRBankA[address], ROMCart + prgarea + (value * 4096), 0x1000);
+        }
+        else
+        {*/
+            //MMC5CHRisBankB = true;
+            memcpy(&MMC5CHRBankB[0x0000], ROMCart + prgarea + (value * 4096), 0x1000);
+            memcpy(&MMC5CHRBankB[0x1000], ROMCart + prgarea + (value * 4096), 0x1000);
+        //}
+    }
+    lastSpriteMode = (PPUCtrl & 0x20);
+    lastAddress = address;
+    lastBank = value;
+    LastWrite4k = true;
+}
+
 void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
 {
     unsigned int prgarea = prgsize * 16384;
+    LastWrite4k = false;
 
     MMC5CHRisBankB = address > 0x5127;
     switch (address)
@@ -395,7 +426,7 @@ void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
             if (MMC5CHRMode == 3) //1K
             {
                 CPU_LOG("MMC5 CHR 1K Bank Switch from %x to 0x0000 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x0000], ROMCart + prgarea  + (value * 1024), 0x400);
+                memcpy(&PPUMemory[0x0000], ROMCart + prgarea  + (value * 1024), 0x400);
             }
         }
         break;
@@ -404,12 +435,12 @@ void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
             if (MMC5CHRMode == 3) //1K
             {
                 CPU_LOG("MMC5 CHR 1K Bank Switch from %x to 0x0400 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x0400], ROMCart + prgarea + (value * 1024), 0x400);
+                memcpy(&PPUMemory[0x0400], ROMCart + prgarea + (value * 1024), 0x400);
             }
             else if (MMC5CHRMode == 2) //2K
             {
                 CPU_LOG("MMC5 CHR 2K Bank Switch from %x to 0x0000 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x0000], ROMCart + prgarea + (value * 2048), 0x800);
+                memcpy(&PPUMemory[0x0000], ROMCart + prgarea + (value * 2048), 0x800);
             }
         }
         break;
@@ -418,7 +449,7 @@ void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
             if (MMC5CHRMode == 3) //1K
             {
                 CPU_LOG("MMC5 CHR 1K Bank Switch from %x to 0x0800 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x0800], ROMCart + prgarea + (value * 1024), 0x400);
+                memcpy(&PPUMemory[0x0800], ROMCart + prgarea + (value * 1024), 0x400);
             }
         }
         break;
@@ -427,17 +458,17 @@ void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
             if (MMC5CHRMode == 3) //1K
             {
                 CPU_LOG("MMC5 CHR 1K Bank Switch from %x to 0x0C00 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x0C00], ROMCart + prgarea + (value * 1024), 0x400);
+                memcpy(&PPUMemory[0x0C00], ROMCart + prgarea + (value * 1024), 0x400);
             }
             else if (MMC5CHRMode == 2) //2K
             {
                 CPU_LOG("MMC5 CHR 2K Bank Switch from %x to 0x0800 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x0800], ROMCart + prgarea + (value * 2048), 0x800);
+                memcpy(&PPUMemory[0x0800], ROMCart + prgarea + (value * 2048), 0x800);
             }
             else if (MMC5CHRMode == 1) //4K
             {
                 CPU_LOG("MMC5 CHR 4K Bank Switch from %x to 0x0000 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x0000], ROMCart + prgarea + (value * 4096), 0x1000);
+                memcpy(&PPUMemory[0x0000], ROMCart + prgarea + (value * 4096), 0x1000);
             }
         }
         break;
@@ -446,7 +477,7 @@ void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
             if (MMC5CHRMode == 3) //1K
             {
                 CPU_LOG("MMC5 CHR 1K Bank Switch from %x to 0x1000 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x1000], ROMCart + prgarea + (value * 1024), 0x400);
+                memcpy(&PPUMemory[0x1000], ROMCart + prgarea + (value * 1024), 0x400);
             }
         }
         break;
@@ -455,12 +486,12 @@ void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
             if (MMC5CHRMode == 3) //1K
             {
                 CPU_LOG("MMC5 CHR 1K Bank Switch from %x to 0x1400 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x1400], ROMCart + prgarea + (value * 1024), 0x400);
+                memcpy(&PPUMemory[0x1400], ROMCart + prgarea + (value * 1024), 0x400);
             }
             else if (MMC5CHRMode == 2) //2K
             {
                 CPU_LOG("MMC5 CHR 2K Bank Switch from %x to 0x1000 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x1000], ROMCart + prgarea + (value * 2048), 0x800);
+                memcpy(&PPUMemory[0x1000], ROMCart + prgarea + (value * 2048), 0x800);
             }
         }
         break;
@@ -469,7 +500,7 @@ void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
             if (MMC5CHRMode == 3) //1K
             {
                 CPU_LOG("MMC5 CHR 1K Bank Switch from %x to 0x1800 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x1800], ROMCart + prgarea + (value * 1024), 0x400);
+                memcpy(&PPUMemory[0x1800], ROMCart + prgarea + (value * 1024), 0x400);
             }
         }
         break;
@@ -478,22 +509,22 @@ void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
             if (MMC5CHRMode == 3) //1K
             {
                 CPU_LOG("MMC5 CHR 1K Bank Switch from %x to 0x1C00 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x1C00], ROMCart + prgarea + (value * 1024), 0x400);
+                memcpy(&PPUMemory[0x1C00], ROMCart + prgarea + (value * 1024), 0x400);
             }
             else if (MMC5CHRMode == 2) //2K
             {
                 CPU_LOG("MMC5 CHR 2K Bank Switch from %x to 0x1800 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x1800], ROMCart + prgarea + (value * 2048), 0x800);
+                memcpy(&PPUMemory[0x1800], ROMCart + prgarea + (value * 2048), 0x800);
             }
             else if (MMC5CHRMode == 1) //4K
             {
                 CPU_LOG("MMC5 CHR 4K Bank Switch from %x to 0x1000 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x1000], ROMCart + prgarea + (value * 4096), 0x1000);
+                memcpy(&PPUMemory[0x1000], ROMCart + prgarea + (value * 4096), 0x1000);
             }
             else if (MMC5CHRMode == 0) //8K
             {
                 CPU_LOG("MMC5 CHR 8K Bank Switch from %x to 0x0000 bank number %d\n", address, value);
-                memcpy(&MMC5CHRBankA[0x0000], ROMCart + prgarea + (value * 8192), 0x2000);
+                memcpy(&PPUMemory[0x0000], ROMCart + prgarea + (value * 8192), 0x2000);
             }
         }
         break;
@@ -760,7 +791,7 @@ void CartridgeExpansionWrite(unsigned short address, unsigned char value)
 }
 
 void MapperHandler(unsigned short address, unsigned char value) {
-    CPU_LOG("MAPPER HANDLER Mapper = %d\n", mapper);
+    CPU_LOG("MAPPER HANDLER Mapper = %d Addr %x Value %x\n", mapper, address, value);
     if (mapper == 1) { //MMC1
         //Kind of a hack, but to save work
         //Some games (Rocket Rangers for example) use RMW instructions to write to the mapper

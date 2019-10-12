@@ -266,8 +266,13 @@ unsigned char memRead(bool haspenalty) {
     }
     else if(address >= 0x6000 && address < 0x8000)
     {
-        CPU_LOG("Reading External RAM %x\n", address - 0x6000);
-        return ExpansionRAM2[address - 0x6000];
+        CPU_LOG("Reading SRAM %x\n", address - 0x6000);
+        return CartridgeSRAM[(address - 0x6000) + (CartridgeSRAMBank6000 * 8192)];
+    }
+    else if (address >= 0xA000 && address < 0xC000 && PRGA000SRAM)
+    {
+        CPU_LOG("Reading SRAM %x\n", address - 0xA000);
+        return CartridgeSRAM[(address - 0xA000) + (CartridgeSRAMBankA000 * 8192)];
     }
     else
     if (address >= 0x800 && address < 0x2000) {
@@ -284,7 +289,7 @@ void memWrite(unsigned char value, bool writeonly) {
     CPU_LOG("Writing to address %x, value %x\n", address, value);
 #endif
 
-    if (address >= 0x8000) { //Mapper
+    if (address >= 0x8000 && mapper != 5) { //Mapper
         //CPU_LOG("MAPPER HANDLER write to address %x with %x\n", address, value);
         MapperHandler(address, value);
         return;
@@ -305,8 +310,14 @@ void memWrite(unsigned char value, bool writeonly) {
     }
     else if(address >= 0x6000 && address < 0x8000)
     {
-        CPU_LOG("Writing to External RAM %x\n", address - 0x6000);
-        ExpansionRAM2[address - 0x6000] = value;
+        CPU_LOG("Writing to SRAM %x\n", address - 0x6000);
+        CartridgeSRAM[(address - 0x6000) + (CartridgeSRAMBank6000 * 8192)] = value;
+        return;
+    }
+    else if (address >= 0xA000 && address < 0xC000 && PRGA000SRAM)
+    {
+        CPU_LOG("Writing to SRAM %x\n", address - 0xA000);
+        CartridgeSRAM[(address - 0xA000) + (CartridgeSRAMBankA000 * 8192)] = value;
         return;
     }
     else
@@ -331,8 +342,14 @@ unsigned short memReadPC(unsigned short address) {
     }
     else if (address >= 0x6000 && address < 0x8000)
     {
-        CPU_LOG("Reading External RAM PC %x\n", address - 0x6000);
-        value = (ExpansionRAM2[(address - 0x6000)+1] << 8) | ExpansionRAM2[(address - 0x6000)];
+        CPU_LOG("Reading SRAM PC %x\n", address - 0x6000);
+        value = (CartridgeSRAM[(address - 0x6000)+1 + (CartridgeSRAMBank6000 * 8192)] << 8) | CartridgeSRAM[(address - 0x6000) + (CartridgeSRAMBank6000 * 8192)];
+        return value;
+    }
+    else if (address >= 0xA000 && address < 0xC000 && PRGA000SRAM)
+    {
+        CPU_LOG("Reading SRAM PC %x\n", address - 0xA000);
+        value = (CartridgeSRAM[(address - 0xA000) + 1 + (CartridgeSRAMBankA000 * 8192)] << 8) | CartridgeSRAM[(address - 0xA000) + (CartridgeSRAMBankA000 * 8192)];
         return value;
     }
     //CPU_LOG("value = %x\n", (CPUMemory[address + 1] << 8) | CPUMemory[address]);
@@ -356,8 +373,14 @@ unsigned short memReadPCIndirect() {
     }
     else if (address >= 0x6000 && address < 0x8000)
     {
-        CPU_LOG("Reading External RAM Indirect %x\n", address - 0x6000);
-        value = (ExpansionRAM2[(address - 0x6000) + 1] << 8) | ExpansionRAM2[(address - 0x6000)];
+        CPU_LOG("Reading SRAM Indirect %x\n", address - 0x6000);
+        value = (CartridgeSRAM[(address - 0x6000) + 1 + (CartridgeSRAMBank6000 * 8192)] << 8) | CartridgeSRAM[(address - 0x6000) + (CartridgeSRAMBank6000 * 8192)];
+        return value;
+    }
+    else if (address >= 0xA000 && address < 0xC000 && PRGA000SRAM)
+    {
+        CPU_LOG("Reading SRAM %x\n", address - 0xA000);
+        value = (CartridgeSRAM[(address - 0xA000) + 1 + (CartridgeSRAMBankA000 * 8192)] << 8) | CartridgeSRAM[(address - 0xA000) + (CartridgeSRAMBankA000 * 8192)];
         return value;
     }
     masked = (address & 0xFF00) | ((address+1) & 0xFF);
@@ -383,9 +406,15 @@ void memWriteValue(unsigned short address, unsigned char value) {
     }
     else if (address >= 0x6000 && address < 0x8000)
     {
-        CPU_LOG("Writing External RAM %x\n", address - 0x6000);
-       ExpansionRAM2[(address - 0x6000)] = value;
+        CPU_LOG("Writing SRAM %x\n", address - 0x6000);
+       CartridgeSRAM[(address - 0x6000) + (CartridgeSRAMBank6000 * 8192)] = value;
        return;
+    }
+    else if (address >= 0xA000 && address < 0xC000 && PRGA000SRAM)
+    {
+        CPU_LOG("Writing SRAM %x\n", address - 0xA000);
+        CartridgeSRAM[(address - 0xA000) + (CartridgeSRAMBankA000 * 8192)] = value;
+        return;
     }
     CPUMemory[address] = value;
 }
@@ -408,8 +437,13 @@ unsigned char memReadValue(unsigned short address) {
     }
     else if (address >= 0x6000 && address < 0x8000)
     {
-        CPU_LOG("Reading External RAM %x\n", address - 0x6000);
-        return ExpansionRAM2[(address - 0x6000)];
+        CPU_LOG("Reading SRAM %x\n", address - 0x6000);
+        return CartridgeSRAM[(address - 0x6000) + (CartridgeSRAMBank6000 * 8192)];
+    }
+    else if (address >= 0xA000 && address < 0xC000 && PRGA000SRAM)
+    {
+        CPU_LOG("Reading SRAM %x\n", address - 0xA000);
+        return CartridgeSRAM[(address - 0xA000) + (CartridgeSRAMBankA000 * 8192)];
     }
     //CPU_LOG("single value = %x\n", CPUMemory[address]);
     return CPUMemory[address];

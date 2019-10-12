@@ -296,10 +296,22 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
         case 0x07: //VRAM Data
             unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg, true);
 
-            //CPU_LOG("DEBUG Addr %x Writing %x\n", vramlocation, value);
+            CPU_LOG("DEBUG Addr %x Writing %x\n", vramlocation, value);
             if ((vramlocation & 0xF000) < 0x4000)
             {
-                PPUMemory[vramlocation] = value;
+                if (mapper == 5 && vramlocation < 0x2000)
+                {
+                    if (MMC5CHRisBankB)
+                    {
+                        MMC5CHRBankB[vramlocation] = value;
+                    }
+                    else
+                    {
+                        PPUMemory[vramlocation] = value;
+                    }
+                }
+                else
+                    PPUMemory[vramlocation] = value;
             }
             else if ((vramlocation & 0xF000) == 0x8000) //Expansion RAM
             {
@@ -364,7 +376,7 @@ unsigned char PPUReadReg(unsigned short address) {
 
             /*value = cachedvramread;
             cachedvramread = PPUMemory[vramlocation];*/
-            //CPU_LOG("DEBUG Addr %x Reading\n", vramlocation);
+            CPU_LOG("DEBUG Addr %x Reading\n", vramlocation);
             //Pallete doesn't delay or affect the cache
             if ((vramlocation & 0x3F00) == 0x3F00)
             {
@@ -378,6 +390,18 @@ unsigned char PPUReadReg(unsigned short address) {
                 value = cachedVRAMRead;
                 if ((vramlocation & 0xF000) < 0x4000)
                 {
+                    if (mapper == 5 && vramlocation < 0x2000)
+                    {
+                        if (MMC5CHRisBankB)
+                        {
+                            cachedVRAMRead = MMC5CHRBankB[vramlocation];
+                        }
+                        else
+                        {
+                            cachedVRAMRead = PPUMemory[vramlocation];
+                        }
+                    }
+                    else
                     cachedVRAMRead = PPUMemory[vramlocation];
                 }
                 else if ((vramlocation & 0xF000) == 0x8000) //Expansion RAM
@@ -420,7 +444,7 @@ unsigned char PPUReadReg(unsigned short address) {
         //the upper 2 bits are pallate values. Lets just return the status reg unless we get problems.
         break;
     }
-    CPU_LOG("PPU Reg Read %x value %x\n", 0x2000 + (address & 0x7), value);
+    //CPU_LOG("PPU Reg Read %x value %x\n", 0x2000 + (address & 0x7), value);
     return value;
 }
 
@@ -644,9 +668,9 @@ unsigned char FetchSpriteTile(bool isUpper)
     if (isUpper)
         patternTableAddress += 8;
 
-    if (mapper == 5)
-    {
-        if (!(PPUCtrl & 0x20))
+    /*if (mapper == 5)
+    {*/
+        /*if (!(PPUCtrl & 0x20))
         {
             if (MMC5CHRisBankB)
             {
@@ -658,11 +682,11 @@ unsigned char FetchSpriteTile(bool isUpper)
             }
         }
         else
-        {
-            result = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableAddress + (tilenumber * 16))];
-        }
-    }
-    else
+        {*/
+           // result = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableAddress + (tilenumber * 16))];
+        //}
+    /*}
+    else*/
         result = PPUMemory[CalculatePPUMemoryAddress(patternTableAddress + (tilenumber * 16))];
 
     return result;
@@ -840,35 +864,51 @@ void PPULoop()
                     break;
                     case 4:
                     {
-                        //Retrieve Attribute Byte
-                        //Each attribute byte deals with 32 pixels across and pixels down
-                        byteAddress = 0x2000 + (v_reg.nametable * 0x400) + 0x3C0 + ((v_reg.coarseY / 4) * 8) + ((v_reg.coarseX) / 4);
-
-                        address = CalculatePPUMemoryAddress(byteAddress);
-
-                        if ((address & 0xF000) == 0x2000)
+                        //MMC5 has an "extended attribute mode" which overrides the nametables attribute information - Romance of the Three Kingdoms II
+                        if (mapper == 5 && MMC5ExtendedRAMMode == 1)
                         {
-                            currentTileInfo.attributeByte = PPUMemory[address];
-                        }
-                        else if ((address & 0xF000) == 0x8000) //Expansion RAM
-                        {
-                            if (MMC5ExtendedRAMMode < 2)
-                                currentTileInfo.attributeByte = ExpansionRAM[address & 0x3FF];
+                            if (PPUCtrl & 0x10)
+                                patternTableBaseAddress = 0x1000;
                             else
-                                currentTileInfo.attributeByte = 0;
-                        }
-                        else  if ((address & 0xF000) == 0x9000) //Fill Table
-                        {
-                            currentTileInfo.attributeByte = MMC5FillColour | (MMC5FillColour << 2) | (MMC5FillColour << 4) | (MMC5FillColour << 6);
-                        }
+                                patternTableBaseAddress = 0x0000;
 
-                        if (v_reg.coarseY & 0x2)
-                            currentTileInfo.attributeByte >>= 4;
-                        if (v_reg.coarseX & 0x2)
-                            currentTileInfo.attributeByte >>= 2;
-                        
-                        currentTileInfo.attributeByte &= 0x3; //Remove all other attributes, left with 8 pixels worth
-                        //CPU_LOG("Read Attribute from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.attributeByte);
+                            unsigned short address = ((v_reg.coarseY) * 32) + v_reg.coarseX;
+                            unsigned char ExtendedAttr = ExpansionRAM[address];
+                            MMC5Load4KCHRBank(ExtendedAttr & 0x3F, patternTableBaseAddress);
+                            currentTileInfo.attributeByte = (ExtendedAttr >> 6) & 0x3;
+                        }
+                        else
+                        {
+                            //Retrieve Attribute Byte
+                            //Each attribute byte deals with 32 pixels across and pixels down
+                            byteAddress = 0x2000 + (v_reg.nametable * 0x400) + 0x3C0 + ((v_reg.coarseY / 4) * 8) + ((v_reg.coarseX) / 4);
+
+                            address = CalculatePPUMemoryAddress(byteAddress);
+
+                            if ((address & 0xF000) == 0x2000)
+                            {
+                                currentTileInfo.attributeByte = PPUMemory[address];
+                            }
+                            else if ((address & 0xF000) == 0x8000) //Expansion RAM
+                            {
+                                if (MMC5ExtendedRAMMode < 2)
+                                    currentTileInfo.attributeByte = ExpansionRAM[address & 0x3FF];
+                                else
+                                    currentTileInfo.attributeByte = 0;
+                            }
+                            else  if ((address & 0xF000) == 0x9000) //Fill Table
+                            {
+                                currentTileInfo.attributeByte = MMC5FillColour | (MMC5FillColour << 2) | (MMC5FillColour << 4) | (MMC5FillColour << 6);
+                            }
+
+                            if (v_reg.coarseY & 0x2)
+                                currentTileInfo.attributeByte >>= 4;
+                            if (v_reg.coarseX & 0x2)
+                                currentTileInfo.attributeByte >>= 2;
+
+                            currentTileInfo.attributeByte &= 0x3; //Remove all other attributes, left with 8 pixels worth
+                            //CPU_LOG("Read Attribute from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.attributeByte);
+                        }
                     }
                     break;
                     case 6:
@@ -882,21 +922,15 @@ void PPULoop()
                         //Retrieve Pattern Table Low Byte
                         if (mapper == 5)
                         {
-                            if (!(PPUCtrl & 0x20))
+                           /* if (!(PPUCtrl & 0x20))
                             {
-                                if (MMC5CHRisBankB)
-                                {
-                                    currentTileInfo.patternLowerByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                                }
-                                else
-                                {
-                                    currentTileInfo.patternLowerByte = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                                }
+                                //currentTileInfo.patternLowerByte = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
+                                currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
                             }
                             else
-                            {
+                            {*/
                                 currentTileInfo.patternLowerByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                            }
+                            //}
                         }
                         else
                             currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
@@ -914,21 +948,15 @@ void PPULoop()
                         //Retrieve Pattern Table High Byte
                         if (mapper == 5)
                         {
-                            if (!(PPUCtrl & 0x20))
+                            /*if (!(PPUCtrl & 0x20))
                             {
-                                if (MMC5CHRisBankB)
-                                {
-                                    currentTileInfo.patternUpperByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
-                                }
-                                else
-                                {
-                                    currentTileInfo.patternUpperByte = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
-                                }
+                                //currentTileInfo.patternUpperByte = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
+                                currentTileInfo.patternUpperByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
                             }
                             else
-                            {
+                            {*/
                                 currentTileInfo.patternUpperByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
-                            }
+                            //}
                         }
                         else
                             currentTileInfo.patternUpperByte= PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
