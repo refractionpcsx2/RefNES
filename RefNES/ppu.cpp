@@ -804,22 +804,21 @@ void PPULoop()
                     spriteRenderingDisabled = false;
             }
 
+            if (scanline < 240 && scanlineCycles >= 2 && scanlineCycles <= 257)
+            {
+                ProcessPixel();
+                if (currentXPos == 255)
+                {
+                    currentYPos++;
+                    currentXPos = 0;
+                    spriteToDraw = 0; //All sprites will have been drawn for this line, stop false sprites being drawn on the prerender line
+                }
+                else
+                    currentXPos++;
+            }
             //Load background and shifters
             if (((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337)) && !backgroundRenderingDisabled)
             {
-                if (scanline < 240 && scanlineCycles >= 2 && scanlineCycles <= 257)
-                {
-                    ProcessPixel();
-                    if (currentXPos == 255)
-                    {
-                        currentYPos++;
-                        currentXPos = 0;
-                        spriteToDraw = 0; //All sprites will have been drawn for this line, stop false sprites being drawn on the prerender line
-                    }
-                    else
-                        currentXPos++;
-                }
-
                 AdvanceShifters();
 
                 unsigned short address;
