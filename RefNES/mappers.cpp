@@ -6,7 +6,7 @@
 
 unsigned char SRwrites = 0; //Shift register for MMC1 wrappers
 unsigned char MMCbuffer;
-unsigned char MMCcontrol;
+unsigned char MMCcontrol = 0xC;
 unsigned char MMCIRQCounterLatch = 0;
 unsigned short MMCIRQCounter = 0;
 unsigned char MMCIRQEnable = 0;
@@ -78,16 +78,16 @@ void MMC3ChangePRG(unsigned char PRGNum) {
         if (chrsize == 0) return;
         if ((MMCcontrol & 0x7) < 2) { //2k CHR banks
             unsigned short address = 0;// inversion ? 0x1000 : 0x0000;
-            address += (MMCcontrol & 0x7) * 0x800;
+            address += (MMCcontrol & 0x3) * 0x800;
             if (inversion) {
                 address ^= 0x1000;
             }
             CPU_LOG("MAPPER Switching to 2K CHR-ROM number %d at 0x%x\n", PRGNum, address);
-            memcpy(&PPUMemory[address], ROMCart + ((prgsize) * 16384) + ((PRGNum & 0xFE) * 1024), 0x400);
-            memcpy(&PPUMemory[address+0x400], ROMCart + ((prgsize) * 16384) + ((PRGNum | 1) * 1024), 0x400);
+            memcpy(&PPUMemory[address], ROMCart + ((prgsize) * 16384) + ((PRGNum & 0xFE) * 1024), 0x800);
         }
         else { //1K CHR banks
             unsigned short address = 0x1000;// = inversion ? 0x0000 : 0x1000;
+
             address += ((MMCcontrol & 0x7) - 2) * 0x400;
             if (inversion) {
                 address ^= 0x1000;
@@ -175,7 +175,7 @@ void ChangeLowerCHR(unsigned char PRGNum) {
         memcpy(PPUMemory, ROMCart + PrgSizetotal + (PRGNum * 4096), 0x1000);
     }
     else {
-        PRGNum &= ~0x1;
+        //Documentation says the lower bit ignored, Air Fortress says otherwise. Also the program size needs to be 4k
         PRGNum %= (chrsize*2);
         CPU_LOG("MAPPER Switching Lower CHR 8k number %d at 0x0000\n", PRGNum);
         memcpy(PPUMemory, ROMCart + PrgSizetotal + ((PRGNum) * 4096), 0x2000);
@@ -813,6 +813,7 @@ void MapperHandler(unsigned short address, unsigned char value) {
             CPU_LOG("MAPPER MMC1 Reset shift reg %x\n", value);
             MMCbuffer = value & 0x1;
             SRwrites = 0;
+            MMCcontrol |= 0xC;
             return;
         }
         MMCbuffer >>= 1;

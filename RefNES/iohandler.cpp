@@ -50,20 +50,28 @@ void IOReset()
     next_counter_clock = 14915;
 }
 
-void SPRTransfer(unsigned char memvalue) {
-
+void SPRTransfer(unsigned char memvalue) 
+{
+    unsigned short transferamt = 256 - SPRRamAddress;
     CPU_LOG("SPR transfer to %x from %x scanline %d\n", SPRRamAddress, (memvalue << 8), scanline);
     if (SPRRamAddress > 0)
     {
         for (int i = 0; i < 256; i++)
+        {
             SPRMemory[(SPRRamAddress + i) & 0xFF] = CPUMemory[(memvalue << 8) + i];
+            if (SPRRamAddress + i == 255)
+            {
+                SPRRamAddress = 0;
+                break;
+            }
+        }
     }
     else
         memcpy(SPRMemory, &CPUMemory[memvalue << 8], 256);
 
     if (cpuCycles & 0x1)
         CPUIncrementCycles(1);
-    CPUIncrementCycles(513);
+    CPUIncrementCycles((transferamt * 2) + 1);
 
 
 }
