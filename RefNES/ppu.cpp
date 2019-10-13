@@ -284,6 +284,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                 tfirstwrite = false;
                 t_reg.reg &= ~0xFF00;
                 t_reg.reg |= (value & 0x3F) << 8;
+                CPU_LOG("DEBUG VRAM Addr First WRite to %x lastA12Bit = %x scanline %d\n", v_reg.reg, lastA12bit, scanline);
             }
             else {
                 tfirstwrite = true;
@@ -883,19 +884,7 @@ void PPULoop()
                 CPU_LOG("VBlank END took %d CPU cycles\n", cpuVBlankCycles);
             }
 
-            if (!(PPUMask & 0x8))
-            {
-                backgroundRenderingDisabled = true;
-            }
-            else
-                backgroundRenderingDisabled = false;
-
-            if (!(PPUMask & 0x10))
-            {
-                spriteRenderingDisabled = true;
-            }
-            else
-                spriteRenderingDisabled = false;
+            
 
             //Secondary OAM clear
             if(scanlineCycles == 1)
@@ -928,8 +917,15 @@ void PPULoop()
             //Load background and shifters
             if (((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337)))
             {
+                if (!(PPUMask & 0x8))
+                {
+                    backgroundRenderingDisabled = true;
+                }
+                else
+                    backgroundRenderingDisabled = false;
+
                 //At cycle 257 reload v_reg horizontal
-                if (scanlineCycles == 257 && (PPUMask & 0x18))
+                if (scanlineCycles == 257 && !backgroundRenderingDisabled)
                 {
                     v_reg.coarseX = t_reg.coarseX;
                     v_reg.nametable = (v_reg.nametable & 0x2) | (t_reg.nametable & 0x1);
@@ -1059,7 +1055,7 @@ void PPULoop()
                         //CPU_LOG("Read Upper From %x Value %x Stored %x\n", patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternUpperByte);
 
                         //Cycle 256 increase vertical
-                        if ((PPUMask & 0x18))
+                        if (!backgroundRenderingDisabled)
                         {
                             if (scanlineCycles == 256)
                             {
@@ -1110,6 +1106,16 @@ void PPULoop()
             //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
             if(scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240)
             {
+                if (scanlineCycles == 65)
+                {
+                    if (!(PPUMask & 0x10))
+                    {
+                        spriteRenderingDisabled = true;
+                    }
+                    else
+                        spriteRenderingDisabled = false;
+                }
+
                 if (spriteEvaluationPos < 0x100)
                 {
                     //Sprites copied on even cycles
@@ -1229,7 +1235,7 @@ void PPULoop()
             }
 
             //Reload vertical v_reg.  Actually happens from 280-304 of the pre-render scanline but we can just do this
-            if (scanline == 261 && scanlineCycles == 304 && (PPUMask & 0x18))
+            if (scanline == 261 && scanlineCycles == 304 && !backgroundRenderingDisabled)
             {
                 v_reg.coarseY = t_reg.coarseY;
                 v_reg.fineY = t_reg.fineY;
@@ -1254,9 +1260,9 @@ void PPULoop()
 
                 NMITriggered = true; //NMIRequested = true;
                 if(dotCycles + 2 < nextCpuCycle)
-                    NMITriggerCycle = cpuCycles;
-                else
                     NMITriggerCycle = cpuCycles+1;
+                else
+                    NMITriggerCycle = cpuCycles+2;
             }
             StartDrawing();
             if(MenuShowPatternTables)
