@@ -433,55 +433,58 @@ void ToggleLogging(HWND hWnd)
 
 void ChangeScale(HWND hWnd, int ID)
 {
-    HMENU hmenuBar = GetMenu(hWnd);
-    MENUITEMINFO mii;
-
-    memset(&mii, 0, sizeof(MENUITEMINFO));
-    mii.cbSize = sizeof(MENUITEMINFO);
-    mii.fMask = MIIM_STATE;
-
-    GetMenuItemInfo(hSubMenu2, 1005 + MenuScale, FALSE, &mii);
-    // Move this state to the Interpreter flag
-    SetMenuItemInfo(hSubMenu2, ID, FALSE, &mii);
-    // Toggle the checked state. 
-    mii.fState ^= MFS_CHECKED;
-    // Move this state to the Recompiler flag
-    SetMenuItemInfo(hSubMenu2, 1005 + MenuScale, FALSE, &mii);
-    MenuScale = ID - 1005;
-
-    switch (MenuScale)
+    if ((MenuScale + 1005) != ID)
     {
-    case 1:
-        SCREEN_WIDTH = 256;
-        SCREEN_HEIGHT = 240;
-        break;
-    case 2:
-        SCREEN_WIDTH = 512;
-        SCREEN_HEIGHT = 480;
-        break;
-    case 3:
-        SCREEN_WIDTH = 768;
-        SCREEN_HEIGHT = 720;
-        break;
-    case 4:
-        SCREEN_WIDTH = 1024;
-        SCREEN_HEIGHT = 960;
-        break;
-    case 5:
-        SCREEN_WIDTH = 1280;
-        SCREEN_HEIGHT = 1200;
-        break;
+        HMENU hmenuBar = GetMenu(hWnd);
+        MENUITEMINFO mii;
+
+        memset(&mii, 0, sizeof(MENUITEMINFO));
+        mii.cbSize = sizeof(MENUITEMINFO);
+        mii.fMask = MIIM_STATE;
+
+        GetMenuItemInfo(hSubMenu2, 1005 + MenuScale, FALSE, &mii);
+        // Move this state to the Interpreter flag
+        SetMenuItemInfo(hSubMenu2, ID, FALSE, &mii);
+        // Toggle the checked state. 
+        mii.fState ^= MFS_CHECKED;
+        // Move this state to the Recompiler flag
+        SetMenuItemInfo(hSubMenu2, 1005 + MenuScale, FALSE, &mii);
+        MenuScale = ID - 1005;
+
+        switch (MenuScale)
+        {
+        case 1:
+            SCREEN_WIDTH = 256;
+            SCREEN_HEIGHT = 240;
+            break;
+        case 2:
+            SCREEN_WIDTH = 512;
+            SCREEN_HEIGHT = 480;
+            break;
+        case 3:
+            SCREEN_WIDTH = 768;
+            SCREEN_HEIGHT = 720;
+            break;
+        case 4:
+            SCREEN_WIDTH = 1024;
+            SCREEN_HEIGHT = 960;
+            break;
+        case 5:
+            SCREEN_WIDTH = 1280;
+            SCREEN_HEIGHT = 1200;
+            break;
+        }
+
+        RECT wr = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };    // set the size, but not the position
+        AdjustWindowRect(&wr, WS_CAPTION | WS_MINIMIZE | WS_SYSMENU, TRUE);    // adjust the size
+
+        SetWindowPos(hWnd, 0, 100, 100, wr.right - wr.left, wr.bottom - wr.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+        SaveIni();
+
+        DestroyDisplay();
+        InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
     }
-
-    RECT wr = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };    // set the size, but not the position
-    AdjustWindowRect(&wr, WS_CAPTION | WS_MINIMIZE | WS_SYSMENU, TRUE);    // adjust the size
-
-    SetWindowPos(hWnd, 0, 100, 100, wr.right - wr.left, wr.bottom - wr.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-
-    SaveIni();
-
-    DestroyDisplay();
-    InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
 }
 
 
