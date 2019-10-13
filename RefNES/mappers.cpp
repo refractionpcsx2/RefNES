@@ -114,6 +114,8 @@ void MMC3ChangePRG(unsigned char PRGNum) {
 void MMC1ChangePRG(unsigned char PRGNum) {
     PRGNum &= 0xF;
 
+    PRGNum %= prgsize;
+
     if ((MMCcontrol & 0xC) <= 4) { //32kb
         CPU_LOG("MAPPER Switching to 32K PRG-ROM number %d at 0x8000\n", PRGNum & ~0x1);
         memcpy(&CPUMemory[0x8000], ROMCart + ((PRGNum & ~0x1) * 16384), 0x8000);
@@ -155,8 +157,9 @@ void ChangeLowerPRG(unsigned char PRGNum) {
 
 void ChangeUpperCHR(unsigned char PRGNum) {
     unsigned int PrgSizetotal = prgsize * 16384;
-
+    
     if ((MMCcontrol & 0x10) || mapper != 1) {
+        PRGNum %= (chrsize * 2);
         CPU_LOG("MAPPER Switching Upper CHR 4K number %d at 0x1000\n", PRGNum);
         memcpy(&PPUMemory[0x1000], ROMCart + PrgSizetotal + (PRGNum * 4096), 0x1000);
     }
@@ -167,12 +170,15 @@ void ChangeLowerCHR(unsigned char PRGNum) {
     if (chrsize == 0) return;
 
     if ((MMCcontrol & 0x10) || mapper != 1) {
+        PRGNum %= (chrsize*2);
         CPU_LOG("MAPPER Switching Lower CHR 4k number %d at 0x0000\n", PRGNum);
         memcpy(PPUMemory, ROMCart + PrgSizetotal + (PRGNum * 4096), 0x1000);
     }
     else {
+        PRGNum &= ~0x1;
+        PRGNum %= (chrsize*2);
         CPU_LOG("MAPPER Switching Lower CHR 8k number %d at 0x0000\n", PRGNum);
-        memcpy(PPUMemory, ROMCart + PrgSizetotal + ((PRGNum & ~0x1) * 8192), 0x2000);
+        memcpy(PPUMemory, ROMCart + PrgSizetotal + ((PRGNum) * 4096), 0x2000);
     }
 }
 
