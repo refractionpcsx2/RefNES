@@ -52,6 +52,7 @@ char inisettings[5];
 char MenuScale = 1;
 char LoggingEnable = 0;
 char MenuVSync = 1;
+char MenuShowPatternTables = 0;
 const char* path;
 unsigned int nextPPUCycle = 0;
 unsigned int fps = 0;
@@ -179,6 +180,7 @@ int LoadIni(){
             //Defaults
             //Recompiler = 1;
             MenuVSync = 1;
+            MenuShowPatternTables = 0;
             MenuScale = 1;
             LoggingEnable = 0;
             SCREEN_WIDTH = 256;
@@ -346,6 +348,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define     ID_WINDOWX3    1008
 #define     ID_WINDOWX4    1009
 #define     ID_WINDOWX5    1010
+#define     ID_PATTERN     1011
 
 void UpdateFPSCounter()
 {
@@ -385,6 +388,24 @@ void ToggleVSync(HWND hWnd)
         InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
     }
 }
+
+void TogglePatternTables(HWND hWnd)
+{
+    HMENU hmenuBar = GetMenu(hWnd);
+    MENUITEMINFO mii;
+
+    memset(&mii, 0, sizeof(MENUITEMINFO));
+    mii.cbSize = sizeof(MENUITEMINFO);
+    mii.fMask = MIIM_STATE;    // information to get 
+                               //Grab Vsync state
+    GetMenuItemInfo(hSubMenu2, ID_PATTERN, FALSE, &mii);
+    // Toggle the checked state. 
+    MenuShowPatternTables = !MenuShowPatternTables;
+    mii.fState ^= MFS_CHECKED;
+    // Write the new state to the VSync flag.
+    SetMenuItemInfo(hSubMenu2, ID_PATTERN, FALSE, &mii);
+}
+
 
 void ToggleLogging(HWND hWnd)
 {
@@ -493,7 +514,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
           
          
           AppendMenu(hSubMenu2, MF_STRING | (MenuVSync == 1 ? MF_CHECKED : 0), ID_VSYNC, "&Vertical Sync");
-         AppendMenu(hSubMenu2, MF_STRING| (LoggingEnable == 1 ? MF_CHECKED : 0), ID_LOGGING, "Enable Logging");
+          AppendMenu(hSubMenu2, MF_STRING| (LoggingEnable == 1 ? MF_CHECKED : 0), ID_LOGGING, "Enable Logging");
+          AppendMenu(hSubMenu2, MF_STRING | (MenuShowPatternTables == 1 ? MF_CHECKED : 0), ID_PATTERN, "Show Pattern Tables");
+         
           InsertMenu(hMenu, 0, MF_POPUP | MF_BYPOSITION, (UINT_PTR)hSubMenu, "File");
           InsertMenu(hMenu, 1, MF_POPUP | MF_BYPOSITION, (UINT_PTR)hSubMenu2, "Settings");
           InsertMenu(hMenu, 2, MF_STRING, ID_ABOUT, "&About");
@@ -586,6 +609,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
               break;
           case ID_LOGGING:
               ToggleLogging(hWnd);
+              break;
+          case ID_PATTERN:
+              TogglePatternTables(hWnd);
               break;
           case ID_WINDOWX1:
               ChangeScale(hWnd, ID_WINDOWX1);

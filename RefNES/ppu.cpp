@@ -4,6 +4,8 @@
 #include "memory.h"
 #include "romhandler.h"
 
+
+extern char MenuShowPatternTables;
 unsigned char PPUMemory[0x4000]; //16kb memory for PPU VRAM (0x4000-0xffff is mirrored)
 unsigned char MMC5CHRBankA[0x2000];
 unsigned char MMC5CHRBankB[0x2000];
@@ -531,8 +533,14 @@ unsigned char PPUReadReg(unsigned short address) {
 
 void DrawPixel(unsigned int pixel)
 {
+    unsigned char xPos;
+
+    if (MenuShowPatternTables)
+        xPos = 128 + (currentXPos / 2);
+    else
+        xPos = currentXPos;
     if (currentXPos < 256 && currentYPos < 240)
-        ScreenBuffer[currentXPos][currentYPos] = pixel;
+        ScreenBuffer[xPos][currentYPos] = pixel;
 }
 
 unsigned int ProcessBackgroundPixel(unsigned char selectedBGPattern, unsigned char selectedBGAttr)
@@ -563,12 +571,12 @@ void DrawPatternTables()
     unsigned char patternBottom;
     unsigned char colourIdx;
     unsigned char currentTileHeight = 0;
-    unsigned char currentTile = 0;
+    unsigned short currentTile = 0;
     unsigned char currentY = 0;
     unsigned char currentX = 0;
     unsigned char startX = 0;
     unsigned char startY = 0;
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < 512; i++)
     {
         currentY = startY;
         currentX = startX;
@@ -1251,7 +1259,8 @@ void PPULoop()
                     NMITriggerCycle = cpuCycles+1;
             }
             StartDrawing();
-            //DrawPatternTables();
+            if(MenuShowPatternTables)
+                DrawPatternTables();
             DrawScreen();
             EndDrawing();
         }
