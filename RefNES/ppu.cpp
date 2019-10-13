@@ -255,9 +255,11 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
             //CPU_LOG("Attempt to write to status register\n");
             break;
         case 0x03: //SPR (OAM) Ram Address
+            CPU_LOG("SPR Address Write %x\n", value);
             SPRRamAddress = value;
             break;
         case 0x04: //OAM Data
+            CPU_LOG("SPR Write %x at address %x\n", value, SPRRamAddress);
             SPRMemory[SPRRamAddress++] = value;
             SPRRamAddress &= 0xFF;
             break;
@@ -297,6 +299,8 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
         case 0x07: //VRAM Data
             unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg, true);
 
+            if (vramlocation < 0x2000 && chrsize) //Don't allow writing to CHR ROM, chrsize=0 means it has CHR-RAM only
+                return;
             if ((scanline < 240 || scanline >= 261) && (PPUMask & 0x18))
                 CPU_LOG("DEBUG Addr %x Writing %x During Rendering scanline %d\n", v_reg.reg, value, scanline);
             else
@@ -403,6 +407,7 @@ unsigned char PPUReadReg(unsigned short address) {
         break;    
     case 0x04: //OAM Data
         value = SPRMemory[SPRRamAddress];
+        CPU_LOG("SPR Read %x at address %x\n", value, SPRRamAddress);
         if (!isVBlank || (PPUMask & 0x18))
         {
             SPRRamAddress++;
@@ -549,6 +554,46 @@ unsigned int ProcessBackgroundPixel(unsigned char selectedBGPattern, unsigned ch
     BGPixel = masterPalette[colourIdx & 0x3F];
 
     return BGPixel;
+}
+
+void DrawPatternTables()
+{
+    unsigned short patternTableAddress = 0x0000;
+    unsigned char patternTop;
+    unsigned char patternBottom;
+    unsigned char colourIdx;
+    unsigned char currentTileHeight = 0;
+    unsigned char currentTile = 0;
+    unsigned char currentY = 0;
+    unsigned char currentX = 0;
+    unsigned char startX = 0;
+    unsigned char startY = 0;
+    for (int i = 0; i < 256; i++)
+    {
+        currentY = startY;
+        currentX = startX;
+        for (int j = 0; j < 64; j++)
+        {
+            patternBottom = (PPUMemory[patternTableAddress + (currentTile * 16) + (j / 8)] >> (7- (j % 8))) & 0x1;
+            patternTop = (PPUMemory[patternTableAddress + (currentTile * 16) + 8 + (j / 8)] >> (7 - (j % 8))) & 0x1;
+            patternTop <<= 1;
+            colourIdx = PPUMemory[0x3F00 + (patternTop | patternBottom)];
+            ScreenBuffer[currentX][currentY] = masterPalette[colourIdx & 0x3F];
+            currentX++;
+            if (currentX == startX + 8)
+            {
+                currentX = startX;
+                currentY++;
+            }
+        }
+        currentTile++;
+        startX += 8;
+        if (startX >= 128)
+        {
+            startX = 0;
+            startY += 8;
+        }
+    }
 }
 
 unsigned int ProcessSpritePixel(unsigned char selectedSPRPattern, unsigned char selectedSPRAttr)
@@ -1206,6 +1251,7 @@ void PPULoop()
                     NMITriggerCycle = cpuCycles+1;
             }
             StartDrawing();
+            //DrawPatternTables();
             DrawScreen();
             EndDrawing();
         }
