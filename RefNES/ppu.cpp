@@ -46,7 +46,6 @@ unsigned int BackgroundBuffer[256][240];
 unsigned int SpriteBuffer[256][240];
 unsigned short t = 0;
 unsigned short fineX = 0;
-unsigned short VRAMAddress = 0;
 bool tfirstwrite = true;
 bool NMIDue = false;
 int zerospriteentry = 99;
@@ -277,7 +276,6 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
             //CPU_LOG("PPU T Update 2005 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
         case 0x06: //VRAM Address
-            VRAMAddress = (VRAMAddress << 8) | value;
             if (tfirstwrite == true) {
                 tfirstwrite = false;
                 t_reg.reg &= ~0xFF00;
@@ -292,13 +290,17 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                 if ((lastA12bit & 0x1000) != 0x1000 && (v_reg.reg & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
                     MMC3IRQCountdown();
                 lastA12bit = v_reg.reg;
+                CPU_LOG("DEBUG Addr set to %x\n", v_reg.reg);
             }
             //CPU_LOG("PPU T Update 2006 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
         case 0x07: //VRAM Data
-            unsigned short vramlocation = CalculatePPUMemoryAddress(VRAMAddress, true);
+            unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg, true);
 
-            CPU_LOG("DEBUG Addr %x Writing %x\n", vramlocation, value);
+            if ((scanline < 240 || scanline >= 261) && (PPUMask & 0x18))
+                CPU_LOG("DEBUG Addr %x Writing %x During Rendering scanline %d\n", v_reg.reg, value, scanline);
+            else
+                CPU_LOG("DEBUG Addr %x Writing %x During VBLANK scanline %d\n", v_reg.reg, value, scanline);
             if ((vramlocation & 0xF000) < 0x4000)
             {
                 if (mapper == 5 && vramlocation < 0x2000)
@@ -330,17 +332,51 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
 
             MMC2SwitchCHR();
 
-            if (PPUCtrl & 0x4) { //Increment
-                VRAMAddress += 32;
-            }
-            else {
-                VRAMAddress++;
-            }
+            if ((scanline < 240 || scanline >= 261) && (PPUMask & 0x18))
+            {
+                if (v_reg.fineY == 7)
+                { //fine scroll has looped so increment the coarse
+                    v_reg.fineY = 0;
+                    if (v_reg.coarseY == 29)
+                    {
+                        v_reg.coarseY = 0;
+                        v_reg.nametable ^= 2;
+                    }
+                    else
+                        if (v_reg.coarseY == 31)
+                        {
+                            v_reg.coarseY = 0;
+                        }
+                        else
+                            v_reg.coarseY = (v_reg.coarseY + 1) & 0x1F;
+                }
+                else
+                {
+                    v_reg.fineY = (v_reg.fineY + 1) & 0x7;
+                }
 
-            if ((lastA12bit & 0x1000) != 0x1000 && (VRAMAddress & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
-                MMC3IRQCountdown();
+                if (v_reg.coarseX == 31)
+                { //fine scroll has looped so increment the coarse
+                    v_reg.coarseX = 0;
+                    v_reg.nametable ^= 1;
+                }
+                else
+                {
+                    v_reg.coarseX = (v_reg.coarseX + 1) & 0x1F;
+                }
+            }
+            else
+            {
 
-            lastA12bit = VRAMAddress;
+                if (PPUCtrl & 0x4)
+                { //Increment
+                    v_reg.reg += 32;
+                }
+                else
+                {
+                    v_reg.reg++;
+                }
+            }
             break;
     }
     lastwrite = value;
@@ -374,17 +410,20 @@ unsigned char PPUReadReg(unsigned short address) {
         break;
     case 0x07: //VRAM Data
         {
-            unsigned short vramlocation = CalculatePPUMemoryAddress(VRAMAddress);
+            unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg);
 
             /*value = cachedvramread;
             cachedvramread = PPUMemory[vramlocation];*/
-            CPU_LOG("DEBUG Addr %x Reading\n", vramlocation);
+            if ((scanline < 240 || scanline >= 261) && (PPUMask & 0x18))
+                CPU_LOG("DEBUG Addr %x Reading During Rendering scanline %d\n", v_reg.reg, scanline);
+            else
+                CPU_LOG("DEBUG Addr %x Reading During VBLANK scanline %d\n", v_reg.reg, scanline);
             //Pallete doesn't delay or affect the cache
             if ((vramlocation & 0x3F00) == 0x3F00)
             {
                 
                 value = PPUMemory[vramlocation];
-                cachedVRAMRead = PPUMemory[CalculatePPUMemoryAddress(VRAMAddress & 0x2FFF)];
+                cachedVRAMRead = PPUMemory[CalculatePPUMemoryAddress(v_reg.reg & 0x2FFF)];
                // CPU_LOG("DEBUG Addr %x Reading Palette Only %x Caching %x from Addr %x\n", vramlocation, value, cachedvramread, CalculatePPUMemoryAddress(vramlocation & 0x2FFF));
             }
             else
@@ -423,16 +462,51 @@ unsigned char PPUReadReg(unsigned short address) {
                // CPU_LOG("DEBUG Addr %x Caching %x reading %x\n", vramlocation, cachedvramread, value);
             }
 
-            if (PPUCtrl & 0x4) { //Increment
-                VRAMAddress += 32;
-            }
-            else {
-                VRAMAddress++;
-            }
-            if ((lastA12bit & 0x1000) != 0x1000 && (VRAMAddress & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
-                MMC3IRQCountdown();
+            if ((scanline < 240 || scanline >= 261) && (PPUMask & 0x18))
+            {
+                if (v_reg.fineY == 7)
+                { //fine scroll has looped so increment the coarse
+                    v_reg.fineY = 0;
+                    if (v_reg.coarseY == 29)
+                    {
+                        v_reg.coarseY = 0;
+                        v_reg.nametable ^= 2;
+                    }
+                    else
+                        if (v_reg.coarseY == 31)
+                        {
+                            v_reg.coarseY = 0;
+                        }
+                        else
+                            v_reg.coarseY = (v_reg.coarseY + 1) & 0x1F;
+                }
+                else
+                {
+                    v_reg.fineY = (v_reg.fineY + 1) & 0x7;
+                }
 
-            lastA12bit = VRAMAddress;
+                if (v_reg.coarseX == 31)
+                { //fine scroll has looped so increment the coarse
+                    v_reg.coarseX = 0;
+                    v_reg.nametable ^= 1;
+                }
+                else
+                {
+                    v_reg.coarseX = (v_reg.coarseX + 1) & 0x1F;
+                }
+            }
+            else
+            {
+
+                if (PPUCtrl & 0x4)
+                { //Increment
+                    v_reg.reg += 32;
+                }
+                else
+                {
+                    v_reg.reg++;
+                }
+            }
         }
         break;
     case 0x00: //PPU Control (write only)
@@ -670,26 +744,7 @@ unsigned char FetchSpriteTile(bool isUpper)
     if (isUpper)
         patternTableAddress += 8;
 
-    /*if (mapper == 5)
-    {*/
-        /*if (!(PPUCtrl & 0x20))
-        {
-            if (MMC5CHRisBankB)
-            {
-                result = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableAddress + (tilenumber * 16))];
-            }
-            else
-            {
-                result = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableAddress + (tilenumber * 16))];
-            }
-        }
-        else
-        {*/
-           // result = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableAddress + (tilenumber * 16))];
-        //}
-    /*}
-    else*/
-        result = PPUMemory[CalculatePPUMemoryAddress(patternTableAddress + (tilenumber * 16))];
+    result = PPUMemory[CalculatePPUMemoryAddress(patternTableAddress + (tilenumber * 16))];
 
     return result;
 }
@@ -775,6 +830,20 @@ void PPULoop()
                 CPU_LOG("VBlank END took %d CPU cycles\n", cpuVBlankCycles);
             }
 
+            if (!(PPUMask & 0x8))
+            {
+                backgroundRenderingDisabled = true;
+            }
+            else
+                backgroundRenderingDisabled = false;
+
+            if (!(PPUMask & 0x10))
+            {
+                spriteRenderingDisabled = true;
+            }
+            else
+                spriteRenderingDisabled = false;
+
             //Secondary OAM clear
             if(scanlineCycles == 1)
             {
@@ -788,20 +857,6 @@ void PPULoop()
                     spriteheight = 15;
                 else
                     spriteheight = 7;
-
-                if (!(PPUMask & 0x8))
-                {
-                    backgroundRenderingDisabled = true;
-                }
-                else
-                    backgroundRenderingDisabled = false;
-
-                if (!(PPUMask & 0x10))
-                {
-                    spriteRenderingDisabled = true;
-                }
-                else
-                    spriteRenderingDisabled = false;
             }
 
             if (scanline < 240 && scanlineCycles >= 2 && scanlineCycles <= 257)
@@ -821,7 +876,7 @@ void PPULoop()
             if (((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337)))
             {
                 //At cycle 257 reload v_reg horizontal
-                if (scanlineCycles == 257)
+                if (scanlineCycles == 257 && (PPUMask & 0x18))
                 {
                     v_reg.coarseX = t_reg.coarseX;
                     v_reg.nametable = (v_reg.nametable & 0x2) | (t_reg.nametable & 0x1);
@@ -926,15 +981,7 @@ void PPULoop()
                         //Retrieve Pattern Table Low Byte
                         if (mapper == 5)
                         {
-                            /* if (!(PPUCtrl & 0x20))
-                             {
-                                 //currentTileInfo.patternLowerByte = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                                 currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                             }
-                             else
-                             {*/
                             currentTileInfo.patternLowerByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                            //}
                         }
                         else
                             currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
@@ -952,54 +999,49 @@ void PPULoop()
                         //Retrieve Pattern Table High Byte
                         if (mapper == 5)
                         {
-                            /*if (!(PPUCtrl & 0x20))
-                            {
-                                //currentTileInfo.patternUpperByte = MMC5CHRBankA[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
-                                currentTileInfo.patternUpperByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
-                            }
-                            else
-                            {*/
                             currentTileInfo.patternUpperByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
-                            //}
                         }
                         else
                             currentTileInfo.patternUpperByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
                         //CPU_LOG("Read Upper From %x Value %x Stored %x\n", patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternUpperByte);
 
                         //Cycle 256 increase vertical
-                        if (scanlineCycles == 256)
+                        if ((PPUMask & 0x18))
                         {
-                            if (v_reg.fineY == 7)
-                            { //fine scroll has looped so increment the coarse
-                                v_reg.fineY = 0;
-                                if (v_reg.coarseY == 29)
-                                {
-                                    v_reg.coarseY = 0;
-                                    v_reg.nametable ^= 2;
-                                }
-                                else
-                                    if (v_reg.coarseY == 31)
+                            if (scanlineCycles == 256)
+                            {
+                                if (v_reg.fineY == 7)
+                                { //fine scroll has looped so increment the coarse
+                                    v_reg.fineY = 0;
+                                    if (v_reg.coarseY == 29)
                                     {
                                         v_reg.coarseY = 0;
+                                        v_reg.nametable ^= 2;
                                     }
                                     else
-                                        v_reg.coarseY = (v_reg.coarseY + 1) & 0x1F;
+                                        if (v_reg.coarseY == 31)
+                                        {
+                                            v_reg.coarseY = 0;
+                                        }
+                                        else
+                                            v_reg.coarseY = (v_reg.coarseY + 1) & 0x1F;
+                                }
+                                else
+                                {
+                                    v_reg.fineY = (v_reg.fineY + 1) & 0x7;
+                                }
                             }
-                            else
+                            else //On other cycles increment v_reg horizontal
                             {
-                                v_reg.fineY = (v_reg.fineY + 1) & 0x7;
-                            }
-                        }
-                        else //On other cycles increment v_reg horizontal
-                        {
-                            if (v_reg.coarseX == 31)
-                            { //fine scroll has looped so increment the coarse
-                                v_reg.coarseX = 0;
-                                v_reg.nametable ^= 1;
-                            }
-                            else
-                            {
-                                v_reg.coarseX = (v_reg.coarseX + 1) & 0x1F;
+                                if (v_reg.coarseX == 31)
+                                { //fine scroll has looped so increment the coarse
+                                    v_reg.coarseX = 0;
+                                    v_reg.nametable ^= 1;
+                                }
+                                else
+                                {
+                                    v_reg.coarseX = (v_reg.coarseX + 1) & 0x1F;
+                                }
                             }
                         }
                     }
@@ -1134,7 +1176,7 @@ void PPULoop()
             }
 
             //Reload vertical v_reg.  Actually happens from 280-304 of the pre-render scanline but we can just do this
-            if (scanline == 261 && scanlineCycles == 304)
+            if (scanline == 261 && scanlineCycles == 304 && (PPUMask & 0x18))
             {
                 v_reg.coarseY = t_reg.coarseY;
                 v_reg.fineY = t_reg.fineY;

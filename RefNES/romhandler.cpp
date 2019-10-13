@@ -45,7 +45,7 @@ int LoadRom(const char *Filename) {
             singlescreen = 0;
             ines_flags10 = ROMHeader[10];
             mapper = ((ROMHeader[6] >> 4) & 0xF) | (ROMHeader[7] & 0xF0);
-
+            memset(CartridgeSRAM, 0, sizeof(CartridgeSRAM));
             CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags8=%x, flags10=%x mapper=%d\n", prgsize, chrsize, ines_flags6, ROMHeader[8],  ines_flags10, mapper);
             fseek(pFile, 16, SEEK_SET); //Point it past the header
             LoadRomToMemory(pFile, lSize);

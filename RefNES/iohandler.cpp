@@ -312,7 +312,7 @@ void updateAPU(unsigned int cpu_cycles)
         {
 
             sq1_length -= 1;
-            CPU_LOG("reg write at Decreasing sql_length now %d\n", sq1_length);
+            CPU_LOG("APU Update Decreasing sql_length now %d\n", sq1_length);
         }
     }
     if (apu_status_channels & 0x2)
@@ -321,7 +321,7 @@ void updateAPU(unsigned int cpu_cycles)
         {
 
             sq2_length -= 1;
-            CPU_LOG("reg write at Decreasing sq2_length now %d\n", sq2_length);
+            CPU_LOG("APU Update Decreasing sq2_length now %d\n", sq2_length);
         }
     }
     if (apu_status_channels & 0x4)
@@ -330,7 +330,7 @@ void updateAPU(unsigned int cpu_cycles)
         {
 
             triangle_length -= 1;
-            CPU_LOG("reg write at Decreasing triangle_length now %d\n", triangle_length);
+            CPU_LOG("APU Update Decreasing triangle_length now %d\n", triangle_length);
         }
     }
     if (apu_status_channels & 0x8)
@@ -338,7 +338,7 @@ void updateAPU(unsigned int cpu_cycles)
         if (noise_length && !(noise_envelope & 0x20) && updatelength)
         {
             noise_length -= 1;
-            CPU_LOG("reg write at Decreasing triangle_length now %d\n", noise_length);
+            CPU_LOG("APU Update Decreasing triangle_length now %d\n", noise_length);
         }
     }
 

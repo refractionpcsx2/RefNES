@@ -892,7 +892,7 @@ void MapperHandler(unsigned short address, unsigned char value) {
         }
     }
     if (mapper == 7) { //AOROM
-        CPU_LOG("MAPPER AOROM PRG Select %d\n", value);
+        CPU_LOG("MAPPER AOROM PRG Select %d Single Screen %d\n", value & 0xf, (value & 0x10) >> 4);
         singlescreen = (value & 0x10) >> 4;
         Change32KPRG(value & 0xf);
     }
