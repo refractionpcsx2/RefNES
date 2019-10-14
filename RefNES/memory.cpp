@@ -33,7 +33,10 @@ void CopyRomToMemory() {
         }
         else {
             memcpy(&CPUMemory[0x8000], ROMCart, 0x4000);
-            memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);
+			if(prgsize > 16)
+				memcpy(&CPUMemory[0xC000], ROMCart + (15 * 16384), 0x4000);
+			else
+				memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);
         }
         
     }
