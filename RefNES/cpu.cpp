@@ -62,27 +62,31 @@ void CPUPushAllStack() {
 }
 
 void CPUPopAllStack() {
+    unsigned short newPC;
+
     P = memReadValue(0x100 + ++SP);
     P |= 0x20;
-    PC = memReadPC(0x100 + ++SP);
-    SP++;
+    newPC = memReadValue(0x100 + ++SP);
+    newPC |= memReadValue(0x100 + ++SP) << 8;
+    PC = newPC;
 #ifdef CPU_LOGGING
     CPU_LOG("Popped all from stack, PC = %x, SP = %x\n", PC, SP);
 #endif
 }
 
 void CPUPushPCStack() {    
-    memWriteValue(0x100 + SP--, PC >> 8);
-    memWriteValue(0x100 + SP--, (PC & 0xff));
+    memWriteValue(0x100 + (SP--), PC >> 8);
+    memWriteValue(0x100 + (SP--), (PC & 0xff));
 #ifdef CPU_LOGGING
-    CPU_LOG("Pushed PC to stack, PC = %x, SP = %x\n", PC, SP);
+    CPU_LOG("Pushed PC to stack, PC = %x, SP = %x memlower %x memupper %x\n", PC, SP, memReadValue(0x100 + SP + 1), memReadValue(0x100 + SP + 2));
 #endif
 }
 
 void CPUPopPCStack() {
-    
-    PC = memReadPC(0x100 + ++SP);
-    SP++;
+    unsigned short newPC;
+    newPC = memReadValue(0x100 + ++SP);
+    newPC |= memReadValue(0x100 + ++SP) << 8;
+    PC = newPC;
 #ifdef CPU_LOGGING
     CPU_LOG("Popped PC from stack, PC = %x, SP = %x\n", PC, SP);
 #endif
@@ -470,12 +474,12 @@ void cpuJMP() {
 void cpuJSR() {
     unsigned short newPC = memReadPC(PC + 1);
     PC += 2;
+#ifdef CPU_LOGGING
+    CPU_LOG("JSR pushing %x to stack new PC is %x\n", PC, newPC);
+#endif   
     CPUPushPCStack();
     PC = newPC;
     CPUIncrementCycles(4);
-#ifdef CPU_LOGGING
-    CPU_LOG("JSR\n");
-#endif
 }
 void cpuLDY() {
     Y = memRead();
