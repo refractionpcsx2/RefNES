@@ -9,6 +9,8 @@ unsigned char MMCbuffer;
 unsigned char MMCcontrol = 0xC;
 unsigned int MMC1PRGOffset = 0;
 unsigned char MMC1LastPrg = 0;
+unsigned char UpperCHRRAMBank = 1;
+unsigned char LowerCHRRAMBank = 0;
 unsigned char MMCIRQCounterLatch = 0;
 unsigned short MMCIRQCounter = 0;
 unsigned char MMCIRQEnable = 0;
@@ -186,6 +188,7 @@ void ChangeUpperCHR(unsigned char PRGNum) {
 		}
 		else
 			memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);*/
+        UpperCHRRAMBank = PRGNum & 0x1;
 		return;
 	}
 
@@ -216,6 +219,8 @@ void ChangeLowerCHR(unsigned char PRGNum) {
 			memcpy(&CPUMemory[0xC000], ROMCart + (15 * 16384), 0x4000);
 		else
 			memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);
+
+        LowerCHRRAMBank = PRGNum & 0x1;
 		return;
 	}
 
@@ -873,6 +878,23 @@ void MapperHandler(unsigned short address, unsigned char value) {
         if (SRwrites == 5) {
             if ((address & 0xe000) == 0x8000) { //Control register
                 CPU_LOG("MAPPER MMC1 Write to control reg %x\n", MMCbuffer);
+                if ((MMCcontrol & 0xC) == 0x8 && (MMCbuffer & 0xC) == 0xC)
+                {
+                    memcpy(&CPUMemory[0x8000], &CPUMemory[0xC000], 0x4000);
+                    if (prgsize > 16 && MMC1PRGOffset == 0)
+                    {
+                        memcpy(&CPUMemory[0xC000], ROMCart + (15 * 16384), 0x4000);
+                    }
+                    else
+                        memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);
+                }
+                else
+                if ((MMCcontrol & 0xC) == 0xC && (MMCbuffer & 0xC) == 0x8)
+                {
+                    memcpy(&CPUMemory[0xC000], &CPUMemory[0x8000], 0x4000);
+                    memcpy(&CPUMemory[0x8000], ROMCart + MMC1PRGOffset, 0x4000);
+                }
+
                 MMCcontrol = MMCbuffer;
 
                 if ((MMCcontrol & 0x3) == 3) ines_flags6 &= ~1; 

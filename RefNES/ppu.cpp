@@ -30,8 +30,7 @@ unsigned char spriteY[8];
 bool isSpriteZero[8];
 unsigned char currentXPos, currentYPos;
 bool isVBlank = false;
-bool backgroundRenderingDisabled = false;
-bool spriteRenderingDisabled = false;
+bool spriteEvaluationEnabled;
 unsigned int scanline;
 unsigned int scanlinestage = 0;
 unsigned int scanlineCycles = 0;
@@ -53,6 +52,7 @@ bool NMIDue = false;
 int zerospriteentry = 99;
 unsigned short lastA12bit = 0;
 bool oddFrame = false;
+bool backgroundRenderedThisFrame = false;
 bool skipVBlank;
 PPU_INTERNAL_REG t_reg;
 PPU_INTERNAL_REG v_reg;
@@ -70,6 +70,7 @@ void PPUReset() {
     PPUScroll = 0;
     NMIDue = false;
     oddFrame = false;
+    backgroundRenderedThisFrame = false;
     isVBlank = false;
     t_reg.reg = 0;
     v_reg.reg = 0;
@@ -132,7 +133,25 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
                 MMC2SetLatch(1, 0xFE);
         }
 
-        calculatedAddress = address;
+        if (chrsize == 0) //CHR-RAM, can swap banks over
+        {
+            if ((address & 0x1000) == 0x0000)
+            {
+                if (LowerCHRRAMBank == 1)
+                    calculatedAddress = address | 0x1000;
+                else
+                    calculatedAddress = address;
+            }
+            else
+            {
+                if (UpperCHRRAMBank == 0)
+                    calculatedAddress = address & ~0x1000;
+                else
+                    calculatedAddress = address;
+            }
+        }
+        else
+            calculatedAddress = address;
     }
     else
     //Nametable area (0x3000 - 0x3EFF is a mirror of the nametable area)
@@ -237,7 +256,7 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
 void PPUWriteReg(unsigned short address, unsigned char value) {
 
     //if(address != 0x2007)
-        //CPU_LOG("PPU Reg Write %x value %x\n", 0x2000 + (address & 0x7), value);
+        //CPU_LOG("PPU Reg Write %x value %x scanline %d\n", 0x2000 + (address & 0x7), value, scanline);
 
     switch (address & 0x7) {
         case 0x00: //PPU Control
@@ -403,6 +422,7 @@ unsigned char PPUReadReg(unsigned short address) {
             NMITriggered = false;
         }
         value = PPUStatus & 0xE0 | lastwrite & 0x1F;
+        //CPU_LOG("PPU Status Read %x\n", value);
         PPUStatus &= ~0x80;
         //CPU_LOG("PPU T Update tfirstwrite reset\n");
         tfirstwrite = true;
@@ -829,6 +849,11 @@ void AdvanceShifters()
 unsigned int cpuVBlankCycles = 0;
 void PPULoop()
 {
+    //It's possible for the background to be disabled when it goes to the next frame
+    //but the background be used, so maybe it shouldn't skip the first cycle?
+    if (PPUMask & 0x8)
+        backgroundRenderedThisFrame = true;
+
     if (mapper == 5)
     {
         if (scanlineCycles == 4 && scanline < 240)
@@ -884,8 +909,6 @@ void PPULoop()
                 CPU_LOG("VBlank END took %d CPU cycles\n", cpuVBlankCycles);
             }
 
-            
-
             //Secondary OAM clear
             if(scanlineCycles == 1)
             {
@@ -914,212 +937,199 @@ void PPULoop()
                     currentXPos++;
             }
 
+            
             //Load background and shifters
-            if (((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337)))
+            if ((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337))
             {
-                if (!(PPUMask & 0x8))
-                {
-                    backgroundRenderingDisabled = true;
-                }
-                else
-                    backgroundRenderingDisabled = false;
-
                 //At cycle 257 reload v_reg horizontal
-                if (scanlineCycles == 257 && !backgroundRenderingDisabled)
+                if (scanlineCycles == 257 && (PPUMask & 0x18))
                 {
                     v_reg.coarseX = t_reg.coarseX;
                     v_reg.nametable = (v_reg.nametable & 0x2) | (t_reg.nametable & 0x1);
                 }
 
-                if (!backgroundRenderingDisabled)
+                AdvanceShifters();
+
+                unsigned short address;
+
+                switch (scanlineCycles % 8)
                 {
-                    AdvanceShifters();
+                case 1:
+                {
+                    //Update shifters and refil lower 8
+                    UpdateNextShifterTile();
+                }
+                break;
+                case 2:
+                {
+                    //Retrieve Nametable Byte
+                    //Get nametable tile number, each row contains 32 tiles, 8 pixels (0x1 address increments) per tile
+                    byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) * 32) + v_reg.coarseX;
+                    address = CalculatePPUMemoryAddress(byteAddress);
 
-                    unsigned short address;
-
-                    switch (scanlineCycles % 8)
+                    if ((address & 0xF000) == 0x2000)
                     {
-                    case 1:
-                    {
-                        //Update shifters and refil lower 8
-                        UpdateNextShifterTile();
+                        currentTileInfo.nameTableByte = PPUMemory[address];
                     }
-                    break;
-                    case 2:
+                    else if ((address & 0xF000) == 0x8000) //Expansion RAM
                     {
-                        //Retrieve Nametable Byte
-                        //Get nametable tile number, each row contains 32 tiles, 8 pixels (0x1 address increments) per tile
-                        byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) * 32) + v_reg.coarseX;
+                        if (MMC5ExtendedRAMMode < 2)
+                            currentTileInfo.nameTableByte = ExpansionRAM[address & 0x3FF];
+                        else
+                            currentTileInfo.nameTableByte = 0;
+                    }
+                    else  if ((address & 0xF000) == 0x9000) //Fill Table
+                    {
+                        currentTileInfo.nameTableByte = MMC5FillTile;
+                    }
+                    //CPU_LOG("Read Nametable from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.nameTableByte);
+                }
+                break;
+                case 4:
+                {
+                    //MMC5 has an "extended attribute mode" which overrides the nametables attribute information - Romance of the Three Kingdoms II
+                    if (mapper == 5 && MMC5ExtendedRAMMode == 1)
+                    {
+                        if (PPUCtrl & 0x10)
+                            patternTableBaseAddress = 0x1000;
+                        else
+                            patternTableBaseAddress = 0x0000;
+
+                        unsigned short address = ((v_reg.coarseY) * 32) + v_reg.coarseX;
+                        unsigned char ExtendedAttr = ExpansionRAM[address];
+                        MMC5Load4KCHRBank(ExtendedAttr & 0x3F, patternTableBaseAddress);
+                        currentTileInfo.attributeByte = (ExtendedAttr >> 6) & 0x3;
+                    }
+                    else
+                    {
+                        //Retrieve Attribute Byte
+                        //Each attribute byte deals with 32 pixels across and pixels down
+                        byteAddress = 0x2000 + (v_reg.nametable * 0x400) + 0x3C0 + ((v_reg.coarseY / 4) * 8) + ((v_reg.coarseX) / 4);
+
                         address = CalculatePPUMemoryAddress(byteAddress);
 
                         if ((address & 0xF000) == 0x2000)
                         {
-                            currentTileInfo.nameTableByte = PPUMemory[address];
+                            currentTileInfo.attributeByte = PPUMemory[address];
                         }
                         else if ((address & 0xF000) == 0x8000) //Expansion RAM
                         {
                             if (MMC5ExtendedRAMMode < 2)
-                                currentTileInfo.nameTableByte = ExpansionRAM[address & 0x3FF];
+                                currentTileInfo.attributeByte = ExpansionRAM[address & 0x3FF];
                             else
-                                currentTileInfo.nameTableByte = 0;
+                                currentTileInfo.attributeByte = 0;
                         }
                         else  if ((address & 0xF000) == 0x9000) //Fill Table
                         {
-                            currentTileInfo.nameTableByte = MMC5FillTile;
+                            currentTileInfo.attributeByte = MMC5FillColour | (MMC5FillColour << 2) | (MMC5FillColour << 4) | (MMC5FillColour << 6);
                         }
-                        //CPU_LOG("Read Nametable from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.nameTableByte);
+
+                        if (v_reg.coarseY & 0x2)
+                            currentTileInfo.attributeByte >>= 4;
+                        if (v_reg.coarseX & 0x2)
+                            currentTileInfo.attributeByte >>= 2;
+
+                        currentTileInfo.attributeByte &= 0x3; //Remove all other attributes, left with 8 pixels worth
+                        //CPU_LOG("Read Attribute from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.attributeByte);
                     }
-                    break;
-                    case 4:
+                }
+                break;
+                case 6:
+                {
+                    if (PPUCtrl & 0x10)
+                        patternTableBaseAddress = 0x1000 + v_reg.fineY;
+                    else
+                        patternTableBaseAddress = 0x0000 + v_reg.fineY;
+
+                    //CPU_LOG("DEBUG BG Lower Pattern Table %x\n", patternTableBaseAddress);
+                    //Retrieve Pattern Table Low Byte
+                    if (mapper == 5)
                     {
-                        //MMC5 has an "extended attribute mode" which overrides the nametables attribute information - Romance of the Three Kingdoms II
-                        if (mapper == 5 && MMC5ExtendedRAMMode == 1)
+                        currentTileInfo.patternLowerByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
+                    }
+                    else
+                        currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
+                    //CPU_LOG("Read Lower From %x Value %x Stored %x\n", patternTableBaseAddress + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternLowerByte);
+                }
+                break;
+                case 0:
+                {
+                    //Retrieve Pattern Table High Byte
+                    if (PPUCtrl & 0x10)
+                        patternTableBaseAddress = 0x1000 + v_reg.fineY;
+                    else
+                        patternTableBaseAddress = 0x0000 + v_reg.fineY;
+                    //CPU_LOG("DEBUG BG Upper Pattern Table %x\n", patternTableBaseAddress);
+                    //Retrieve Pattern Table High Byte
+                    if (mapper == 5)
+                    {
+                        currentTileInfo.patternUpperByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
+                    }
+                    else
+                        currentTileInfo.patternUpperByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
+                    //CPU_LOG("Read Upper From %x Value %x Stored %x\n", patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternUpperByte);
+
+                    //Cycle 256 increase vertical
+                    if (PPUMask & 0x18)
+                    {
+                        if (scanlineCycles == 256)
                         {
-                            if (PPUCtrl & 0x10)
-                                patternTableBaseAddress = 0x1000;
-                            else
-                                patternTableBaseAddress = 0x0000;
-
-                            unsigned short address = ((v_reg.coarseY) * 32) + v_reg.coarseX;
-                            unsigned char ExtendedAttr = ExpansionRAM[address];
-                            MMC5Load4KCHRBank(ExtendedAttr & 0x3F, patternTableBaseAddress);
-                            currentTileInfo.attributeByte = (ExtendedAttr >> 6) & 0x3;
-                        }
-                        else
-                        {
-                            //Retrieve Attribute Byte
-                            //Each attribute byte deals with 32 pixels across and pixels down
-                            byteAddress = 0x2000 + (v_reg.nametable * 0x400) + 0x3C0 + ((v_reg.coarseY / 4) * 8) + ((v_reg.coarseX) / 4);
-
-                            address = CalculatePPUMemoryAddress(byteAddress);
-
-                            if ((address & 0xF000) == 0x2000)
-                            {
-                                currentTileInfo.attributeByte = PPUMemory[address];
-                            }
-                            else if ((address & 0xF000) == 0x8000) //Expansion RAM
-                            {
-                                if (MMC5ExtendedRAMMode < 2)
-                                    currentTileInfo.attributeByte = ExpansionRAM[address & 0x3FF];
+                            if (v_reg.fineY == 7)
+                            { //fine scroll has looped so increment the coarse
+                                v_reg.fineY = 0;
+                                if (v_reg.coarseY == 29)
+                                {
+                                    v_reg.coarseY = 0;
+                                    v_reg.nametable ^= 2;
+                                }
                                 else
-                                    currentTileInfo.attributeByte = 0;
-                            }
-                            else  if ((address & 0xF000) == 0x9000) //Fill Table
-                            {
-                                currentTileInfo.attributeByte = MMC5FillColour | (MMC5FillColour << 2) | (MMC5FillColour << 4) | (MMC5FillColour << 6);
-                            }
-
-                            if (v_reg.coarseY & 0x2)
-                                currentTileInfo.attributeByte >>= 4;
-                            if (v_reg.coarseX & 0x2)
-                                currentTileInfo.attributeByte >>= 2;
-
-                            currentTileInfo.attributeByte &= 0x3; //Remove all other attributes, left with 8 pixels worth
-                            //CPU_LOG("Read Attribute from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.attributeByte);
-                        }
-                    }
-                    break;
-                    case 6:
-                    {
-                        if (PPUCtrl & 0x10)
-                            patternTableBaseAddress = 0x1000 + v_reg.fineY;
-                        else
-                            patternTableBaseAddress = 0x0000 + v_reg.fineY;
-
-                        //CPU_LOG("DEBUG BG Lower Pattern Table %x\n", patternTableBaseAddress);
-                        //Retrieve Pattern Table Low Byte
-                        if (mapper == 5)
-                        {
-                            currentTileInfo.patternLowerByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                        }
-                        else
-                            currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                        //CPU_LOG("Read Lower From %x Value %x Stored %x\n", patternTableBaseAddress + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternLowerByte);
-                    }
-                    break;
-                    case 0:
-                    {
-                        //Retrieve Pattern Table High Byte
-                        if (PPUCtrl & 0x10)
-                            patternTableBaseAddress = 0x1000 + v_reg.fineY;
-                        else
-                            patternTableBaseAddress = 0x0000 + v_reg.fineY;
-                        //CPU_LOG("DEBUG BG Upper Pattern Table %x\n", patternTableBaseAddress);
-                        //Retrieve Pattern Table High Byte
-                        if (mapper == 5)
-                        {
-                            currentTileInfo.patternUpperByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
-                        }
-                        else
-                            currentTileInfo.patternUpperByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
-                        //CPU_LOG("Read Upper From %x Value %x Stored %x\n", patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternUpperByte);
-
-                        //Cycle 256 increase vertical
-                        if (!backgroundRenderingDisabled)
-                        {
-                            if (scanlineCycles == 256)
-                            {
-                                if (v_reg.fineY == 7)
-                                { //fine scroll has looped so increment the coarse
-                                    v_reg.fineY = 0;
-                                    if (v_reg.coarseY == 29)
+                                    if (v_reg.coarseY == 31)
                                     {
                                         v_reg.coarseY = 0;
-                                        v_reg.nametable ^= 2;
                                     }
                                     else
-                                        if (v_reg.coarseY == 31)
-                                        {
-                                            v_reg.coarseY = 0;
-                                        }
-                                        else
-                                            v_reg.coarseY = (v_reg.coarseY + 1) & 0x1F;
-                                }
-                                else
-                                {
-                                    v_reg.fineY = (v_reg.fineY + 1) & 0x7;
-                                }
+                                        v_reg.coarseY = (v_reg.coarseY + 1) & 0x1F;
                             }
-                            else //On other cycles increment v_reg horizontal
+                            else
                             {
-                                if (v_reg.coarseX == 31)
-                                { //fine scroll has looped so increment the coarse
-                                    v_reg.coarseX = 0;
-                                    v_reg.nametable ^= 1;
-                                }
-                                else
-                                {
-                                    v_reg.coarseX = (v_reg.coarseX + 1) & 0x1F;
-                                }
+                                v_reg.fineY = (v_reg.fineY + 1) & 0x7;
+                            }
+                        }
+                        else //On other cycles increment v_reg horizontal
+                        {
+                            if (v_reg.coarseX == 31)
+                            { //fine scroll has looped so increment the coarse
+                                v_reg.coarseX = 0;
+                                v_reg.nametable ^= 1;
+                            }
+                            else
+                            {
+                                v_reg.coarseX = (v_reg.coarseX + 1) & 0x1F;
                             }
                         }
                     }
+                }
+                break;
+                default:
+                    //do nothing
                     break;
-                    default:
-                        //do nothing
-                        break;
-                    }
                 }
             }
 
-
-            //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
-            if(scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240)
+            if (scanlineCycles == 65)
             {
-                if (scanlineCycles == 65)
-                {
-                    if (!(PPUMask & 0x10))
-                    {
-                        spriteRenderingDisabled = true;
-                    }
-                    else
-                        spriteRenderingDisabled = false;
-                }
-
+                if (PPUMask & 0x18)
+                    spriteEvaluationEnabled = true;
+                else
+                    spriteEvaluationEnabled = false;
+            }
+            //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
+            if(scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240 && spriteEvaluationEnabled)
+            {
                 if (spriteEvaluationPos < 0x100)
                 {
                     //Sprites copied on even cycles
-                    if ((scanlineCycles & 0x1) && (PPUMask & 0x18))
+                    if (scanlineCycles & 0x1)
                     {
                         unsigned char foundSpritePos = foundSprites * 4;
 
@@ -1190,9 +1200,9 @@ void PPULoop()
                     memset(spriteAttribute, 0, sizeof(spriteAttribute));
                     memset(spriteX, 0, sizeof(spriteX));
                     memset(isSpriteZero, 0, sizeof(isSpriteZero));
-                    spriteToDraw = spriteRenderingDisabled == true ? 0 : foundSprites;
+                    spriteToDraw = foundSprites;
                 }
-                if (processingSprite < foundSprites && !spriteRenderingDisabled)
+                if (processingSprite < foundSprites && (PPUMask & 0x10))
                 {
                     switch (scanlineCycles % 8)
                     {
@@ -1219,9 +1229,13 @@ void PPULoop()
                     }
                 }
                 else
-                if (processingSprite <= foundSprites && foundSprites < 8 && (scanlineCycles % 8) == 6 && !spriteRenderingDisabled) //If less than 8 sprites are fetched, a dummy fetch to Tile FF (0x1FF0-0x1FFF) is made
+                if (processingSprite <= foundSprites && foundSprites < 8 && (scanlineCycles % 8) == 6 && (PPUMask & 0x10)) //If less than 8 sprites are fetched, a dummy fetch to Tile FF (0x1FF0-0x1FFF) is made
                 {
-                    unsigned char dummy = PPUMemory[CalculatePPUMemoryAddress(0x1FF0)];
+                    if (PPUCtrl & 0x8)
+                        patternTableBaseAddress = 0x1000;
+                    else
+                        patternTableBaseAddress = 0x0000;
+                    unsigned char dummy = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 0xFF0)];
                     processingSprite++;
                 }
             }
@@ -1235,7 +1249,7 @@ void PPULoop()
             }
 
             //Reload vertical v_reg.  Actually happens from 280-304 of the pre-render scanline but we can just do this
-            if (scanline == 261 && scanlineCycles == 304 && !backgroundRenderingDisabled)
+            if (scanline == 261 && scanlineCycles >= 280 && scanlineCycles <= 304 && (PPUMask & 0x18))
             {
                 v_reg.coarseY = t_reg.coarseY;
                 v_reg.fineY = t_reg.fineY;
@@ -1275,18 +1289,18 @@ void PPULoop()
     scanlineCycles++;
     dotCycles++;
 
-    if (scanline == 261 && scanlineCycles == 339 && oddFrame && (PPUMask & 0x8))
+    if (scanline == 261 && scanlineCycles == 339 && oddFrame && backgroundRenderedThisFrame)
     {
         scanlineCycles = 340;
     }
     //We've reached the end of the scanline
     if (scanlineCycles == 341)
     {
-
         if (scanline == 261)
         {
             scanline = 0;
             oddFrame = !oddFrame;
+            backgroundRenderedThisFrame = false;
         }
         else
         {

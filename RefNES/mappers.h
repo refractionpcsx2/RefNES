@@ -26,4 +26,6 @@ extern unsigned char MMC5FillColour;
 extern unsigned char MMC5NametableMap;
 extern unsigned char MMC5ExtendedRAMMode;
 extern bool MMC5CHRisBankB;
+extern unsigned char UpperCHRRAMBank;
+extern unsigned char LowerCHRRAMBank;
 #endif
