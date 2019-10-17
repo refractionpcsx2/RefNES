@@ -312,7 +312,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         {
                             CPUInterruptTriggered = false;
                             CPUIncrementCycles(7);
-                            P |= BREAK_FLAG | (1 << 5);
+                            P &= ~BREAK_FLAG;
+                            P |= (1 << 5);
                             CPUPushAllStack();
                             P |= INTERRUPT_DISABLE_FLAG;
                             PC = memReadPC(0xFFFE);
@@ -324,7 +325,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         {
                             MMC3Interrupt = false;
                             CPUIncrementCycles(7);
-                            P |= BREAK_FLAG | (1 << 5);
+                            P &= ~BREAK_FLAG;
+                            P |= (1 << 5);
                             CPUPushAllStack();
                             P |= INTERRUPT_DISABLE_FLAG;
                             PC = memReadPC(0xFFFE);

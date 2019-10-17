@@ -46,7 +46,6 @@ void CPUReset() {
     CPUIncrementCycles(7);
     NMITriggered = false;
     CPUInterruptTriggered = false;
-    CPUPushAllStack();
 #ifdef CPU_LOGGING
     CPU_LOG("CPU Reset start PC set to %x\n", PC);
 #endif

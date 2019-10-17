@@ -209,6 +209,8 @@ void ioRegWrite(unsigned short address, unsigned char value) {
 
             if (value & 0x40)
             {
+                if (apu_status_interrupts & 0x40)
+                    CPUInterruptTriggered = false;
                 apu_status_interrupts &= ~0x40;
                 apu_irq_set = 0;
             }
@@ -359,11 +361,11 @@ void updateAPU(unsigned int cpu_cycles)
     if(apu_irq_set)
     {
         apu_irq_set--;
-        if (!(apu_frame_counter & 0xC0))
+        if (!(apu_frame_counter & 0x40))
         {
-            apu_status_interrupts |= 0x40;
             CPUInterruptTriggered = true;
         }
+        apu_status_interrupts |= 0x40;
     }
 
     if (apu_cycles >= apu_cyclelimit)
