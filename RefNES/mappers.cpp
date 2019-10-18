@@ -894,6 +894,15 @@ void MapperHandler(unsigned short address, unsigned char value) {
                     memcpy(&CPUMemory[0xC000], &CPUMemory[0x8000], 0x4000);
                     memcpy(&CPUMemory[0x8000], ROMCart + MMC1PRGOffset, 0x4000);
                 }
+                if ((MMCbuffer & 0xC) <= 0x4)
+                {
+                    memcpy(&CPUMemory[0x8000], ROMCart + (MMC1LastPrg * 16384), 0x8000);
+                }
+                if ((MMCbuffer & 0xC) == 0xC)
+                {
+                    memcpy(&CPUMemory[0x8000], ROMCart + (MMC1LastPrg * 16384), 0x4000);
+                    memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize-1) * 16384), 0x4000);
+                }
 
                 MMCcontrol = MMCbuffer;
 
