@@ -54,20 +54,16 @@ void SPRTransfer(unsigned char memvalue)
 {
     unsigned short transferamt = 256 - SPRRamAddress;
     CPU_LOG("SPR transfer to %x from %x scanline %d\n", SPRRamAddress, (memvalue << 8), scanline);
-    if (SPRRamAddress > 0)
+    
+    for (int i = 0; i < 256; i++)
     {
-        for (int i = 0; i < 256; i++)
+        SPRMemory[(SPRRamAddress + i) & 0xFF] = memReadValue((memvalue << 8) + i);
+        if (SPRRamAddress + i == 255)
         {
-            SPRMemory[(SPRRamAddress + i) & 0xFF] = CPUMemory[(memvalue << 8) + i];
-            if (SPRRamAddress + i == 255)
-            {
-                SPRRamAddress = 0;
-                break;
-            }
+            SPRRamAddress = 0;
+            break;
         }
     }
-    else
-        memcpy(SPRMemory, &CPUMemory[memvalue << 8], 256);
 
     if (cpuCycles & 0x1)
         CPUIncrementCycles(1);
@@ -166,6 +162,7 @@ void ioRegWrite(unsigned short address, unsigned char value) {
             break;
         case 0x4016:
             writes = 0;
+            CPU_LOG("IO Reg write address %x value=%x\n", address, value);
             break;
         case 0x4017:
             CPU_LOG("BANANA APU Frame Counter Reg write at %x value %x\n", address, value);
@@ -228,7 +225,7 @@ int ioRegRead(unsigned short address) {
         case 0x16: //Joypad 1
             if (writes > 7)
                 return 1;
-            value = (keyevents >> writes++) & 0x1;
+            value = ((keyevents >> writes++) & 0x1) | 0x40;
             CPU_LOG("IO Reg read address %x keyevents=%x value=%x\n", address, keyevents, value);
             break;
         case 0x00:
@@ -364,8 +361,8 @@ void updateAPU(unsigned int cpu_cycles)
         if (!(apu_frame_counter & 0x40))
         {
             CPUInterruptTriggered = true;
+            apu_status_interrupts |= 0x40;
         }
-        apu_status_interrupts |= 0x40;
     }
 
     if (apu_cycles >= apu_cyclelimit)

@@ -31,7 +31,7 @@ typedef void(*JumpTable)(void);
 void CPUIncrementCycles(int cycles)
 {
     cpuCycles += cycles;
-    nextCpuCycle = cpuCycles * 3;
+    nextCpuCycle = (cpuCycles * 3) + 30;
 
     updateAPU(cpuCycles);
     while(dotCycles < nextCpuCycle)
@@ -41,9 +41,9 @@ void CPUIncrementCycles(int cycles)
 void CPUReset() {
     PC = memReadPC(0xFFFC);
     SP = 0xFD;
-    P = 0x24;
+    P = 0x0;
     A = X = Y = 0;
-    CPUIncrementCycles(7);
+    //CPUIncrementCycles(7);
     NMITriggered = false;
     CPUInterruptTriggered = false;
 #ifdef CPU_LOGGING
@@ -1780,7 +1780,7 @@ void CPUFireNMI()
 }
 void CPULoop() {
     Opcode = memReadValue(PC);
-    //CPU_LOG("Addr: %04x Opcode %04x A:%02x X:%02x Y:%02x P:%02x SP:%02x PPU:%3d,%3d CYC:%d\n", PC, Opcode, A, X, Y, P, SP, scanlineCycles, scanline, cpuCycles);
+    CPU_LOG("Addr: %04x Opcode %04x A:%02x X:%02x Y:%02x P:%02x SP:%02x PPU:%3d,%3d CYC:%d\n", PC, Opcode, A, X, Y, P, SP, scanlineCycles, scanline, cpuCycles);
     PCInc = 1;
     CPUIncrementCycles(1);
     //CPU_LOG("Running Opcode %x PC = %x\n", Opcode, PC);

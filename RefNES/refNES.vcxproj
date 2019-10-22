@@ -144,9 +144,19 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="cpu.cpp" />
+    <ClCompile Include="Crc32.cpp" />
+    <ClCompile Include="CRCLookups.cpp" />
     <ClCompile Include="iohandler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mappers.cpp" />
+    <ClCompile Include="Mappers\MapperAxROM.cpp" />
+    <ClCompile Include="Mappers\MapperCNROM.cpp" />
+    <ClCompile Include="Mappers\MapperMMC1.cpp" />
+    <ClCompile Include="Mappers\MapperMMC2.cpp" />
+    <ClCompile Include="Mappers\MapperMMC3.cpp" />
+    <ClCompile Include="Mappers\MapperMMC4.cpp" />
+    <ClCompile Include="Mappers\MapperNROM.cpp" />
+    <ClCompile Include="Mappers\MapperUxROM.cpp" />
     <ClCompile Include="memory.cpp" />
     <ClCompile Include="ppu.cpp" />
     <ClCompile Include="romhandler.cpp" />
@@ -155,9 +165,19 @@
   <ItemGroup>
     <ClInclude Include="common.h" />
     <ClInclude Include="cpu.h" />
+    <ClInclude Include="Crc32.h" />
+    <ClInclude Include="CRCLookups.h" />
     <ClInclude Include="iohandler.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="mappers.h" />
+    <ClInclude Include="Mappers\MapperAxROM.h" />
+    <ClInclude Include="Mappers\MapperCNROM.h" />
+    <ClInclude Include="Mappers\MapperMMC1.h" />
+    <ClInclude Include="Mappers\MapperMMC2.h" />
+    <ClInclude Include="Mappers\MapperMMC3.h" />
+    <ClInclude Include="Mappers\MapperMMC4.h" />
+    <ClInclude Include="Mappers\MapperNROM.h" />
+    <ClInclude Include="Mappers\MapperUxROM.h" />
     <ClInclude Include="memory.h" />
     <ClInclude Include="ppu.h" />
     <ClInclude Include="resource.h" />

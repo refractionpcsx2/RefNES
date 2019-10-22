@@ -21,12 +21,8 @@
 #include <tchar.h>
 #include <windows.h>
 #include "resource.h"
+#include "common.h"
 #include <stdio.h>
-#include "main.h"
-#include "cpu.h"
-#include "iohandler.h"
-#include "memory.h"
-#include "romhandler.h"
 /*#define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>*/
@@ -69,7 +65,9 @@ HWND hWnd;
 void CleanupRoutine()
 {
     //Clean up XAudio2
-    CleanUpMem();
+    if(mapper = NULL)
+        delete mapper;
+    CleanUpROMMem();
     DestroyDisplay();
     if (LoggingEnable)
         fclose(LogFile);
@@ -311,19 +309,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         if (!(P & INTERRUPT_DISABLE_FLAG))
                         {
                             CPUInterruptTriggered = false;
-                            CPUIncrementCycles(7);
-                            P &= ~BREAK_FLAG;
-                            P |= (1 << 5);
-                            CPUPushAllStack();
-                            P |= INTERRUPT_DISABLE_FLAG;
-                            PC = memReadPC(0xFFFE);
-                        }
-                    }
-                    if (MMC3Interrupt && MMCIRQEnable)
-                    {
-                        if (!(P & INTERRUPT_DISABLE_FLAG))
-                        {
-                            MMC3Interrupt = false;
                             CPUIncrementCycles(7);
                             P &= ~BREAK_FLAG;
                             P |= (1 << 5);
@@ -578,7 +563,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
                     InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
                     MemReset();
                     PPUReset();
-                    CopyRomToMemory();
+                    mapper->Reset();
+                    //CopyRomToMemory();
                     IOReset();
                     ResetCycleCounts();
                     CPUReset();
@@ -601,7 +587,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
                      MemReset();
                      PPUReset();
                      IOReset();
-                     CopyRomToMemory();
+                     mapper->Reset();
+                     //CopyRomToMemory();
                      ResetCycleCounts();
                      CPUReset();
                      Running = true;

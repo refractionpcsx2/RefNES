@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\Mappers">
+      <UniqueIdentifier>{5b97adf8-6ec6-4d61-936f-5518682052bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Mappers">
+      <UniqueIdentifier>{8638085e-4e24-4acd-ad6b-ad881ed49eb2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -38,6 +44,36 @@
     </ClCompile>
     <ClCompile Include="mappers.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mappers\MapperNROM.cpp">
+      <Filter>Source Files\Mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="Mappers\MapperMMC1.cpp">
+      <Filter>Source Files\Mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="CRCLookups.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Crc32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mappers\MapperUxROM.cpp">
+      <Filter>Source Files\Mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="Mappers\MapperAxROM.cpp">
+      <Filter>Source Files\Mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="Mappers\MapperCNROM.cpp">
+      <Filter>Source Files\Mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="Mappers\MapperMMC2.cpp">
+      <Filter>Source Files\Mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="Mappers\MapperMMC4.cpp">
+      <Filter>Source Files\Mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="Mappers\MapperMMC3.cpp">
+      <Filter>Source Files\Mappers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -70,6 +106,36 @@
     </ClInclude>
     <ClInclude Include="mappers.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mappers\MapperNROM.h">
+      <Filter>Header Files\Mappers</Filter>
+    </ClInclude>
+    <ClInclude Include="Mappers\MapperMMC1.h">
+      <Filter>Header Files\Mappers</Filter>
+    </ClInclude>
+    <ClInclude Include="Crc32.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CRCLookups.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mappers\MapperUxROM.h">
+      <Filter>Header Files\Mappers</Filter>
+    </ClInclude>
+    <ClInclude Include="Mappers\MapperAxROM.h">
+      <Filter>Header Files\Mappers</Filter>
+    </ClInclude>
+    <ClInclude Include="Mappers\MapperCNROM.h">
+      <Filter>Header Files\Mappers</Filter>
+    </ClInclude>
+    <ClInclude Include="Mappers\MapperMMC2.h">
+      <Filter>Header Files\Mappers</Filter>
+    </ClInclude>
+    <ClInclude Include="Mappers\MapperMMC4.h">
+      <Filter>Header Files\Mappers</Filter>
+    </ClInclude>
+    <ClInclude Include="Mappers\MapperMMC3.h">
+      <Filter>Header Files\Mappers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

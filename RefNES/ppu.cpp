@@ -1,12 +1,9 @@
-#include "ppu.h"
 #include "common.h"
-#include "cpu.h"
-#include "memory.h"
-#include "romhandler.h"
 
 
 extern char MenuShowPatternTables;
-unsigned char PPUMemory[0x4000]; //16kb memory for PPU VRAM (0x4000-0xffff is mirrored)
+unsigned char PPUNametableMemory[0x800]; //2kb Nametable memory
+unsigned char PPUPaletteMemory[0x20];
 unsigned char MMC5CHRBankA[0x2000];
 unsigned char MMC5CHRBankB[0x2000];
 unsigned char SPRMemory[0x100]; //256byte memory for Sprite RAM
@@ -66,7 +63,7 @@ void PPUReset() {
     PPUCtrl = 0;
     SPRRamAddress = 0;
     PPUMask = 0;
-    PPUStatus = 0xA0;
+    PPUStatus = 0x0;
     PPUScroll = 0;
     NMIDue = false;
     oddFrame = false;
@@ -79,7 +76,8 @@ void PPUReset() {
     scanlineCycles = 0;
     currentXPos = 0;
     currentYPos = 0;
-    memset(PPUMemory, 0, 0x4000);
+    memset(PPUNametableMemory, 0, 0x800);
+    memset(PPUPaletteMemory, 0, 0x20);
     memset(SPRMemory, 0, 0x100);
     currentTileInfo.attributeByte = 0;
     currentTileInfo.nameTableByte = 0;
@@ -114,12 +112,12 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
     //Pattern Table Area
     if (address < 0x2000)
     {
-        if ((lastA12bit & 0x1000) != 0x1000 && (address & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
+        /*if ((lastA12bit & 0x1000) != 0x1000 && (address & 0x1000) == 0x1000)
             MMC3IRQCountdown();
 
-        lastA12bit = address;
+        lastA12bit = address;*/
 
-        if (mapper == 9 && isWriting == false) {
+        if (iNESMapper == 9 && isWriting == false) {
             if ((address & 0x1FF8) == 0x0FD8)
                 MMC2SetLatch(0, 0xFD);
 
@@ -159,7 +157,7 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
     //In horizontal mirroring, Nametable 1 & 2 match (0x2000), 3 & 4 match (0x2800)
     if (address >= 0x2000 && address < 0x3F00)
     {
-        if (mapper == 5) //MMC5
+        if (iNESMapper == 5) //MMC5
         {
             unsigned short nametableSelector = (address & 0x0C00) >> 10;
             unsigned char nametableOption = (MMC5NametableMap >> (nametableSelector * 2)) & 0x3;
@@ -181,7 +179,7 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
                     break;
             }
         }
-        else if (mapper == 1 && singlescreen > 0)
+        else if (iNESMapper == 1 && singlescreen > 0)
         {
             if (singlescreen == 2)
             {
@@ -192,7 +190,7 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
                 calculatedAddress = 0x2000 | (address & 0x3FF);
             }
         }
-        else if (mapper == 7)
+        else if (iNESMapper == 7)
         {
             if (singlescreen)
             {
@@ -267,10 +265,12 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
             }
             PPUCtrl = value;
             t_reg.nametable = value & 0x3;
+            CPU_LOG("DEBUG PPU CTRL Write %x\n", value);
             //CPU_LOG("PPU T Update Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
         case 0x01: //PPU Mask
             PPUMask = value;
+            CPU_LOG("DEBUG PPU Mask Write %x\n", value);
             break;
         case 0x02: //PPU Status (read only)
             //CPU_LOG("Attempt to write to status register\n");
@@ -290,11 +290,13 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                 tfirstwrite = false;
                 t_reg.coarseX = (value >> 3);
                 fineX = value & 0x7;
+                CPU_LOG("DEBUG PPU SCROLL Addr First Write to %x scanline %d\n", value, scanline);
             }
             else {
                 tfirstwrite = true;
                 t_reg.fineY = value & 0x7;
                 t_reg.coarseY = value >> 3;
+                CPU_LOG("DEBUG PPU SCROLL Addr Second Write to %x scanline %d\n", value, scanline);
             }
             //CPU_LOG("PPU T Update 2005 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
@@ -303,7 +305,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                 tfirstwrite = false;
                 t_reg.reg &= ~0xFF00;
                 t_reg.reg |= (value & 0x3F) << 8;
-                CPU_LOG("DEBUG VRAM Addr First WRite to %x lastA12Bit = %x scanline %d\n", v_reg.reg, lastA12bit, scanline);
+                CPU_LOG("DEBUG PPU VRAM Addr First Write to %x scanline %d\n", value, scanline);
             }
             else {
                 tfirstwrite = true;
@@ -311,25 +313,25 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                 t_reg.reg |= value;
                 v_reg.reg = t_reg.reg;
                 //CPU_LOG("DEBUG VRAM Addr changed to %x lastA12Bit = %x\n", v_reg.reg, lastA12bit);
-                if ((lastA12bit & 0x1000) != 0x1000 && (v_reg.reg & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
+                /*if ((lastA12bit & 0x1000) != 0x1000 && (v_reg.reg & 0x1000) == 0x1000) //scanline check is a hack until I completely rewrite the sprite and background rendering
                     MMC3IRQCountdown();
-                lastA12bit = v_reg.reg;
-                CPU_LOG("DEBUG Addr set to %x\n", v_reg.reg);
+                lastA12bit = v_reg.reg;*/
+                CPU_LOG("DEBUG PPU VRAM Addr set to %x\n", v_reg.reg);
             }
             //CPU_LOG("PPU T Update 2006 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
         case 0x07: //VRAM Data
-            unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg, true);
+            //unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg, true);
 
-            if (vramlocation < 0x2000 && chrsize) //Don't allow writing to CHR ROM, chrsize=0 means it has CHR-RAM only
-                return;
+            //if (vramlocation < 0x2000 && chrsize) //Don't allow writing to CHR ROM, chrsize=0 means it has CHR-RAM only
+             //   return;
             if ((scanline < 240 || scanline >= 261) && (PPUMask & 0x18))
-                CPU_LOG("DEBUG Addr %x Writing %x During Rendering scanline %d\n", v_reg.reg, value, scanline);
+                CPU_LOG("DEBUG PPU Addr %x Writing %x During Rendering scanline %d\n", v_reg.reg, value, scanline);
             else
-                CPU_LOG("DEBUG Addr %x Writing %x During VBLANK scanline %d\n", v_reg.reg, value, scanline);
-            if ((vramlocation & 0xF000) < 0x4000)
+                CPU_LOG("DEBUG PPU Addr %x Writing %x During VBLANK scanline %d\n", v_reg.reg, value, scanline);
+            /*if ((vramlocation & 0xF000) < 0x4000)
             {
-                if (mapper == 5 && vramlocation < 0x2000)
+                if (iNESMapper == 5 && vramlocation < 0x2000)
                 {
                     if (MMC5CHRisBankB)
                     {
@@ -337,11 +339,11 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                     }
                     else
                     {
-                        PPUMemory[vramlocation] = value;
+                        PPUNametableMemory[vramlocation] = value;
                     }
                 }
                 else
-                    PPUMemory[vramlocation] = value;
+                    PPUNametableMemory[vramlocation] = value;
             }
             else if ((vramlocation & 0xF000) == 0x8000) //Expansion RAM
             {
@@ -354,9 +356,10 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                     MMC5FillTile = value;
                 else
                     MMC5FillColour = value;
-            }
+            }*/
+            mapper->PPUWrite(v_reg.reg, value);
 
-            MMC2SwitchCHR();
+            //MMC2SwitchCHR();
 
             if ((scanline < 240 || scanline >= 261) && (PPUMask & 0x18))
             {
@@ -393,7 +396,6 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
             }
             else
             {
-
                 if (PPUCtrl & 0x4)
                 { //Increment
                     v_reg.reg += 32;
@@ -438,10 +440,18 @@ unsigned char PPUReadReg(unsigned short address) {
         break;
     case 0x07: //VRAM Data
         {
-            unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg);
+            if ((v_reg.reg & 0x3F00) == 0x3F00)
+            {
+                value = mapper->PPURead(v_reg.reg);
+                cachedVRAMRead = mapper->PPURead(v_reg.reg & 0x2FFF);
+            }
+            else
+            {
+                value = cachedVRAMRead;
+                cachedVRAMRead = mapper->PPURead(v_reg.reg);
+            }
+            /*unsigned short vramlocation = CalculatePPUMemoryAddress(v_reg.reg);
 
-            /*value = cachedvramread;
-            cachedvramread = PPUMemory[vramlocation];*/
             if ((scanline < 240 || scanline >= 261) && (PPUMask & 0x18))
                 CPU_LOG("DEBUG Addr %x Reading During Rendering scanline %d\n", v_reg.reg, scanline);
             else
@@ -450,8 +460,8 @@ unsigned char PPUReadReg(unsigned short address) {
             if ((vramlocation & 0x3F00) == 0x3F00)
             {
                 
-                value = PPUMemory[vramlocation];
-                cachedVRAMRead = PPUMemory[CalculatePPUMemoryAddress(v_reg.reg & 0x2FFF)];
+                value = PPUNametableMemory[vramlocation];
+                cachedVRAMRead = PPUNametableMemory[CalculatePPUMemoryAddress(v_reg.reg & 0x2FFF)];
                // CPU_LOG("DEBUG Addr %x Reading Palette Only %x Caching %x from Addr %x\n", vramlocation, value, cachedvramread, CalculatePPUMemoryAddress(vramlocation & 0x2FFF));
             }
             else
@@ -459,7 +469,7 @@ unsigned char PPUReadReg(unsigned short address) {
                 value = cachedVRAMRead;
                 if ((vramlocation & 0xF000) < 0x4000)
                 {
-                    if (mapper == 5 && vramlocation < 0x2000)
+                    if (iNESMapper == 5 && vramlocation < 0x2000)
                     {
                         if (MMC5CHRisBankB)
                         {
@@ -467,11 +477,11 @@ unsigned char PPUReadReg(unsigned short address) {
                         }
                         else
                         {
-                            cachedVRAMRead = PPUMemory[vramlocation];
+                            cachedVRAMRead = PPUNametableMemory[vramlocation];
                         }
                     }
                     else
-                    cachedVRAMRead = PPUMemory[vramlocation];
+                    cachedVRAMRead = PPUNametableMemory[vramlocation];
                 }
                 else if ((vramlocation & 0xF000) == 0x8000) //Expansion RAM
                 {
@@ -488,7 +498,7 @@ unsigned char PPUReadReg(unsigned short address) {
                         cachedVRAMRead = MMC5FillColour;
                 }
                // CPU_LOG("DEBUG Addr %x Caching %x reading %x\n", vramlocation, cachedvramread, value);
-            }
+            }*/
 
             if ((scanline < 240 || scanline >= 261) && (PPUMask & 0x18))
             {
@@ -573,12 +583,12 @@ unsigned int ProcessBackgroundPixel(unsigned char selectedBGPattern, unsigned ch
 
     //Get the Palette
     paletteSelect = (selectedBGAttr << 2) | selectedBGPattern;
-    paletteAddr = CalculatePPUMemoryAddress(0x3F00 + paletteSelect);
+    paletteAddr = 0x3F00 + paletteSelect;
 
     if (selectedBGPattern == 0) //It looks like this is the unversal background colour for every palette? Breaks SMB1 otherwise
-        colourIdx = PPUMemory[0x3F00];
+        colourIdx = mapper->PPURead(0x3F00);
     else
-        colourIdx = PPUMemory[paletteAddr];
+        colourIdx = mapper->PPURead(paletteAddr);
 
     BGPixel = masterPalette[colourIdx & 0x3F];
 
@@ -603,10 +613,10 @@ void DrawPatternTables()
         currentX = startX;
         for (int j = 0; j < 64; j++)
         {
-            patternBottom = (PPUMemory[patternTableAddress + (currentTile * 16) + (j / 8)] >> (7- (j % 8))) & 0x1;
-            patternTop = (PPUMemory[patternTableAddress + (currentTile * 16) + 8 + (j / 8)] >> (7 - (j % 8))) & 0x1;
+            patternBottom = (mapper->PPURead(patternTableAddress + (currentTile * 16) + (j / 8)) >> (7- (j % 8))) & 0x1;
+            patternTop = (mapper->PPURead(patternTableAddress + (currentTile * 16) + 8 + (j / 8)) >> (7 - (j % 8))) & 0x1;
             patternTop <<= 1;
-            colourIdx = PPUMemory[0x3F00 + (patternTop | patternBottom)];
+            colourIdx = mapper->PPURead(0x3F00 + (patternTop | patternBottom));
             ScreenBuffer[currentX][currentY] = masterPalette[colourIdx & 0x3F];
             currentX++;
             if (currentX == startX + 8)
@@ -633,8 +643,8 @@ unsigned int ProcessSpritePixel(unsigned char selectedSPRPattern, unsigned char 
     unsigned char colourIdx;
 
     paletteSelect = 0x10 | ((selectedSPRAttr & 0x3) <<2) | selectedSPRPattern;
-    paletteAddr = CalculatePPUMemoryAddress(0x3F00 + paletteSelect);
-    colourIdx = PPUMemory[paletteAddr];
+    paletteAddr = 0x3F00 + paletteSelect;
+    colourIdx = mapper->PPURead(paletteAddr);
 
     SPRPixel = masterPalette[colourIdx & 0x3F];
 
@@ -818,7 +828,7 @@ unsigned char FetchSpriteTile(bool isUpper)
     if (isUpper)
         patternTableAddress += 8;
 
-    result = PPUMemory[CalculatePPUMemoryAddress(patternTableAddress + (tilenumber * 16))];
+    result = mapper->PPURead(patternTableAddress + (tilenumber * 16));
 
     return result;
 }
@@ -854,7 +864,7 @@ void PPULoop()
     if (PPUMask & 0x8)
         backgroundRenderedThisFrame = true;
 
-    if (mapper == 5)
+    if (iNESMapper == 5)
     {
         if (scanlineCycles == 4 && scanline < 240)
         {
@@ -889,7 +899,7 @@ void PPULoop()
         //Visible scanlines and Pre-Render line
         if (scanline < 240 || scanline == 261)
         {
-            MMC2SwitchCHR();
+           // MMC2SwitchCHR();
             
             //End of VBlank and clear sprite overflow, execute Pre-Render line
             if (scanline == 261 && scanlineCycles == 1)
@@ -950,8 +960,6 @@ void PPULoop()
 
                 AdvanceShifters();
 
-                unsigned short address;
-
                 switch (scanlineCycles % 8)
                 {
                 case 1:
@@ -965,12 +973,11 @@ void PPULoop()
                     //Retrieve Nametable Byte
                     //Get nametable tile number, each row contains 32 tiles, 8 pixels (0x1 address increments) per tile
                     byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) * 32) + v_reg.coarseX;
-                    address = CalculatePPUMemoryAddress(byteAddress);
 
-                    if ((address & 0xF000) == 0x2000)
-                    {
-                        currentTileInfo.nameTableByte = PPUMemory[address];
-                    }
+                    /*if ((address & 0xF000) == 0x2000)
+                    {*/
+                        currentTileInfo.nameTableByte = mapper->PPURead(byteAddress);
+                    /*}
                     else if ((address & 0xF000) == 0x8000) //Expansion RAM
                     {
                         if (MMC5ExtendedRAMMode < 2)
@@ -981,37 +988,37 @@ void PPULoop()
                     else  if ((address & 0xF000) == 0x9000) //Fill Table
                     {
                         currentTileInfo.nameTableByte = MMC5FillTile;
-                    }
+                    }*/
                     //CPU_LOG("Read Nametable from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.nameTableByte);
                 }
                 break;
                 case 4:
                 {
                     //MMC5 has an "extended attribute mode" which overrides the nametables attribute information - Romance of the Three Kingdoms II
-                    if (mapper == 5 && MMC5ExtendedRAMMode == 1)
+                    /*if (iNESMapper == 5 && MMC5ExtendedRAMMode == 1)
                     {
                         if (PPUCtrl & 0x10)
                             patternTableBaseAddress = 0x1000;
                         else
                             patternTableBaseAddress = 0x0000;
 
-                        unsigned short address = ((v_reg.coarseY) * 32) + v_reg.coarseX;
-                        unsigned char ExtendedAttr = ExpansionRAM[address];
+                        unsigned short byteAddress = ((v_reg.coarseY) * 32) + v_reg.coarseX;
+                        unsigned char ExtendedAttr = ExpansionRAM[byteAddress];
                         MMC5Load4KCHRBank(ExtendedAttr & 0x3F, patternTableBaseAddress);
                         currentTileInfo.attributeByte = (ExtendedAttr >> 6) & 0x3;
                     }
-                    else
+                    else*/
                     {
                         //Retrieve Attribute Byte
                         //Each attribute byte deals with 32 pixels across and pixels down
                         byteAddress = 0x2000 + (v_reg.nametable * 0x400) + 0x3C0 + ((v_reg.coarseY / 4) * 8) + ((v_reg.coarseX) / 4);
 
-                        address = CalculatePPUMemoryAddress(byteAddress);
+                        /*address = CalculatePPUMemoryAddress(byteAddress);
 
                         if ((address & 0xF000) == 0x2000)
-                        {
-                            currentTileInfo.attributeByte = PPUMemory[address];
-                        }
+                        {*/
+                            currentTileInfo.attributeByte = mapper->PPURead(byteAddress);
+                        /*}
                         else if ((address & 0xF000) == 0x8000) //Expansion RAM
                         {
                             if (MMC5ExtendedRAMMode < 2)
@@ -1022,7 +1029,7 @@ void PPULoop()
                         else  if ((address & 0xF000) == 0x9000) //Fill Table
                         {
                             currentTileInfo.attributeByte = MMC5FillColour | (MMC5FillColour << 2) | (MMC5FillColour << 4) | (MMC5FillColour << 6);
-                        }
+                        }*/
 
                         if (v_reg.coarseY & 0x2)
                             currentTileInfo.attributeByte >>= 4;
@@ -1043,12 +1050,12 @@ void PPULoop()
 
                     //CPU_LOG("DEBUG BG Lower Pattern Table %x\n", patternTableBaseAddress);
                     //Retrieve Pattern Table Low Byte
-                    if (mapper == 5)
+                    /*if (iNESMapper == 5)
                     {
                         currentTileInfo.patternLowerByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
                     }
-                    else
-                        currentTileInfo.patternLowerByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
+                    else*/
+                        currentTileInfo.patternLowerByte = mapper->PPURead(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16));
                     //CPU_LOG("Read Lower From %x Value %x Stored %x\n", patternTableBaseAddress + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternLowerByte);
                 }
                 break;
@@ -1061,12 +1068,12 @@ void PPULoop()
                         patternTableBaseAddress = 0x0000 + v_reg.fineY;
                     //CPU_LOG("DEBUG BG Upper Pattern Table %x\n", patternTableBaseAddress);
                     //Retrieve Pattern Table High Byte
-                    if (mapper == 5)
+                    /*if (iNESMapper == 5)
                     {
                         currentTileInfo.patternUpperByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
                     }
-                    else
-                        currentTileInfo.patternUpperByte = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
+                    else*/
+                        currentTileInfo.patternUpperByte = mapper->PPURead(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16));
                     //CPU_LOG("Read Upper From %x Value %x Stored %x\n", patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternUpperByte);
 
                     //Cycle 256 increase vertical
@@ -1202,7 +1209,7 @@ void PPULoop()
                     memset(isSpriteZero, 0, sizeof(isSpriteZero));
                     spriteToDraw = foundSprites;
                 }
-                if (processingSprite < foundSprites && (PPUMask & 0x10))
+                if (processingSprite < foundSprites && (PPUMask & 0x18))
                 {
                     switch (scanlineCycles % 8)
                     {
@@ -1229,15 +1236,28 @@ void PPULoop()
                     }
                 }
                 else
-                if (processingSprite <= foundSprites && foundSprites < 8 && (scanlineCycles % 8) == 6 && (PPUMask & 0x10)) //If less than 8 sprites are fetched, a dummy fetch to Tile FF (0x1FF0-0x1FFF) is made
-                {
-                    if (PPUCtrl & 0x8)
-                        patternTableBaseAddress = 0x1000;
-                    else
-                        patternTableBaseAddress = 0x0000;
-                    unsigned char dummy = PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 0xFF0)];
-                    processingSprite++;
-                }
+                    if (processingSprite <= foundSprites && foundSprites < 8 && (scanlineCycles % 8) == 0 && (PPUMask & 0x18)) //If less than 8 sprites are fetched, a dummy fetch to Tile FF (0x1FF0-0x1FFF) is made
+                    {
+                        unsigned char dummy;
+                        if (!(PPUCtrl & 0x20))
+                        {
+                            if (PPUCtrl & 0x8)
+                                patternTableBaseAddress = 0x1000;
+                            else
+                                patternTableBaseAddress = 0x0000;
+
+                            dummy = mapper->PPURead(patternTableBaseAddress + 0xFF0);
+                        }
+                        else
+                        {
+                            patternTableBaseAddress = 0x1000;
+
+                            dummy = mapper->PPURead(patternTableBaseAddress + 0xFE0);
+                        }
+                        
+                        foundSprites++;
+                        processingSprite++;
+                    }
             }
 
             //2 fake nametable lookups on Visible and Pre-Render scanlines
@@ -1245,7 +1265,7 @@ void PPULoop()
             {
                 //Retrieve Nametable Byte
                 byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) * 32) + v_reg.coarseX;
-                unsigned char dummy = PPUMemory[CalculatePPUMemoryAddress(byteAddress)];
+                unsigned char dummy = mapper->PPURead(byteAddress);
             }
 
             //Reload vertical v_reg.  Actually happens from 280-304 of the pre-render scanline but we can just do this

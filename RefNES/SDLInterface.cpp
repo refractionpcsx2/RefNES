@@ -18,13 +18,21 @@ LARGE_INTEGER nElapsed;
 LARGE_INTEGER nFrequency;
 
 void DestroyDisplay() {
-    if (SDL_MUSTLOCK(SDL_Display)) {
-        SDL_UnlockSurface(SDL_Display);
-    }
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(SDL_Display);
-    SDL_DestroyRenderer(renderer);
 
+    if (texture != NULL)
+        SDL_DestroyTexture(texture);
+
+    if (renderer != NULL)
+        SDL_DestroyRenderer(renderer);
+
+    if (SDL_Display != NULL)
+    {
+        if (SDL_MUSTLOCK(SDL_Display))
+        {
+            SDL_UnlockSurface(SDL_Display);
+        }
+        SDL_FreeSurface(SDL_Display);
+    }
 }
 void InitDisplay(int width, int height, HWND hWnd)
 {
@@ -53,20 +61,18 @@ void InitDisplay(int width, int height, HWND hWnd)
         flags |= SDL_RENDERER_PRESENTVSYNC;
     }
 
-    renderer = SDL_CreateRenderer(screen, -1, flags);
-
-
     SDL_Display = SDL_CreateRGBSurface(0, width, height, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
 
     SetParent(hwndSDL, hWnd);
     SetWindowPos(hwndSDL, HWND_TOP, 0, 0, width, height, NULL);
     SetFocus(hwndSDL);
 
+    renderer = SDL_CreateRenderer(screen, -1, flags);
 
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
 
-    QueryPerformanceFrequency(&nFrequency);
-    QueryPerformanceCounter(&nStartTime);
+    /*QueryPerformanceFrequency(&nFrequency);
+    QueryPerformanceCounter(&nStartTime);*/
 }
 unsigned int xpos = 0;
 

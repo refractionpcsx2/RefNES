@@ -3,8 +3,6 @@
 #define MEMORY_H
 #include "common.h"
 
-void LoadRomToMemory(FILE * RomFile, long lSize);
-void CleanUpMem();
 
 /*CPU Memory Reads*/
 unsigned char memRead(bool haspenalty = true);
@@ -14,7 +12,6 @@ unsigned short memReadPC(unsigned short address);
 void memWriteValue(unsigned short address, unsigned char value);
 unsigned short memReadPCIndirect();
 unsigned char memReadValue(unsigned short address);
-void CopyRomToMemory();
 extern unsigned char CPUMemory[0x10000];
-extern char* ROMCart;
+
 #endif

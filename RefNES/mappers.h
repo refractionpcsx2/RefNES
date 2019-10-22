@@ -28,4 +28,17 @@ extern unsigned char MMC5ExtendedRAMMode;
 extern bool MMC5CHRisBankB;
 extern unsigned char UpperCHRRAMBank;
 extern unsigned char LowerCHRRAMBank;
+
+class Mapper
+{
+public:
+    Mapper(unsigned int SRAMTotalSize, unsigned int PRGRAMTotalSize, unsigned int CHRRAMTotalSize) {};
+    virtual void Reset() = 0;
+    virtual void CPUWrite(unsigned short address, unsigned char value) = 0;
+    virtual unsigned char CPURead(unsigned short address) = 0;
+    virtual void PPUWrite(unsigned short address, unsigned char value) = 0;
+    virtual unsigned char PPURead(unsigned short address) = 0;
+    bool IRQEnable;
+};
+
 #endif
