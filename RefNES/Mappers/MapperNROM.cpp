@@ -101,51 +101,46 @@ void NROM::PPUWrite(unsigned short address, unsigned char value)
 
 unsigned char NROM::PPURead(unsigned short address)
 {
-    unsigned char value;
-
     //Addresses above 0x3FFF are mirrored to 0x0000-0x3FFF
-    if (address > 0x3FFF)
-        address &= 0x3FFF;
+    address &= 0x3FFF;
 
-    if (address < 0x2000) //Pattern Tables
+    if (address >= 0x3F00) //Pallete Memory and its mirrors
     {
-        value = ROMCart[(prgsize * 16384) + address];
-    }
-    else if (address >= 0x2000 && address < 0x3F00)
-    {
-        switch (address & 0x2C00)
-        {
-        case 0x2000://Nametable 1 is always the same in vertical and horizontal mirroring
-            value = PPUNametableMemory[(address & 0x3FF)];
-            break;
-        case 0x2400://Nametable 2, this is 0x2400 in vertical mirroring, 0x2000 in horizontal
-            if (isVerticalNametableMirroring)
-                value = PPUNametableMemory[0x400 | (address & 0x3FF)];
-            else
-                value = PPUNametableMemory[(address & 0x3FF)];
-            break;
-        case 0x2800://Nametable 3, this is 0x2000 in vertical mirroring, 0x2400 in horizontal
-            if (isVerticalNametableMirroring)
-                value = PPUNametableMemory[(address & 0x3FF)];
-            else
-                value = PPUNametableMemory[0x400 | (address & 0x3FF)];
-            break;
-        case 0x2C00://Nametable 4, this is 0x2400 in vertical mirroring, 0x2400 in horizontal
-            value = PPUNametableMemory[0x400 | (address & 0x3FF)];
-            break;
-        }
-    }
-    else if (address >= 0x3F00 && address < 0x4000) //Pallete Memory and its mirrors
-    {
-        address = address & 0x1F;
-
-        if (address == 0x10 || address == 0x14 || address == 0x18 || address == 0x1c)
+        if (!(address & 0x3)/*address == 0x10 || address == 0x14 || address == 0x18 || address == 0x1c*/)
         {
             address = address & 0x0f;
         }
 
-        value = PPUPaletteMemory[address & 0x1f];
+        return PPUPaletteMemory[address & 0x1f];
+    }
+    else if (address >= 0x2000)
+    {
+        switch (address & 0x2C00)
+        {
+        case 0x2000://Nametable 1 is always the same in vertical and horizontal mirroring
+            return PPUNametableMemory[(address & 0x3FF)];
+            break;
+        case 0x2400://Nametable 2, this is 0x2400 in vertical mirroring, 0x2000 in horizontal
+            if (isVerticalNametableMirroring)
+                return PPUNametableMemory[0x400 | (address & 0x3FF)];
+            else
+                return PPUNametableMemory[(address & 0x3FF)];
+            break;
+        case 0x2800://Nametable 3, this is 0x2000 in vertical mirroring, 0x2400 in horizontal
+            if (isVerticalNametableMirroring)
+                return PPUNametableMemory[(address & 0x3FF)];
+            else
+                return PPUNametableMemory[0x400 | (address & 0x3FF)];
+            break;
+        case 0x2C00://Nametable 4, this is 0x2400 in vertical mirroring, 0x2400 in horizontal
+            return PPUNametableMemory[0x400 | (address & 0x3FF)];
+            break;
+        }
+    }
+    else //Pattern Tables
+    {
+        return ROMCart[(prgsize * 16384) + address];
     }
 
-    return value;
+    return 0;
 }

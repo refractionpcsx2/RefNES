@@ -54,7 +54,7 @@ bool skipVBlank;
 PPU_INTERNAL_REG t_reg;
 PPU_INTERNAL_REG v_reg;
 
-unsigned int masterPalette[64] = {  0xFF525252, 0xFF011A51, 0xFF0F0F65, 0xFF230663, 0xFF36034B, 0xFF400426, 0xFF3F0904, 0xFF321300, 0xFF1F2000, 0xFF0B2A00, 0xFF002F00, 0xFF002E0A, 0xFF00262D, 0xFF000000, 0xFF000000, 0xFF000000,
+unsigned const int masterPalette[64] = {  0xFF525252, 0xFF011A51, 0xFF0F0F65, 0xFF230663, 0xFF36034B, 0xFF400426, 0xFF3F0904, 0xFF321300, 0xFF1F2000, 0xFF0B2A00, 0xFF002F00, 0xFF002E0A, 0xFF00262D, 0xFF000000, 0xFF000000, 0xFF000000,
                                     0xFFA0A0A0, 0xFF1E4A9D, 0xFF3837BC, 0xFF5828B8, 0xFF752194, 0xFF84235C, 0xFF822E24, 0xFF6F3F00, 0xFF515200, 0xFF316300, 0xFF1A6B05, 0xFF0E692E, 0xFF105C68, 0xFF000000, 0xFF000000, 0xFF000000,
                                     0xFFFEFFFF, 0xFF699EFC, 0xFF8987FF, 0xFFAE76FF, 0xFFCE6DF1, 0xFFE070B2, 0xFFDE7C70, 0xFFC8913E, 0xFFA6A725, 0xFF81BA28, 0xFF63C446, 0xFF54C17D, 0xFF56B3C0, 0xFF3C3C3C, 0xFF000000, 0xFF000000,
                                     0xFFFEFFFF, 0xFFBED6FD, 0xFFCCCCFF, 0xFFDDC4FF, 0xFFEAC0F9, 0xFFF2C1DF, 0xFFF1C7C2, 0xFFE8D0AA, 0xFFD9DA9D, 0xFFC9E29E, 0xFFBCE6AE, 0xFFB4E5C7, 0xFFB5DFE4, 0xFFA9A9A9, 0xFF000000, 0xFF000000 };
@@ -562,7 +562,7 @@ unsigned char PPUReadReg(unsigned short address) {
     return value;
 }
 
-void DrawPixel(unsigned int pixel)
+__inline void DrawPixel(unsigned int pixel)
 {
     unsigned char xPos;
 
@@ -574,25 +574,24 @@ void DrawPixel(unsigned int pixel)
         ScreenBuffer[xPos][currentYPos] = pixel;
 }
 
-unsigned int ProcessBackgroundPixel(unsigned char selectedBGPattern, unsigned char selectedBGAttr)
+__inline unsigned int ProcessBackgroundPixel(unsigned int selectedBGPattern, unsigned int selectedBGAttr)
 {
-    unsigned char paletteSelect;
-    unsigned short paletteAddr;
     unsigned char colourIdx;
-    unsigned int BGPixel;
-
-    //Get the Palette
-    paletteSelect = (selectedBGAttr << 2) | selectedBGPattern;
-    paletteAddr = 0x3F00 + paletteSelect;
 
     if (selectedBGPattern == 0) //It looks like this is the unversal background colour for every palette? Breaks SMB1 otherwise
         colourIdx = mapper->PPURead(0x3F00);
     else
+    {
+        unsigned int paletteSelect;
+        unsigned short paletteAddr;
+        //Get the Palette
+        paletteSelect = (selectedBGAttr << 2) | selectedBGPattern;
+        paletteAddr = 0x3F00 + paletteSelect;
+
         colourIdx = mapper->PPURead(paletteAddr);
+    }
 
-    BGPixel = masterPalette[colourIdx & 0x3F];
-
-    return BGPixel;
+    return masterPalette[colourIdx & 0x3F];
 }
 
 void DrawPatternTables()
@@ -635,12 +634,12 @@ void DrawPatternTables()
     }
 }
 
-unsigned int ProcessSpritePixel(unsigned char selectedSPRPattern, unsigned char selectedSPRAttr)
+__inline unsigned int ProcessSpritePixel(unsigned int selectedSPRPattern, unsigned int selectedSPRAttr)
 {
     unsigned int SPRPixel;
-    unsigned char paletteSelect;
+    unsigned int paletteSelect;
     unsigned short paletteAddr;
-    unsigned char colourIdx;
+    unsigned int colourIdx;
 
     paletteSelect = 0x10 | ((selectedSPRAttr & 0x3) <<2) | selectedSPRPattern;
     paletteAddr = 0x3F00 + paletteSelect;
@@ -651,16 +650,16 @@ unsigned int ProcessSpritePixel(unsigned char selectedSPRPattern, unsigned char 
     return SPRPixel;
 }
 
-void ProcessPixel()
+__inline void ProcessPixel()
 {
     unsigned int pixelToDraw = 0xFF000000;
     unsigned int BGPixel = 0xFF000000;
     unsigned int SPRPixel = 0;
-    unsigned char selectedBGPattern = 0;
-    unsigned char selectedBGPatternUpper, selectedBGPatternLower;
-    unsigned char selectedBGAttr;
-    unsigned char selectedSPRPatternUpper, selectedSPRPatternLower, selectedSPRPattern;
-    unsigned char selectedSPRAttr;
+    unsigned int selectedBGPattern = 0;
+    unsigned int selectedBGPatternUpper, selectedBGPatternLower;
+    unsigned int selectedBGAttr;
+    unsigned int selectedSPRPatternUpper, selectedSPRPatternLower, selectedSPRPattern;
+    unsigned int selectedSPRAttr;
     bool renderBackground = true;
     bool renderSprites = true;
     bool prioritySpriteRead = false;
@@ -694,12 +693,12 @@ void ProcessPixel()
     if(renderBackground)
     {
         //Grab the top bit of the pattern tile (depending on the fineX scroll) and move them over so they're the lower bits
-        selectedBGPatternLower = (patternShifter[0] & (0x80 >> fineX)) >> (7 - fineX);
-        selectedBGPatternUpper = (patternShifter[1] & (0x80 >> fineX)) >> (7 - fineX);
+        selectedBGPatternLower = (patternShifter[0] >> (7 - fineX)) & 0x1;
+        selectedBGPatternUpper = (patternShifter[1] >> (7 - fineX)) & 0x1;
         selectedBGPattern = (selectedBGPatternUpper << 1) | selectedBGPatternLower;
         //Grab the top bits of the attribute (depending on the fineX scroll) and move them over so they're the lower bits
         //Each attribute is 2 bits, so fineX needs to be multiplied by 2
-        selectedBGAttr = (attributeShifter & (0xC000 >> (fineX * 2))) >> (14 - (fineX * 2));
+        selectedBGAttr = (attributeShifter >> (14 - (fineX * 2))) & 0x3;
         
         //CPU_LOG("Processing Background Pixel pattern %d, attr %d from position %d\n", selectedBGPattern, selectedBGAttr, (7 - fineX));
         BGPixel = ProcessBackgroundPixel(selectedBGPattern, selectedBGAttr);
@@ -833,7 +832,7 @@ unsigned char FetchSpriteTile(bool isUpper)
     return result;
 }
 
-void UpdateNextShifterTile()
+__inline void UpdateNextShifterTile()
 {
     //CPU_LOG("Reload Shifter Tile\n");
     nextTileInfo.attributeByte = currentTileInfo.attributeByte;
@@ -841,7 +840,7 @@ void UpdateNextShifterTile()
     nextTileInfo.patternUpperByte = currentTileInfo.patternUpperByte;
 }
 
-void AdvanceShifters()
+__inline void AdvanceShifters()
 {
     //CPU_LOG("Advance Shifters\n");
     //Shift the shifters along one
@@ -856,7 +855,7 @@ void AdvanceShifters()
     patternShifter[1] |= (nextTileInfo.patternUpperByte >> 7) & 0x1;
     nextTileInfo.patternUpperByte <<= 1;
 }
-unsigned int cpuVBlankCycles = 0;
+
 void PPULoop()
 {
     //It's possible for the background to be disabled when it goes to the next frame
@@ -864,7 +863,7 @@ void PPULoop()
     if (PPUMask & 0x8)
         backgroundRenderedThisFrame = true;
 
-    if (iNESMapper == 5)
+    /*if (iNESMapper == 5)
     {
         if (scanlineCycles == 4 && scanline < 240)
         {
@@ -890,8 +889,8 @@ void PPULoop()
                     CPUInterruptTriggered = true;
             }
         }
-    }
-    if (scanlineCycles != 0 && (scanline <= 241 || scanline == 261))
+    }*/
+    if ((scanline <= 241 || scanline == 261) && scanlineCycles != 0)
     {
         unsigned short byteAddress;
         unsigned short patternTableBaseAddress;
@@ -907,7 +906,6 @@ void PPULoop()
                 PPUStatus &= ~0xE0;
                 isVBlank = false;
                 skipVBlank = false;
-                cpuVBlankCycles = cpuCycles - cpuVBlankCycles;
                 zeroSpriteHitEnable = true;
                 zerospriteentry = 99;
                 currentYPos = 0;
@@ -916,7 +914,6 @@ void PPULoop()
                 nextTileInfo.nameTableByte = 0;
                 nextTileInfo.patternLowerByte = 0;
                 nextTileInfo.patternUpperByte = 0;
-                CPU_LOG("VBlank END took %d CPU cycles\n", cpuVBlankCycles);
             }
 
             //Secondary OAM clear
@@ -972,7 +969,7 @@ void PPULoop()
                 {
                     //Retrieve Nametable Byte
                     //Get nametable tile number, each row contains 32 tiles, 8 pixels (0x1 address increments) per tile
-                    byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) * 32) + v_reg.coarseX;
+                    byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) << 5) + v_reg.coarseX;
 
                     currentTileInfo.nameTableByte = mapper->PPURead(byteAddress);
                     //CPU_LOG("Read Nametable from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.nameTableByte);
@@ -982,7 +979,7 @@ void PPULoop()
                 {
                     //Retrieve Attribute Byte
                     //Each attribute byte deals with 32 pixels across and pixels down
-                    byteAddress = 0x2000 + (v_reg.nametable * 0x400) + 0x3C0 + ((v_reg.coarseY / 4) * 8) + ((v_reg.coarseX) / 4);
+                    byteAddress = 0x2000 + (v_reg.nametable * 0x400) + 0x3C0 + ((v_reg.coarseY >> 2) << 3) + ((v_reg.coarseX) >> 2);
 
                     currentTileInfo.attributeByte = mapper->PPURead(byteAddress);
 
@@ -1004,7 +1001,7 @@ void PPULoop()
 
                     //CPU_LOG("DEBUG BG Lower Pattern Table %x\n", patternTableBaseAddress);
                     //Retrieve Pattern Table Low Byte
-                    currentTileInfo.patternLowerByte = mapper->PPURead(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16));
+                    currentTileInfo.patternLowerByte = mapper->PPURead(patternTableBaseAddress + (currentTileInfo.nameTableByte << 4));
                     //CPU_LOG("Read Lower From %x Value %x Stored %x\n", patternTableBaseAddress + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternLowerByte);
                 }
                 break;
@@ -1018,7 +1015,7 @@ void PPULoop()
 
                     //CPU_LOG("DEBUG BG Upper Pattern Table %x\n", patternTableBaseAddress);
                     //Retrieve Pattern Table High Byte
-                    currentTileInfo.patternUpperByte = mapper->PPURead(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16));
+                    currentTileInfo.patternUpperByte = mapper->PPURead(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte << 4));
                     //CPU_LOG("Read Upper From %x Value %x Stored %x\n", patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternUpperByte);
 
                     //Cycle 256 increase vertical
@@ -1066,17 +1063,18 @@ void PPULoop()
                     //do nothing
                     break;
                 }
+
+                if (scanlineCycles == 65)
+                {
+                    if (PPUMask & 0x18)
+                        spriteEvaluationEnabled = true;
+                    else
+                        spriteEvaluationEnabled = false;
+                }
             }
 
-            if (scanlineCycles == 65)
-            {
-                if (PPUMask & 0x18)
-                    spriteEvaluationEnabled = true;
-                else
-                    spriteEvaluationEnabled = false;
-            }
             //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
-            if(scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240 && spriteEvaluationEnabled)
+            if(scanline < 240 && scanlineCycles >= 65 && scanlineCycles <= 256 && spriteEvaluationEnabled)
             {
                 if (spriteEvaluationPos < 0x100)
                 {
@@ -1163,8 +1161,8 @@ void PPULoop()
                         break;
                     case 6: // Low Sprite Tile Fetch
                         spritePatternLower[processingSprite] = FetchSpriteTile(false); //Pattern
-                        spriteAttribute[processingSprite] = TempSPR[(processingSprite * 4) + 2]; //Attribute
-                        spriteX[processingSprite] = TempSPR[(processingSprite * 4) + 3]; //X Position
+                        spriteAttribute[processingSprite] = TempSPR[(processingSprite << 2) + 2]; //Attribute
+                        spriteX[processingSprite] = TempSPR[(processingSprite << 2) + 3]; //X Position
                         //CPU_LOG("DEBUG Added Sprite at Position %d\n", processingSprite);
                         if (zerospriteentry == processingSprite) //Mark Sprite Zero
                         {
@@ -1209,7 +1207,7 @@ void PPULoop()
             if (scanlineCycles == 338 || scanlineCycles == 340)
             {
                 //Retrieve Nametable Byte
-                byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) * 32) + v_reg.coarseX;
+                byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) << 5) + v_reg.coarseX;
                 unsigned char dummy = mapper->PPURead(byteAddress);
             }
 
@@ -1227,7 +1225,6 @@ void PPULoop()
             PPUStatus |= 0x80;
             isVBlank = true;
             //CPU_LOG("VBLANK Start at %d cpu cycles\n", cpuCycles);
-            cpuVBlankCycles = cpuCycles;
             MMC5ScanlineIRQStatus &= ~0x40;
 
             if ((PPUCtrl & 0x80))
@@ -1276,6 +1273,10 @@ void PPULoop()
 
         scanlineCycles = 0;
     }
-    UpdateFPSCounter();
+
+    if (scanline == 0 && scanlineCycles == 340)
+    {
+        UpdateFPSCounter();
+    }
 }
 

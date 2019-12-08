@@ -341,16 +341,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 void UpdateFPSCounter()
 {
-    if (scanline == 0 && scanlineCycles == 340)
+    fps2++;
+    if (counter < time(NULL))
     {
-        fps2++;
-        if (counter < time(NULL))
-        {
-            UpdateTitleBar(hWnd);
-            UpdateWindow(hWnd);
-            counter = time(NULL);
-            fps2 = 0;
-        }
+        UpdateTitleBar(hWnd);
+        UpdateWindow(hWnd);
+        counter = time(NULL);
+        fps2 = 0;
     }
 }
 void ToggleVSync(HWND hWnd)
