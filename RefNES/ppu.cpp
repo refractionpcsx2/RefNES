@@ -974,71 +974,25 @@ void PPULoop()
                     //Get nametable tile number, each row contains 32 tiles, 8 pixels (0x1 address increments) per tile
                     byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) * 32) + v_reg.coarseX;
 
-                    /*if ((address & 0xF000) == 0x2000)
-                    {*/
-                        currentTileInfo.nameTableByte = mapper->PPURead(byteAddress);
-                    /*}
-                    else if ((address & 0xF000) == 0x8000) //Expansion RAM
-                    {
-                        if (MMC5ExtendedRAMMode < 2)
-                            currentTileInfo.nameTableByte = ExpansionRAM[address & 0x3FF];
-                        else
-                            currentTileInfo.nameTableByte = 0;
-                    }
-                    else  if ((address & 0xF000) == 0x9000) //Fill Table
-                    {
-                        currentTileInfo.nameTableByte = MMC5FillTile;
-                    }*/
+                    currentTileInfo.nameTableByte = mapper->PPURead(byteAddress);
                     //CPU_LOG("Read Nametable from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.nameTableByte);
                 }
                 break;
                 case 4:
                 {
-                    //MMC5 has an "extended attribute mode" which overrides the nametables attribute information - Romance of the Three Kingdoms II
-                    /*if (iNESMapper == 5 && MMC5ExtendedRAMMode == 1)
-                    {
-                        if (PPUCtrl & 0x10)
-                            patternTableBaseAddress = 0x1000;
-                        else
-                            patternTableBaseAddress = 0x0000;
+                    //Retrieve Attribute Byte
+                    //Each attribute byte deals with 32 pixels across and pixels down
+                    byteAddress = 0x2000 + (v_reg.nametable * 0x400) + 0x3C0 + ((v_reg.coarseY / 4) * 8) + ((v_reg.coarseX) / 4);
 
-                        unsigned short byteAddress = ((v_reg.coarseY) * 32) + v_reg.coarseX;
-                        unsigned char ExtendedAttr = ExpansionRAM[byteAddress];
-                        MMC5Load4KCHRBank(ExtendedAttr & 0x3F, patternTableBaseAddress);
-                        currentTileInfo.attributeByte = (ExtendedAttr >> 6) & 0x3;
-                    }
-                    else*/
-                    {
-                        //Retrieve Attribute Byte
-                        //Each attribute byte deals with 32 pixels across and pixels down
-                        byteAddress = 0x2000 + (v_reg.nametable * 0x400) + 0x3C0 + ((v_reg.coarseY / 4) * 8) + ((v_reg.coarseX) / 4);
+                    currentTileInfo.attributeByte = mapper->PPURead(byteAddress);
 
-                        /*address = CalculatePPUMemoryAddress(byteAddress);
+                    if (v_reg.coarseY & 0x2)
+                        currentTileInfo.attributeByte >>= 4;
+                    if (v_reg.coarseX & 0x2)
+                        currentTileInfo.attributeByte >>= 2;
 
-                        if ((address & 0xF000) == 0x2000)
-                        {*/
-                            currentTileInfo.attributeByte = mapper->PPURead(byteAddress);
-                        /*}
-                        else if ((address & 0xF000) == 0x8000) //Expansion RAM
-                        {
-                            if (MMC5ExtendedRAMMode < 2)
-                                currentTileInfo.attributeByte = ExpansionRAM[address & 0x3FF];
-                            else
-                                currentTileInfo.attributeByte = 0;
-                        }
-                        else  if ((address & 0xF000) == 0x9000) //Fill Table
-                        {
-                            currentTileInfo.attributeByte = MMC5FillColour | (MMC5FillColour << 2) | (MMC5FillColour << 4) | (MMC5FillColour << 6);
-                        }*/
-
-                        if (v_reg.coarseY & 0x2)
-                            currentTileInfo.attributeByte >>= 4;
-                        if (v_reg.coarseX & 0x2)
-                            currentTileInfo.attributeByte >>= 2;
-
-                        currentTileInfo.attributeByte &= 0x3; //Remove all other attributes, left with 8 pixels worth
-                        //CPU_LOG("Read Attribute from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.attributeByte);
-                    }
+                    currentTileInfo.attributeByte &= 0x3; //Remove all other attributes, left with 8 pixels worth
+                    //CPU_LOG("Read Attribute from %x, value %x Read %x\n", byteAddress, PPUMemory[CalculatePPUMemoryAddress(byteAddress)], currentTileInfo.attributeByte);
                 }
                 break;
                 case 6:
@@ -1050,12 +1004,7 @@ void PPULoop()
 
                     //CPU_LOG("DEBUG BG Lower Pattern Table %x\n", patternTableBaseAddress);
                     //Retrieve Pattern Table Low Byte
-                    /*if (iNESMapper == 5)
-                    {
-                        currentTileInfo.patternLowerByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))];
-                    }
-                    else*/
-                        currentTileInfo.patternLowerByte = mapper->PPURead(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16));
+                    currentTileInfo.patternLowerByte = mapper->PPURead(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16));
                     //CPU_LOG("Read Lower From %x Value %x Stored %x\n", patternTableBaseAddress + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternLowerByte);
                 }
                 break;
@@ -1066,14 +1015,10 @@ void PPULoop()
                         patternTableBaseAddress = 0x1000 + v_reg.fineY;
                     else
                         patternTableBaseAddress = 0x0000 + v_reg.fineY;
+
                     //CPU_LOG("DEBUG BG Upper Pattern Table %x\n", patternTableBaseAddress);
                     //Retrieve Pattern Table High Byte
-                    /*if (iNESMapper == 5)
-                    {
-                        currentTileInfo.patternUpperByte = MMC5CHRBankB[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))];
-                    }
-                    else*/
-                        currentTileInfo.patternUpperByte = mapper->PPURead(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16));
+                    currentTileInfo.patternUpperByte = mapper->PPURead(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16));
                     //CPU_LOG("Read Upper From %x Value %x Stored %x\n", patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16), PPUMemory[CalculatePPUMemoryAddress(patternTableBaseAddress + 8 + (currentTileInfo.nameTableByte * 16))], currentTileInfo.patternUpperByte);
 
                     //Cycle 256 increase vertical
@@ -1298,6 +1243,7 @@ void PPULoop()
                 else
                     NMITriggerCycle = cpuCycles+2;
             }
+            handleInput();
             StartDrawing();
             if(MenuShowPatternTables)
                 DrawPatternTables();

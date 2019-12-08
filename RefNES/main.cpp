@@ -281,44 +281,46 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     while(msg.message != WM_QUIT)
     {        
-                while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        if (Running == false) 
+        {
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+            {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+            Sleep(100);
+        }
+        else
+        {
+            if (cpuCycles >= 1000000)
+            {
+                cpuCycles -= 900000;
+                dotCycles -= 2700000;
+                nextCpuCycle -= 2700000;
+                last_apu_cpucycle -= 900000;
+
+            }
+
+            if (NMITriggered && cpuCycles >= NMITriggerCycle)
+            {
+                CPUFireNMI();
+            }
+
+            CPULoop();
+            if (CPUInterruptTriggered)
+            {
+                if (!(P & INTERRUPT_DISABLE_FLAG))
                 {
-                    TranslateMessage(&msg);
-                    DispatchMessage(&msg);
+                    CPUInterruptTriggered = false;
+                    CPUIncrementCycles(7);
+                    P &= ~BREAK_FLAG;
+                    P |= (1 << 5);
+                    CPUPushAllStack();
+                    P |= INTERRUPT_DISABLE_FLAG;
+                    PC = memReadPC(0xFFFE);
                 }
-
-                if (Running == true) {
-                    if (cpuCycles >= 1000000)
-                    {
-                        cpuCycles -= 900000;
-                        dotCycles -= 2700000;
-                        nextCpuCycle -= 2700000;
-                        last_apu_cpucycle -= 900000;
-
-                    }
-
-                    if (NMITriggered && cpuCycles >= NMITriggerCycle)
-                    {
-                        CPUFireNMI();
-                    }
-
-                    handleInput();
-                    CPULoop();
-                    if (CPUInterruptTriggered)
-                    {
-                        if (!(P & INTERRUPT_DISABLE_FLAG))
-                        {
-                            CPUInterruptTriggered = false;
-                            CPUIncrementCycles(7);
-                            P &= ~BREAK_FLAG;
-                            P |= (1 << 5);
-                            CPUPushAllStack();
-                            P |= INTERRUPT_DISABLE_FLAG;
-                            PC = memReadPC(0xFFFE);
-                        }
-                    }
-                }
-                else Sleep(100);
+            }
+        }
     }
     
     return (int)msg.wParam;
