@@ -58,7 +58,8 @@ void MMC3::IRQCountdown()
     if (IRQCounter == 0)
     {
         Reload = true;
-        if (IRQEnable == true && IRQCounterLatch != 0)
+
+        if (IRQEnable == true/* && IRQCounterLatch != 0*/)
         {
             CPU_LOG("MAPPER MMC3 Firing Interrupt\n");
             CPUInterruptTriggered = true;
@@ -353,6 +354,10 @@ void MMC3::PPUWrite(unsigned short address, unsigned char value)
 
     if (address < 0x2000) //Pattern Tables
     {
+        if ((lastA12Bit & 0x1000) != 0x1000 && (address & 0x1000) == 0x1000)
+            IRQCountdown();
+
+        lastA12Bit = address;
         WriteCHRRAM(address, value);
         return;
     }

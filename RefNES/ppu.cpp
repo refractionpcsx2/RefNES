@@ -317,6 +317,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                     MMC3IRQCountdown();
                 lastA12bit = v_reg.reg;*/
                 CPU_LOG("DEBUG PPU VRAM Addr set to %x\n", v_reg.reg);
+                mapper->PPURead(v_reg.reg); //Trigger address change on MMC3
             }
             //CPU_LOG("PPU T Update 2006 w=%d Name Table = %d, Coarse X = %d, Fine x = %d, Coarse Y = %d Fine Y = %d Total Value = %x\n", tfirstwrite ? 1 : 0, (t >> 10) & 0x3, (t) & 0x1f, fineX & 0x7, (t >> 5) & 0x1f, (t >> 12) & 0x7, t);
             break;
@@ -405,6 +406,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                     v_reg.reg++;
                 }
             }
+            mapper->PPUWrite(v_reg.reg, mapper->PPURead(v_reg.reg)); //Dummy write to catch address change
             break;
     }
     lastwrite = value;
@@ -545,6 +547,7 @@ unsigned char PPUReadReg(unsigned short address) {
                     v_reg.reg++;
                 }
             }
+            mapper->PPURead(v_reg.reg); //Dummy read for MMC3 to see the address change
         }
         break;
     case 0x00: //PPU Control (write only)
