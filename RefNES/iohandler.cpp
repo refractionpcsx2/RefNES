@@ -351,17 +351,20 @@ void updateAPU(unsigned int cpu_cycles)
         }
     }
 
-    if (apu_cycles >= 29831 && (apu_cycles - newcycles) < 29831)
+    if (!(apu_frame_counter & 0x80))
     {
-        apu_irq_set = 2;
-    }
-    if(apu_irq_set)
-    {
-        apu_irq_set--;
-        if (!(apu_frame_counter & 0x40))
+        if (apu_cycles >= 29831 && (apu_cycles - newcycles) < 29831)
         {
-            CPUInterruptTriggered = true;
-            apu_status_interrupts |= 0x40;
+            apu_irq_set = 2;
+        }
+        if (apu_irq_set)
+        {
+            apu_irq_set--;
+                if (!(apu_frame_counter & 0x40))
+                {
+                    CPUInterruptTriggered = true;
+                    apu_status_interrupts |= 0x40;
+                }
         }
     }
 

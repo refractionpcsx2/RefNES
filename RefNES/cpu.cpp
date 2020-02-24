@@ -1780,7 +1780,7 @@ void CPUFireNMI()
 }
 void CPULoop() {
     Opcode = memReadValue(PC);
-    CPU_LOG("Addr: %04x Opcode %04x A:%02x X:%02x Y:%02x P:%02x SP:%02x PPU:%3d,%3d CYC:%d\n", PC, Opcode, A, X, Y, P, SP, scanlineCycles, scanline, cpuCycles);
+    //CPU_LOG("Addr: %04x Opcode %04x A:%02x X:%02x Y:%02x P:%02x SP:%02x PPU:%3d,%3d CYC:%d\n", PC, Opcode, A, X, Y, P, SP, scanlineCycles, scanline, cpuCycles);
     PCInc = 1;
     CPUIncrementCycles(1);
     //CPU_LOG("Running Opcode %x PC = %x\n", Opcode, PC);
