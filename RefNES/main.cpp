@@ -54,7 +54,6 @@ unsigned int nextPPUCycle = 0;
 unsigned int fps = 0;
 time_t counter;
 bool Running = false;
-unsigned int nextsecond = (unsigned int)masterClock / 12;
 
 unsigned short SCREEN_WIDTH = 256;
 unsigned short SCREEN_HEIGHT = 240;
@@ -265,7 +264,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             Running = true;
             //DestroyDisplay();
             //InitDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, hWnd);
-            nextsecond = 0;
             fps = 0;
             cpuCycles = 0;
         }        
@@ -274,7 +272,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // enter the main loop:
     MSG msg;
     ZeroMemory(&msg, sizeof(msg));
-    masterCycles = 0;
     dotCycles = 0;
     nextCpuCycle = 0;
     scanline = 0;
@@ -299,6 +296,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 nextCpuCycle -= 2700000;
                 last_apu_cpucycle -= 900000;
 
+            }
+
+            if (checkInputs)
+            {
+                checkInputs = false;
+                handleInput();
             }
 
             if (NMITriggered && cpuCycles >= NMITriggerCycle)

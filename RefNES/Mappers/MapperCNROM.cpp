@@ -23,7 +23,7 @@ unsigned char CNROM::ReadCHRROM(unsigned short address)
 {
     unsigned char value;
 
-    value = ROMCart[(prgsize * 16384) + (currentBank * 8192) + (address & 0x1FFF)];
+    value = ROMCart[(prg_count * 16384) + (currentBank * 8192) + (address & 0x1FFF)];
 
     return value;
 }
@@ -64,7 +64,7 @@ unsigned char CNROM::CPURead(unsigned short address)
     case 0xA000:
     case 0xC000:
     case 0xE000:
-        value = ROMCart[(address & 0x7FFF) & ((prgsize * 16384)-1)];
+        value = ROMCart[(address & 0x7FFF) & ((prg_count * 16384)-1)];
         break;
     }
 

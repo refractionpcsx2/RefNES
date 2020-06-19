@@ -84,7 +84,7 @@ void MMC3ChangePRG(unsigned char PRGNum) {
                 address ^= 0x1000;
             }
             CPU_LOG("MAPPER Switching to 2K CHR-ROM number %d at 0x%x\n", PRGNum, address);
-            memcpy(&PPUNametableMemory[address], ROMCart + ((prgsize) * 16384) + ((PRGNum & 0xFE) * 1024), 0x800);
+            memcpy(&PPUNametableMemory[address], ROMCart + ((prg_count) * 16384) + ((PRGNum & 0xFE) * 1024), 0x800);
         }
         else { //1K CHR banks
             unsigned short address = 0x1000;// = inversion ? 0x0000 : 0x1000;
@@ -94,17 +94,17 @@ void MMC3ChangePRG(unsigned char PRGNum) {
                 address ^= 0x1000;
             }
             CPU_LOG("MAPPER Switching to 1K CHR-ROM number %d at 0x%x\n", PRGNum, address);
-            memcpy(&PPUNametableMemory[address], ROMCart + ((prgsize) * 16384) + (PRGNum * 1024), 0x400);
+            memcpy(&PPUNametableMemory[address], ROMCart + ((prg_count) * 16384) + (PRGNum * 1024), 0x400);
         }
     }
-    PRGNum = PRGNum % (prgsize * 2);
+    PRGNum = PRGNum % (prg_count * 2);
 
     if ((MMCcontrol & 0x7) == 6) { //8k program at 0x8000 or 0xC000(swappable)
         unsigned short address = bankmode ? 0xC000 : 0x8000;
         unsigned short fixed = bankmode ? 0x8000 : 0xC000;
         CPU_LOG("MAPPER Switching to 8K PRG-ROM number %d at 0x%x\n", PRGNum, address);
         memcpy(&CPUMemory[address], ROMCart + (PRGNum * 8192), 0x2000);
-        memcpy(&CPUMemory[fixed], ROMCart + (((prgsize * 2) - 2) * 8192), 0x2000);
+        memcpy(&CPUMemory[fixed], ROMCart + (((prg_count * 2) - 2) * 8192), 0x2000);
     }
     if ((MMCcontrol & 0x7) == 7) { //8k program at 0xA000 
         CPU_LOG("MAPPER Switching to 8K PRG-ROM number %d at 0xA000\n", PRGNum);
@@ -115,7 +115,7 @@ void MMC3ChangePRG(unsigned char PRGNum) {
 void MMC1ChangePRG(unsigned char PRGNum) {
     PRGNum &= 0xF;
 
-    PRGNum %= prgsize;
+    PRGNum %= prg_count;
 
     MMC1LastPrg = PRGNum;
     if ((MMCcontrol & 0xC) <= 4) { //32kb
@@ -131,12 +131,12 @@ void MMC1ChangePRG(unsigned char PRGNum) {
         if ((MMCcontrol & 0xC) == 0xC) {
             CPU_LOG("MAPPER Switching to 16K PRG-ROM number %d at 0x8000\n", PRGNum);
             memcpy(&CPUMemory[0x8000], ROMCart + MMC1PRGOffset + (PRGNum * 16384), 0x4000);
-            if (prgsize > 16 && MMC1PRGOffset == 0)
+            if (prg_count > 16 && MMC1PRGOffset == 0)
             {
                 memcpy(&CPUMemory[0xC000], ROMCart + (15 * 16384), 0x4000);
             }
             else
-                memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);
+                memcpy(&CPUMemory[0xC000], ROMCart + ((prg_count - 1) * 16384), 0x4000);
             
         }
 
@@ -152,7 +152,7 @@ void ChangeLower8KPRG(unsigned char PRGNum) {
 }
 
 void Change32KPRG(unsigned char PRGNum) {
-    PRGNum = PRGNum % (prgsize / 2);
+    PRGNum = PRGNum % (prg_count / 2);
     CPU_LOG("MAPPER Switching to 32K PRG-ROM number %d at 0x8000\n", PRGNum);
     memcpy(&CPUMemory[0x8000], ROMCart + (PRGNum * 0x8000), 0x8000);
 }
@@ -164,7 +164,7 @@ void ChangeLowerPRG(unsigned char PRGNum) {
 }
 
 void ChangeUpperCHR(unsigned char PRGNum) {
-    unsigned int PrgSizetotal = prgsize * 16384;
+    unsigned int PrgSizetotal = prg_count * 16384;
     if (chrsize == 0)
     {
         /*if (PRGNum & 0x10)
@@ -197,7 +197,7 @@ void ChangeUpperCHR(unsigned char PRGNum) {
 }
 
 void ChangeLowerCHR(unsigned char PRGNum) {
-    unsigned int PrgSizetotal = prgsize * 16384;
+    unsigned int PrgSizetotal = prg_count * 16384;
     if (chrsize == 0)
     {
         if (PRGNum & 0x10)
@@ -212,10 +212,10 @@ void ChangeLowerCHR(unsigned char PRGNum) {
         }
         
         memcpy(&CPUMemory[0x8000], ROMCart + MMC1PRGOffset + (MMC1LastPrg * 16384), 0x4000);
-        if (prgsize > 16 && MMC1PRGOffset == 0)
+        if (prg_count > 16 && MMC1PRGOffset == 0)
             memcpy(&CPUMemory[0xC000], ROMCart + (15 * 16384), 0x4000);
         else
-            memcpy(&CPUMemory[0xC000], ROMCart + ((prgsize - 1) * 16384), 0x4000);
+            memcpy(&CPUMemory[0xC000], ROMCart + ((prg_count - 1) * 16384), 0x4000);
 
         LowerCHRRAMBank = PRGNum & 0x1;
         return;
@@ -237,7 +237,7 @@ void ChangeLowerCHR(unsigned char PRGNum) {
 void Change8KCHR(unsigned char PRGNum) {
     unsigned char program = (PRGNum & 0x3) % chrsize;
     CPU_LOG("MAPPER Switching Lower CHR 8k number %d at 0x0000\n", program);
-    memcpy(&PPUNametableMemory[0x0000], ROMCart + (prgsize * 16384) + (program * 8192), 0x2000);
+    memcpy(&PPUNametableMemory[0x0000], ROMCart + (prg_count * 16384) + (program * 8192), 0x2000);
 }
 
 void MMC2SetLatch(unsigned char latch, unsigned char value) {
@@ -293,7 +293,7 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
             return;
         }
 
-        bank = (value & 0x7C) % (prgsize * 2);
+        bank = (value & 0x7C) % (prg_count * 2);
         CPU_LOG("MMC5 32k Bankswitch on address %x to 0x8000 Bank %d value %d\n", address, bank, value);
         memcpy(&CPUMemory[0x8000], ROMCart + (bank * 8192), 0x8000);
     }
@@ -305,7 +305,7 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
             return;
         }
 
-        unsigned char bank = value & 0x7E % (prgsize * 2);
+        unsigned char bank = value & 0x7E % (prg_count * 2);
 
         if (address == 0x5115)
         {
@@ -335,7 +335,7 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
             CPU_LOG("MMC5 Attempted 16,8,8 Bankswitch on address %x, cancelling\n", address);
             return;
         }
-        unsigned char bank = (value & 0x7F) % (prgsize * 2);
+        unsigned char bank = (value & 0x7F) % (prg_count * 2);
 
         if (address == 0x5115)
         {
@@ -376,7 +376,7 @@ void MMC5PRGBankSwitch(unsigned short address, unsigned char value)
     }
     else if (MMC5PRGMode == 3) //One 8KB banks 5114-5117 only
     {
-        unsigned char bank = (value & 0x7F) % (prgsize * 2);
+        unsigned char bank = (value & 0x7F) % (prg_count * 2);
 
         if (address == 0x5113)
         {
@@ -448,7 +448,7 @@ unsigned char lastSpriteMode = 0;
 
 void MMC5Load4KCHRBank(unsigned char value, unsigned short address)
 {
-    unsigned int prgarea = prgsize * 16384;
+    unsigned int prgarea = prg_count * 16384;
     if (LastWrite4k == false || lastAddress != address || lastBank != value || lastSpriteMode != (PPUCtrl & 0x20))
     {
         
@@ -473,7 +473,7 @@ void MMC5Load4KCHRBank(unsigned char value, unsigned short address)
 
 void MMC5CHRBankSwitch(unsigned short address, unsigned char value)
 {
-    unsigned int prgarea = prgsize * 16384;
+    unsigned int prgarea = prg_count * 16384;
     LastWrite4k = false;
 
     MMC5CHRisBankB = address > 0x5127;

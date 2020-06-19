@@ -40,7 +40,7 @@ unsigned char MMC4::ReadProgramROM(unsigned short address)
     }
     else
     {
-        value = ROMCart[((prgsize - 1) * 16384) + (address & 0x3FFF)];
+        value = ROMCart[((prg_count - 1) * 16384) + (address & 0x3FFF)];
     }
 
     return value;
@@ -74,7 +74,7 @@ unsigned char MMC4::ReadCHRROM(unsigned short address)
     unsigned char value;
     unsigned char* mem;
 
-    mem = &ROMCart[(prgsize * 16384)];
+    mem = &ROMCart[(prg_count * 16384)];
     unsigned char bank = address >= 0x1000 ? upperCHRBank : lowerCHRBank;
 
     value = mem[(bank * 4096) + (address & 0xFFF)];
@@ -95,7 +95,7 @@ void MMC4::CPUWrite(unsigned short address, unsigned char value)
         {
         case 0xA000: //PRG ROM Select
             CPU_LOG("MAPPER MMC4 PRG Select %d\n", value);
-            currentProgram = (value & 0xF) % prgsize;
+            currentProgram = (value & 0xF) % prg_count;
             break;
         case 0xB000: //CHR ROM Lower 4K select FD
             CPU_LOG("MAPPER MMC4 CHR Lower FD Select %d\n", value);

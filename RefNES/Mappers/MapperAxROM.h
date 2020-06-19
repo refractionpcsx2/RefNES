@@ -16,6 +16,8 @@ public:
 private:
     unsigned int SRAMSize;
     unsigned int CHRRAMSize;
+    unsigned int PRGSize;
+    unsigned int currentProgramAddr;
     unsigned char SRAM[0x2000];   //Max SRAM 16k
     unsigned char CHRRAM[0x2000]; //Max CHR-RAM 8k
     unsigned char  singleScreenBank = 0;

@@ -17,7 +17,9 @@ LARGE_INTEGER nStopTime;
 LARGE_INTEGER nElapsed;
 LARGE_INTEGER nFrequency;
 
-void DestroyDisplay() {
+void DestroyDisplay() 
+{
+    pixels = nullptr;
 
     if (texture != NULL)
         SDL_DestroyTexture(texture);
@@ -25,15 +27,10 @@ void DestroyDisplay() {
     if (renderer != NULL)
         SDL_DestroyRenderer(renderer);
 
-    if (SDL_Display != NULL)
-    {
-        if (SDL_MUSTLOCK(SDL_Display))
-        {
-            SDL_UnlockSurface(SDL_Display);
-        }
-        SDL_FreeSurface(SDL_Display);
-    }
+    if (screen != NULL)
+        SDL_DestroyWindow(screen);
 }
+
 void InitDisplay(int width, int height, HWND hWnd)
 {
     int flags;
@@ -61,8 +58,6 @@ void InitDisplay(int width, int height, HWND hWnd)
         flags |= SDL_RENDERER_PRESENTVSYNC;
     }
 
-    SDL_Display = SDL_CreateRGBSurface(0, width, height, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
-
     SetParent(hwndSDL, hWnd);
     SetWindowPos(hwndSDL, HWND_TOP, 0, 0, width, height, NULL);
     SetFocus(hwndSDL);
@@ -74,7 +69,6 @@ void InitDisplay(int width, int height, HWND hWnd)
     /*QueryPerformanceFrequency(&nFrequency);
     QueryPerformanceCounter(&nStartTime);*/
 }
-unsigned int xpos = 0;
 
 void ZeroBuffer() {
     memset(ScreenBuffer, 0, sizeof(ScreenBuffer));
@@ -82,21 +76,15 @@ void ZeroBuffer() {
 
 void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
 {
-    ScreenBuffer[xpos][ypos] = pixel;    
-}
-
-void DrawScreen() {
+    if (ypos < 1)
+        return;
     unsigned int pitchDivider = (pitch / sizeof(unsigned int));
-    for (int xpos = 0; xpos < 256; xpos++) {
-        for (int ypos = 1; ypos < 240; ypos++) {
-            if (ScreenBuffer[xpos][ypos])
-            {
-                //CPU_LOG("Start Scene draw pixel\n");
-                unsigned int position = ypos * pitchDivider + xpos;
-                pixels[position] = ScreenBuffer[xpos][ypos];
-            }
-        }
-    }
+    unsigned int position = ypos * pitchDivider + xpos;
+    if (pixels != nullptr)
+        pixels[position] = pixel;
+    else
+        CPU_LOG("What the hell\n");
+    //ScreenBuffer[xpos][ypos] = pixel;
 }
 
 void EndDrawing()
@@ -135,9 +123,7 @@ void EndDrawing()
 
 void StartDrawing()
 {
-    int scale = SCREEN_WIDTH / 256;
     //CPU_LOG("Start Scene\n");
-    SDL_RenderClear(renderer);
 
     if (SDL_LockTexture(texture, nullptr, (void**)&pixels, &pitch))
     {

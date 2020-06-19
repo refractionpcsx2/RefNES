@@ -13,7 +13,7 @@
 #include "Mappers/MapperMMC4.h"
 #include <stdio.h>
 
-extern unsigned char prgsize;
+extern unsigned char prg_count;
 extern unsigned char chrsize;
 extern unsigned char ines_flags6;
 extern unsigned char singlescreen;

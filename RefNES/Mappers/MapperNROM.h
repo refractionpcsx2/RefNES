@@ -17,6 +17,7 @@ class NROM : public Mapper
         unsigned char PPURead(unsigned short address);
     private:
         unsigned int SRAMSize;
+        unsigned int PRGSize;
         unsigned char SRAM[4096];
         bool isVerticalNametableMirroring;
 };

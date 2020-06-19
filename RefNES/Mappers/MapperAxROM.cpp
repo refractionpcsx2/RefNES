@@ -6,7 +6,9 @@ AXROM::AXROM(unsigned int SRAMTotalSize, unsigned int PRGRAMTotalSize, unsigned 
     //Construction stuff
     SRAMSize = SRAMTotalSize;
     CHRRAMSize = CHRRAMTotalSize;
+    PRGSize = prg_count * 16384;
     singleScreenBank = 0;
+    currentProgramAddr = 0;
 }
 
 AXROM::~AXROM()
@@ -23,6 +25,8 @@ void AXROM::Reset()
         memset(CHRRAM, 0, CHRRAMSize);
 
     singleScreenBank = 0;
+    currentProgramAddr = 0;
+    currentProgram = 0;
 }
 
 unsigned char AXROM::ReadCHRROM(unsigned short address)
@@ -33,7 +37,7 @@ unsigned char AXROM::ReadCHRROM(unsigned short address)
     if (CHRRAMSize)
         mem = CHRRAM;
     else
-        mem = &ROMCart[(prgsize * 16384)];
+        mem = &ROMCart[PRGSize];
 
     value = mem[(address & 0x1FFF)];
 
@@ -59,7 +63,8 @@ void AXROM::CPUWrite(unsigned short address, unsigned char value)
     default:
         if (address >= 0x8000)
         {
-            currentProgram = (value & 0xf) % (prgsize / 2);
+            currentProgram = (value & 0xf) % (prg_count / 2);
+            currentProgramAddr = (currentProgram * 32768);
             singleScreenBank = (value & 0x10) >> 4;
         }
         CPU_LOG("MAPPER UxROM Program changed to %d value %d\n", currentProgram, value);
@@ -82,7 +87,7 @@ unsigned char AXROM::CPURead(unsigned short address)
     case 0xA000:
     case 0xC000:
     case 0xE000:
-        value = ROMCart[(currentProgram * 32768) + (address & 0x7FFF)];
+        value = ROMCart[currentProgramAddr + (address & 0x7FFF)];
         break;
     }
 
@@ -92,32 +97,32 @@ unsigned char AXROM::CPURead(unsigned short address)
 void AXROM::PPUWrite(unsigned short address, unsigned char value)
 {
     //Addresses above 0x3FFF are mirrored to 0x0000-0x3FFF
-    if (address > 0x3FFF)
-        address &= 0x3FFF;
+    address &= 0x3FFF;
 
-    if (address < 0x2000) //Pattern Tables
-    {
-        WriteCHRRAM(address, value);
-        return;
-    }
-    else if (address >= 0x2000 && address < 0x3F00)
-    {
-        if(singleScreenBank)
-            PPUNametableMemory[0x400 | (address & 0x3FF)] = value;
-        else
-            PPUNametableMemory[(address & 0x3FF)] = value;
-    }
-    else if (address >= 0x3F00 && address < 0x4000) //Pallete Memory and its mirrors
+    if (address >= 0x3F00) //Pallete Memory and its mirrors
     {
         address = address & 0x1F;
 
-        if (address == 0x10 || address == 0x14 || address == 0x18 || address == 0x1c)
+        if (!(address & 0x3))
         {
-            address = address & 0x0f;
+            address &= 0x0f;
         }
 
         PPUPaletteMemory[address & 0x1f] = value;
     }
+    else if (address >= 0x2000 && address < 0x3F00)
+    {
+        if (singleScreenBank)
+            PPUNametableMemory[0x400 | (address & 0x3FF)] = value;
+        else
+            PPUNametableMemory[(address & 0x3FF)] = value;
+    }
+    else  //Pattern Tables
+    {
+        WriteCHRRAM(address, value);
+        return;
+    }
+    
 }
 
 unsigned char AXROM::PPURead(unsigned short address)
@@ -125,21 +130,9 @@ unsigned char AXROM::PPURead(unsigned short address)
     unsigned char value;
 
     //Addresses above 0x3FFF are mirrored to 0x0000-0x3FFF
-    if (address > 0x3FFF)
-        address &= 0x3FFF;
+    address &= 0x3FFF;
 
-    if (address < 0x2000) //Pattern Tables
-    {
-        value = ReadCHRROM(address);
-    }
-    else if (address >= 0x2000 && address < 0x3F00)
-    {
-        if (singleScreenBank)
-            value = PPUNametableMemory[0x400 | (address & 0x3FF)];
-        else
-            value = PPUNametableMemory[(address & 0x3FF)];
-    }
-    else if (address >= 0x3F00 && address < 0x4000) //Pallete Memory and its mirrors
+    if (address >= 0x3F00) //Pallete Memory and its mirrors
     {
         address = address & 0x1F;
 
@@ -149,6 +142,17 @@ unsigned char AXROM::PPURead(unsigned short address)
         }
 
         value = PPUPaletteMemory[address & 0x1f];
+    }
+    else if (address >= 0x2000 && address < 0x3F00)
+    {
+        if (singleScreenBank)
+            value = PPUNametableMemory[0x400 | (address & 0x3FF)];
+        else
+            value = PPUNametableMemory[(address & 0x3FF)];
+    }
+    else //Pattern Tables
+    {
+        value = ReadCHRROM(address);
     }
 
     return value;

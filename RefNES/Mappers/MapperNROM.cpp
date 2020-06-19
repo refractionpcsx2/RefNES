@@ -44,7 +44,7 @@ unsigned char NROM::CPURead(unsigned short address)
         //Else open bus?? TODO if any NROM game needs it
         break;
     default:
-        value = ROMCart[address & ((prgsize * 16384)-1)];
+        value = ROMCart[address & ((prg_count * 16384)-1)];
         break;
     }
 
@@ -139,7 +139,7 @@ unsigned char NROM::PPURead(unsigned short address)
     }
     else //Pattern Tables
     {
-        return ROMCart[(prgsize * 16384) + address];
+        return ROMCart[(prg_count * 16384) + address];
     }
 
     return 0;

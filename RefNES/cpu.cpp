@@ -14,16 +14,11 @@ unsigned char Opcode;
 unsigned int cpuCycles = 0;
 unsigned int nextCpuCycle = 0;
 unsigned int dotCycles = 0; //PPU clock
-int masterCycles = 0;
-unsigned int scanlinesperframe = 262;
-unsigned int vBlankInterval = 19;
-unsigned int masterClock = 21477270;
-unsigned int cpuClock = (masterClock / 12);
-unsigned int ppuClock = (masterClock / 4);
 bool NMITriggered = false;
 unsigned int NMITriggerCycle = 0;
 bool NMIRequested = false;
 bool CPUInterruptTriggered = false;
+bool checkInputs = false;
 
 
 typedef void(*JumpTable)(void);

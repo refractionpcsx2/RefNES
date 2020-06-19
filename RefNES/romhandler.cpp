@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "CRCLookups.h"
 
-unsigned char prgsize;
+unsigned char prg_count;
 unsigned char chrsize;
 unsigned char ines_flags6;
 unsigned char singlescreen;
@@ -26,14 +26,13 @@ void CleanUpROMMem()
 
 void LoadRomToMemory(FILE * RomFile, long lSize)
 {
-
     if (ROMCart == NULL)
     {
         ROMCart = (unsigned char*)malloc(lSize);
     }
     else
     {
-        realloc(ROMCart, lSize);
+        ROMCart = (unsigned char*)realloc(ROMCart, lSize);
     }
 
     fread(ROMCart, 1, lSize, RomFile);
@@ -106,7 +105,7 @@ int LoadRom(const char *Filename) {
         }
         else
         {
-            prgsize = ROMHeader[4];
+            prg_count = ROMHeader[4];
             chrsize = ROMHeader[5];
             ines_flags6 = ROMHeader[6];
             singlescreen = 0;
@@ -114,7 +113,7 @@ int LoadRom(const char *Filename) {
             iNESMapper = ((ROMHeader[6] >> 4) & 0xF) | (ROMHeader[7] & 0xF0);
             fourScreen = (ROMHeader[6] >> 3) & 0x1;
             memset(CartridgeSRAM, 0, sizeof(CartridgeSRAM));
-            CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags8=%x, flags10=%x mapper=%d\n", prgsize, chrsize, ines_flags6, ROMHeader[8],  ines_flags10, iNESMapper);
+            CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags8=%x, flags10=%x mapper=%d\n", prg_count, chrsize, ines_flags6, ROMHeader[8],  ines_flags10, iNESMapper);
             fseek(pFile, 16, SEEK_SET); //Point it past the header
             LoadRomToMemory(pFile, lSize);
             //fread(CPUMemory, 1, lSize, pFile); //Read in the file

@@ -5,7 +5,6 @@
 SDL_Event test_event;
 unsigned char keyevents;
 unsigned char writes;
-unsigned char sq1_vol, sq2_vol;
 unsigned char sq1_sweep, sq2_sweep;
 unsigned short sq1_length, sq2_length;
 unsigned char triangle_linear;
@@ -16,11 +15,26 @@ unsigned short noise_period;
 unsigned short noise_length;
 unsigned short sq1_wave, sq2_wave;
 unsigned char apu_status_channels, apu_status_interrupts, apu_frame_counter;
-signed int apu_cycles;
+unsigned int apu_cycles;
 unsigned int last_apu_cpucycle, apu_cyclelimit;
 unsigned int next_counter_clock;
+unsigned int next_linear_clock;
+unsigned int linear_stage;
 unsigned int length_triggers[2];
+unsigned int linear_triggers[4];
 unsigned int apu_irq_set = 0;
+
+struct pulse_vol
+{
+    union
+    {
+        unsigned char vol : 4;
+        unsigned char constant_vol : 1;
+        unsigned char length_halt : 1;
+        unsigned char duty : 2;
+    };
+    unsigned char _u8;
+} sq1_vol, sq2_vol;
 
 unsigned char length_table[32] = { 10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14,
                                    12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
@@ -38,8 +52,8 @@ void IOReset()
     sq2_wave = 0;
     sq1_sweep = 0;
     sq2_sweep = 0;
-    sq1_vol = 0;
-    sq2_vol = 0;
+    sq1_vol._u8 = 0;
+    sq2_vol._u8 = 0;
     keyevents = 0;
     apu_frame_counter = 0;
     apu_irq_set = 0;
@@ -48,6 +62,14 @@ void IOReset()
     length_triggers[0] = 14915;
     length_triggers[1] = 29829;
     next_counter_clock = 14915;
+
+    linear_triggers[0] = 7458;
+    linear_triggers[1] = 14916;
+    linear_triggers[2] = 22371;
+    linear_triggers[3] = 29832;
+    next_linear_clock = 7458;
+    linear_stage = 1;
+
 }
 
 void SPRTransfer(unsigned char memvalue) 
@@ -76,7 +98,7 @@ void ioRegWrite(unsigned short address, unsigned char value) {
     switch (address) {
         case 0x4000:
             CPU_LOG("BANANA APU SQ1 VOL Reg write at %x value %x\n", address, value);
-            sq1_vol = value;
+            sq1_vol._u8 = value;
             break;
         case 0x4001:
             CPU_LOG("BANANA APU SQ1 SWEEP Reg write at %x value %x\n", address, value);
@@ -95,7 +117,7 @@ void ioRegWrite(unsigned short address, unsigned char value) {
             break;
         case 0x4004:
             CPU_LOG("BANANA APU SQ2 VOL Reg write at %x value %x\n", address, value);
-            sq2_vol = value;
+            sq2_vol._u8 = value;
             break;
         case 0x4005:
             CPU_LOG("BANANA APU SQ2 SWEEP Reg write at %x value %x\n", address, value);
@@ -172,21 +194,31 @@ void ioRegWrite(unsigned short address, unsigned char value) {
                 apu_cyclelimit = 37284;
                 length_triggers[0] = 14916;
                 length_triggers[1] = 37284;
+
+                linear_triggers[0] = 7458;
+                linear_triggers[1] = 14916;
+                linear_triggers[2] = 22371;
+                linear_triggers[3] = 37284;
             }
             else
             {
                 apu_cyclelimit = 29832;
                 length_triggers[0] = 14916;
                 length_triggers[1] = 29832;
+
+                linear_triggers[0] = 7458;
+                linear_triggers[1] = 14916;
+                linear_triggers[2] = 22371;
+                linear_triggers[3] = 29832;
             }
 
             next_counter_clock = length_triggers[0];
             //If the counter is not halted and the MODE is written to, clear the counter immediately
-            if (apu_frame_counter & 0x80 && !(sq1_vol & 0x20) && sq1_length)
+            if (apu_frame_counter & 0x80 && !sq1_vol.length_halt && sq1_length)
             {
                 sq1_length--;
             }
-            if (apu_frame_counter & 0x80 && !(sq2_vol & 0x20) && sq2_length)
+            if (apu_frame_counter & 0x80 && !sq2_vol.length_halt && sq2_length)
             {
                 sq2_length--;
             }
@@ -230,7 +262,7 @@ int ioRegRead(unsigned short address) {
             break;
         case 0x00:
             CPU_LOG("BANANA APU SQ1 VOL Reg read at %x value %x\n", address, sq1_vol);
-            return sq1_vol;
+            return sq1_vol._u8;
             break;
         case 0x01:
             CPU_LOG("BANANA APU SQ1 SWEEP Reg read at %x value %x\n", address, sq1_sweep);
@@ -297,9 +329,22 @@ void handleInput() {
 void updateAPU(unsigned int cpu_cycles)
 {
     bool updatelength = false;
+    bool updatelinear = false;
     unsigned int newcycles = (cpu_cycles - last_apu_cpucycle);
     apu_cycles += newcycles;
     last_apu_cpucycle += newcycles;
+
+    if (apu_cycles >= next_linear_clock && (apu_cycles - newcycles) < next_linear_clock)
+    {
+        updatelinear = true;
+
+        next_linear_clock = linear_triggers[linear_stage];
+
+        linear_stage++;
+
+        if (linear_stage > 3)
+            linear_stage = 0;
+    }
 
     if (apu_cycles >= next_counter_clock && (apu_cycles- newcycles) < next_counter_clock)
     {
@@ -317,7 +362,7 @@ void updateAPU(unsigned int cpu_cycles)
 
     if (apu_status_channels & 0x1)
     {
-        if (sq1_length && !(sq1_vol & 0x20) && updatelength)
+        if (sq1_length && !sq1_vol.length_halt && updatelength)
         {
 
             sq1_length -= 1;
@@ -326,7 +371,7 @@ void updateAPU(unsigned int cpu_cycles)
     }
     if (apu_status_channels & 0x2)
     {
-        if (sq2_length && !(sq2_vol & 0x20) && updatelength)
+        if (sq2_length && !sq2_vol.length_halt && updatelength)
         {
 
             sq2_length -= 1;

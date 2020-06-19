@@ -6,7 +6,7 @@ void LookUpCRC()
 {
     unsigned int crc;
 
-    crc = crc32_4bytes(ROMCart, (prgsize * 16384));
+    crc = crc32_4bytes(ROMCart, (prg_count * 16384));
 
     SRAMSize = iNESMapper == 0 ? 4096 : 8192;
     PRGRAMSize = 0;

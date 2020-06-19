@@ -31,7 +31,7 @@ unsigned char UXROM::ReadCHRROM(unsigned short address)
     if (CHRRAMSize)
         mem = CHRRAM;
     else
-        mem = &ROMCart[(prgsize * 16384)];
+        mem = &ROMCart[(prg_count * 16384)];
 
     value = mem[(address & 0x1FFF)];
 
@@ -56,7 +56,7 @@ void UXROM::CPUWrite(unsigned short address, unsigned char value)
         break;
     default:
         if (address >= 0x8000)
-            currentProgram = value % prgsize;
+            currentProgram = value % prg_count;
         CPU_LOG("MAPPER UxROM Program changed to %d value %d\n", currentProgram, value);
         break;
     }
@@ -78,7 +78,7 @@ unsigned char UXROM::CPURead(unsigned short address)
         value = ROMCart[(currentProgram * 16384) + (address & 0x3FFF)];
         break;
     default:
-        value = ROMCart[((prgsize-1) * 16384)  + (address & 0x3FFF)];
+        value = ROMCart[((prg_count-1) * 16384)  + (address & 0x3FFF)];
         break;
     }
 

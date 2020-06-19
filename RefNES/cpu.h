@@ -14,16 +14,13 @@ extern unsigned char SP;
 extern unsigned int cpuCycles;
 extern unsigned int dotCycles;
 extern unsigned int nextCpuCycle;
-extern int masterCycles;
-extern unsigned int scanlinesperframe;
-extern unsigned int vBlankInterval;
-extern unsigned int masterClock;
 extern unsigned int cpuClock;
 extern unsigned int ppuClock;
 extern unsigned int NMITriggerCycle;
 extern bool NMITriggered;
 extern bool NMIRequested;
 extern bool CPUInterruptTriggered;
+extern bool checkInputs;
 
 void CPUPushSingleStack(unsigned char value);
 unsigned char CPUPopSingleStack();

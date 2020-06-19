@@ -36,7 +36,7 @@ unsigned char MMC2::ReadProgramROM(unsigned short address)
     }
     else
     {
-        value = ROMCart[(((prgsize * 2) - 3) * 8192) + (address - 0xA000)];
+        value = ROMCart[(((prg_count * 2) - 3) * 8192) + (address - 0xA000)];
     }
 
     return value;
@@ -70,7 +70,7 @@ unsigned char MMC2::ReadCHRROM(unsigned short address)
     unsigned char value;
     unsigned char* mem;
 
-    mem = &ROMCart[(prgsize * 16384)];
+    mem = &ROMCart[(prg_count * 16384)];
     unsigned char bank = address >= 0x1000 ? upperCHRBank : lowerCHRBank;
 
     value = mem[(bank * 4096) + (address & 0xFFF)];

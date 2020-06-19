@@ -92,10 +92,10 @@ void MMC3::ChangePRGCHR(unsigned char value)
         upper1KCHRBank2 = value % cartchrsize;
         break;
     case 0x6:
-        currentProgram80C0 = value % (prgsize * 2); //Programs are 8kb
+        currentProgram80C0 = value % (prg_count * 2); //Programs are 8kb
         break;
     case 0x7:
-        currentProgramA0 = value % (prgsize * 2);
+        currentProgramA0 = value % (prg_count * 2);
         break;
     }
 }
@@ -106,12 +106,12 @@ unsigned char MMC3::ReadPRG(unsigned short address)
 
     if (address >= 0xE000) //Always fixed to last bank
     {
-        value = ROMCart[(((prgsize * 2) - 1) * 8192) + (address & 0x1FFF)];
+        value = ROMCart[(((prg_count * 2) - 1) * 8192) + (address & 0x1FFF)];
     }
     else if(address >= 0x8000 && address < 0xA000)
     {
         if(bankSelect & 0x40) //8000 is second to last program
-            value = ROMCart[(((prgsize * 2) - 2) * 8192) + (address & 0x1FFF)];
+            value = ROMCart[(((prg_count * 2) - 2) * 8192) + (address & 0x1FFF)];
         else //Otherwise selected bank
             value = ROMCart[(currentProgram80C0 * 8192) + (address & 0x1FFF)];
     }
@@ -120,7 +120,7 @@ unsigned char MMC3::ReadPRG(unsigned short address)
         if (bankSelect & 0x40) //C000 is selected bank
             value = ROMCart[(currentProgram80C0 * 8192) + (address & 0x1FFF)];
         else //Otherwise second to last program
-            value = ROMCart[(((prgsize * 2) - 2) * 8192) + (address & 0x1FFF)];
+            value = ROMCart[(((prg_count * 2) - 2) * 8192) + (address & 0x1FFF)];
     }
     else //Should be A000 range
     {
@@ -138,7 +138,7 @@ unsigned char MMC3::ReadCHRROM(unsigned short address)
     if (CHRRAMSize)
         mem = CHRRAM;
     else
-        mem = &ROMCart[(prgsize * 16384)];
+        mem = &ROMCart[(prg_count * 16384)];
 
     if (bankSelect & 0x80) //A12 inverted
     {

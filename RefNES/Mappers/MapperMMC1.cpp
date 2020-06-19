@@ -63,10 +63,10 @@ unsigned char MMC1::ReadProgramROM(unsigned short address)
         }
         else
         {
-            if(prgsize > 16 && PRGOffset == 0)
+            if(prg_count > 16 && PRGOffset == 0)
                 value = ROMCart[(15 * 16384) + (address & 0x3FFF)];
             else
-                value = ROMCart[((prgsize - 1) * 16384) + (address & 0x3FFF)];
+                value = ROMCart[((prg_count - 1) * 16384) + (address & 0x3FFF)];
         }
     }
     return value;
@@ -80,7 +80,7 @@ unsigned char MMC1::ReadCHRROM(unsigned short address)
     if (CHRRAMSize)
         mem = CHRRAM;
     else
-        mem = &ROMCart[(prgsize * 16384)];
+        mem = &ROMCart[(prg_count * 16384)];
 
     if (control & 0x10) //4k Bank mode
     {
@@ -159,7 +159,7 @@ void MMC1::CPUWrite(unsigned short address, unsigned char value)
             else if ((address & 0xe000) == 0xA000)
             {
                 CPU_LOG("MAPPER MMC1 Changing Lower CHR to Program %d\n", buffer);
-                if (prgsize > 16) //If we have more than 256k of program assume the upper bit is related to the SUROM 256k switch
+                if (prg_count > 16) //If we have more than 256k of program assume the upper bit is related to the SUROM 256k switch
                 {
                     if (buffer & 0x10)
                     {
@@ -188,7 +188,7 @@ void MMC1::CPUWrite(unsigned short address, unsigned char value)
             else if ((address & 0xE000) == 0xE000)
             {
                 
-                currentProgram = (buffer & 0xF) % prgsize;
+                currentProgram = (buffer & 0xF) % prg_count;
                 CPU_LOG("MAPPER MMC1 Changing PRG to Program %d, buffer = %x\n", currentProgram, buffer);
                 if(PRGRAMSize)
                     PRGRAMEnabled = (buffer >> 4) & 0x1;

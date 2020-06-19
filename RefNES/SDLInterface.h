@@ -6,7 +6,6 @@
 
 extern unsigned short SCREEN_WIDTH;
 extern unsigned short SCREEN_HEIGHT;
-extern unsigned int ScreenBuffer[256][240];
 
 void DestroyDisplay();
 void InitDisplay(int width, int height, HWND hWnd);

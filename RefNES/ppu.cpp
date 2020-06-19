@@ -574,22 +574,20 @@ __inline void DrawPixel(unsigned int pixel)
     else
         xPos = currentXPos;
     if (currentXPos < 256 && currentYPos < 240)
-        ScreenBuffer[xPos][currentYPos] = pixel;
+        DrawPixelBuffer(currentYPos, xPos, pixel);
 }
 
-__inline unsigned int ProcessBackgroundPixel(unsigned int selectedBGPattern, unsigned int selectedBGAttr)
+__inline unsigned int ProcessBackgroundPixel(unsigned int selectedBGPalette, unsigned int selectedBGAttr)
 {
     unsigned char colourIdx;
 
-    if (selectedBGPattern == 0) //It looks like this is the unversal background colour for every palette? Breaks SMB1 otherwise
+    if (selectedBGPalette == 0) //It looks like this is the unversal background colour for every palette? Breaks SMB1 otherwise
         colourIdx = mapper->PPURead(0x3F00);
     else
     {
-        unsigned int paletteSelect;
         unsigned short paletteAddr;
         //Get the Palette
-        paletteSelect = (selectedBGAttr << 2) | selectedBGPattern;
-        paletteAddr = 0x3F00 + paletteSelect;
+        paletteAddr = 0x3F00 + (selectedBGAttr << 2) | selectedBGPalette;
 
         colourIdx = mapper->PPURead(paletteAddr);
     }
@@ -619,7 +617,8 @@ void DrawPatternTables()
             patternTop = (mapper->PPURead(patternTableAddress + (currentTile * 16) + 8 + (j / 8)) >> (7 - (j % 8))) & 0x1;
             patternTop <<= 1;
             colourIdx = mapper->PPURead(0x3F00 + (patternTop | patternBottom));
-            ScreenBuffer[currentX][currentY] = masterPalette[colourIdx & 0x3F];
+            DrawPixelBuffer(currentY, currentX, masterPalette[colourIdx & 0x3F]);
+
             currentX++;
             if (currentX == startX + 8)
             {
@@ -655,19 +654,13 @@ __inline unsigned int ProcessSpritePixel(unsigned int selectedSPRPattern, unsign
 
 __inline void ProcessPixel()
 {
-    unsigned int pixelToDraw = 0xFF000000;
+    unsigned int pixelToDraw;
     unsigned int BGPixel = 0xFF000000;
     unsigned int SPRPixel = 0;
-    unsigned int selectedBGPattern = 0;
-    unsigned int selectedBGPatternUpper, selectedBGPatternLower;
-    unsigned int selectedBGAttr;
-    unsigned int selectedSPRPatternUpper, selectedSPRPatternLower, selectedSPRPattern;
-    unsigned int selectedSPRAttr;
+    unsigned int selectedBGPalette = 0;
     bool renderBackground = true;
     bool renderSprites = true;
-    bool prioritySpriteRead = false;
     bool spriteBehindBackground = false;
-    bool horizFlip = false;
 
     //Process Pixel
     if (currentXPos < 8)
@@ -695,21 +688,28 @@ __inline void ProcessPixel()
     //Background Processing
     if(renderBackground)
     {
+        unsigned int selectedBGPatternUpper, selectedBGPatternLower;
+        unsigned int selectedBGAttr;
         //Grab the top bit of the pattern tile (depending on the fineX scroll) and move them over so they're the lower bits
         selectedBGPatternLower = (patternShifter[0] >> (7 - fineX)) & 0x1;
         selectedBGPatternUpper = (patternShifter[1] >> (7 - fineX)) & 0x1;
-        selectedBGPattern = (selectedBGPatternUpper << 1) | selectedBGPatternLower;
+        selectedBGPalette = (selectedBGPatternUpper << 1) | selectedBGPatternLower;
         //Grab the top bits of the attribute (depending on the fineX scroll) and move them over so they're the lower bits
         //Each attribute is 2 bits, so fineX needs to be multiplied by 2
         selectedBGAttr = (attributeShifter >> (14 - (fineX * 2))) & 0x3;
         
         //CPU_LOG("Processing Background Pixel pattern %d, attr %d from position %d\n", selectedBGPattern, selectedBGAttr, (7 - fineX));
-        BGPixel = ProcessBackgroundPixel(selectedBGPattern, selectedBGAttr);
+        BGPixel = ProcessBackgroundPixel(selectedBGPalette, selectedBGAttr);
     }
 
     //Sprite Processing
     if (renderSprites)
     {
+        unsigned int selectedSPRPatternUpper, selectedSPRPatternLower, selectedSPRPalette;
+        unsigned int selectedSPRAttr;
+        bool prioritySpriteRead = false;
+        bool horizFlip = false;
+
         for (unsigned int i = 0; i < spriteToDraw; i++)
         {
             //X == 0 means the top left start of the sprite
@@ -732,19 +732,19 @@ __inline void ProcessPixel()
                     selectedSPRPatternLower = (spritePatternLower[i] >> abs(spriteX[i])) & 0x1;
                 }
 
-                selectedSPRPattern = (selectedSPRPatternUpper << 1) | selectedSPRPatternLower;
+                selectedSPRPalette = (selectedSPRPatternUpper << 1) | selectedSPRPatternLower;
 
                 //CPU_LOG("DEBUG Processing Pixel Pattern %d isZero %d BGPattern %d\n", selectedSPRPattern, isSpriteZero[i], selectedBGPattern);
-                if (selectedSPRPattern) //Don't process transparent pixels
+                if (selectedSPRPalette) //Don't process transparent pixels
                 {
                     if (!prioritySpriteRead)
                     {
-                        SPRPixel = ProcessSpritePixel(selectedSPRPattern, selectedSPRAttr);
+                        SPRPixel = ProcessSpritePixel(selectedSPRPalette, selectedSPRAttr);
                         prioritySpriteRead = true;
                         spriteBehindBackground = (selectedSPRAttr & 0x20) == 0x20;
                     }
 
-                    if (isSpriteZero[i] && selectedBGPattern)
+                    if (isSpriteZero[i] && selectedBGPalette)
                     {
                         //Zero Sprite hit doesn't happen at position 255
                         if (zeroSpriteHitEnable == true && currentXPos < 255 && currentYPos < 240)
@@ -756,12 +756,9 @@ __inline void ProcessPixel()
                         }
                     }
                 }
-                spriteX[i]--;
             }
-            else
-            {
-                spriteX[i]--;
-            }
+
+            spriteX[i]--;
         }
     }
     else
@@ -775,7 +772,7 @@ __inline void ProcessPixel()
 
     if (SPRPixel)
     {
-        if (spriteBehindBackground && selectedBGPattern) //Behind background
+        if (spriteBehindBackground && selectedBGPalette) //Behind background
         {
             pixelToDraw = BGPixel;
         }
@@ -861,50 +858,16 @@ __inline void AdvanceShifters()
 
 void PPULoop()
 {
-    //It's possible for the background to be disabled when it goes to the next frame
-    //but the background be used, so maybe it shouldn't skip the first cycle?
-    if (PPUMask & 0x8)
-        backgroundRenderedThisFrame = true;
-
-    /*if (iNESMapper == 5)
-    {
-        if (scanlineCycles == 4 && scanline < 240)
-        {
-            MMC5ScanlineIRQStatus |= 0x40;
-        }
-
-        if (scanlineCycles == 336 && scanline == 0)
-        {
-            MMC5ScanlineIRQStatus &= ~0x40;
-            MMC5ScanlineIRQStatus &= ~0x80;
-            MMC5ScanlineCounter = 0;
-            CPUInterruptTriggered = false;
-        }
-
-        if ( MMC5ScanlineNumberIRQ != 0 && scanlineCycles == 4 && (PPUMask & 0x18) && scanline < 240)
-        {
-            MMC5ScanlineCounter++;
-            if ((scanline == MMC5ScanlineNumberIRQ))
-            {
-                CPU_LOG("MMC5 triggering IRQ\n");
-                MMC5ScanlineIRQStatus |= 0x80;
-                if(MMC5ScanlineIRQEnabled)
-                    CPUInterruptTriggered = true;
-            }
-        }
-    }*/
-    if ((scanline <= 241 || scanline == 261) && scanlineCycles != 0)
+    //Visible scanlines and Pre-Render line
+    if ((scanline < 240 || scanline == 261) && scanlineCycles != 0)
     {
         unsigned short byteAddress;
         unsigned short patternTableBaseAddress;
 
-        //Visible scanlines and Pre-Render line
-        if (scanline < 240 || scanline == 261)
+        //End of VBlank and clear sprite overflow, execute Pre-Render line            
+        if(scanlineCycles == 1)
         {
-           // MMC2SwitchCHR();
-            
-            //End of VBlank and clear sprite overflow, execute Pre-Render line
-            if (scanline == 261 && scanlineCycles == 1)
+            if (scanline == 261)
             {
                 PPUStatus &= ~0xE0;
                 isVBlank = false;
@@ -912,56 +875,62 @@ void PPULoop()
                 zeroSpriteHitEnable = true;
                 zerospriteentry = 99;
                 currentYPos = 0;
-                currentXPos = 0; 
+                currentXPos = 0;
                 nextTileInfo.attributeByte = 0;
                 nextTileInfo.nameTableByte = 0;
                 nextTileInfo.patternLowerByte = 0;
                 nextTileInfo.patternUpperByte = 0;
             }
-
             //Secondary OAM clear
-            if(scanlineCycles == 1)
+            memset(TempSPR, 0xFF, sizeof(TempSPR));
+            processingSprite = 0;
+            spritesEvaluated = 0;
+            spriteEvaluationPos = 0;
+            foundSprites = 0;
+            //Probably only needs to be done per frame, but just in case there's some game which is awkward
+            if ((PPUCtrl & 0x20))
+                spriteheight = 15;
+            else
+                spriteheight = 7;
+        } else
+        //Load background and shifters
+        if (scanlineCycles <= 257 || (scanlineCycles >= 322 && scanlineCycles <= 337))
+        {
+            if (scanlineCycles <= 257)
             {
-                memset(TempSPR, 0xFF, sizeof(TempSPR));
-                processingSprite = 0;
-                spritesEvaluated = 0;
-                spriteEvaluationPos = 0;
-                foundSprites = 0;
-                //Probably only needs to be done per frame, but just in case there's some game which is awkward
-                if ((PPUCtrl & 0x20))
-                    spriteheight = 15;
-                else
-                    spriteheight = 7;
-            }
-
-            if (scanline < 240 && scanlineCycles >= 2 && scanlineCycles <= 257)
-            {
-                ProcessPixel();
-                if (currentXPos == 255)
+                if (scanline < 240)
                 {
-                    currentYPos++;
-                    currentXPos = 0;
-                    spriteToDraw = 0; //All sprites will have been drawn for this line, stop false sprites being drawn on the prerender line
+                    ProcessPixel();
+                    if (currentXPos == 255)
+                    {
+                        currentYPos++;
+                        currentXPos = 0;
+                        spriteToDraw = 0; //All sprites will have been drawn for this line, stop false sprites being drawn on the prerender line
+                    }
+                    else
+                        currentXPos++;
                 }
-                else
-                    currentXPos++;
-            }
 
-            
-            //Load background and shifters
-            if ((scanlineCycles >= 2 && scanlineCycles <= 257) || (scanlineCycles >= 322 && scanlineCycles <= 337))
-            {
+                if (scanlineCycles == 65)
+                {
+                    if (PPUMask & 0x18)
+                        spriteEvaluationEnabled = true;
+                    else
+                        spriteEvaluationEnabled = false;
+                }
+
                 //At cycle 257 reload v_reg horizontal
                 if (scanlineCycles == 257 && (PPUMask & 0x18))
                 {
                     v_reg.coarseX = t_reg.coarseX;
                     v_reg.nametable = (v_reg.nametable & 0x2) | (t_reg.nametable & 0x1);
                 }
+            }
 
-                AdvanceShifters();
+            AdvanceShifters();
 
-                switch (scanlineCycles % 8)
-                {
+            switch (scanlineCycles & 0x7)
+            {
                 case 1:
                 {
                     //Update shifters and refil lower 8
@@ -1065,19 +1034,13 @@ void PPULoop()
                 default:
                     //do nothing
                     break;
-                }
-
-                if (scanlineCycles == 65)
-                {
-                    if (PPUMask & 0x18)
-                        spriteEvaluationEnabled = true;
-                    else
-                        spriteEvaluationEnabled = false;
-                }
             }
+        }
 
-            //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
-            if(scanline < 240 && scanlineCycles >= 65 && scanlineCycles <= 256 && spriteEvaluationEnabled)
+        //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
+        if (spriteEvaluationEnabled && scanline < 240)
+        {
+            if (scanlineCycles >= 65 && scanlineCycles <= 256)
             {
                 if (spriteEvaluationPos < 0x100)
                 {
@@ -1090,14 +1053,14 @@ void PPULoop()
                         {
                             TempSPR[foundSpritePos + (spriteEvaluationPos & 0x3)] = SPRMemory[spriteEvaluationPos];
                             spriteEvaluationPos++;
-                            if(!(spriteEvaluationPos & 0x3)) //If it's back to 0 we're on to the next sprite
+                            if (!(spriteEvaluationPos & 0x3)) //If it's back to 0 we're on to the next sprite
                                 foundSprites++;
                         }
                         else
                         {
                             if (foundSprites < 8)
                             {
-                                if (SPRMemory[spriteEvaluationPos] <= scanline && (unsigned short)(SPRMemory[spriteEvaluationPos] + spriteheight) >= scanline && scanline < 240)
+                                if (SPRMemory[spriteEvaluationPos] <= scanline && (unsigned short)(SPRMemory[spriteEvaluationPos] + spriteheight) >= scanline)
                                 {
 
                                     TempSPR[foundSpritePos] = SPRMemory[spriteEvaluationPos];
@@ -1112,7 +1075,7 @@ void PPULoop()
                                     spriteEvaluationPos += 4;
                                 }
                             }
-                            else 
+                            else
                             {
                                 if (SPRMemory[spriteEvaluationPos] <= scanline && (unsigned short)(SPRMemory[spriteEvaluationPos] + spriteheight) >= scanline)
                                 {
@@ -1129,21 +1092,20 @@ void PPULoop()
                                     //sprite[12][3]
                                     //sprite[13][0]
                                     //sprite[14][1] etc
-                                    if((spriteEvaluationPos & 0x3) == 0x3)
-                                        spriteEvaluationPos ++;
+                                    if ((spriteEvaluationPos & 0x3) == 0x3)
+                                        spriteEvaluationPos++;
                                     else
-                                        spriteEvaluationPos+=5;
+                                        spriteEvaluationPos += 5;
                                 }
                             }
                         }
-                        
+
                     }
                 }
             }
-            else
             //Sprite loading
             //Actually runs from cycle 257 and does garbage Nametable and Attribute Table reads, I guess we can ignore them? For now ;)
-            if (scanlineCycles >= 261 && scanlineCycles <= 320)
+            else if (scanlineCycles >= 261 && scanlineCycles <= 320)
             {
                 //Clear the last used sprites at this point
                 if (scanlineCycles == 261)
@@ -1157,7 +1119,7 @@ void PPULoop()
                 }
                 if (processingSprite < foundSprites && (PPUMask & 0x18))
                 {
-                    switch (scanlineCycles % 8)
+                    switch (scanlineCycles & 0x7)
                     {
                     case 1:
                         processingSprite++;
@@ -1181,49 +1143,51 @@ void PPULoop()
                         break;
                     }
                 }
-                else
-                    if (processingSprite <= foundSprites && foundSprites < 8 && (scanlineCycles % 8) == 0 && (PPUMask & 0x18)) //If less than 8 sprites are fetched, a dummy fetch to Tile FF (0x1FF0-0x1FFF) is made
+                else if (processingSprite <= foundSprites && foundSprites < 8 && (scanlineCycles & 0x7) == 0 && (PPUMask & 0x18)) //If less than 8 sprites are fetched, a dummy fetch to Tile FF (0x1FF0-0x1FFF) is made
+                {
+                    unsigned char dummy;
+                    if (!(PPUCtrl & 0x20))
                     {
-                        unsigned char dummy;
-                        if (!(PPUCtrl & 0x20))
-                        {
-                            if (PPUCtrl & 0x8)
-                                patternTableBaseAddress = 0x1000;
-                            else
-                                patternTableBaseAddress = 0x0000;
-
-                            dummy = mapper->PPURead(patternTableBaseAddress + 0xFF0);
-                        }
-                        else
-                        {
+                        if (PPUCtrl & 0x8)
                             patternTableBaseAddress = 0x1000;
+                        else
+                            patternTableBaseAddress = 0x0000;
 
-                            dummy = mapper->PPURead(patternTableBaseAddress + 0xFE0);
-                        }
-                        
-                        foundSprites++;
-                        processingSprite++;
+                        dummy = mapper->PPURead(patternTableBaseAddress + 0xFF0);
                     }
-            }
+                    else
+                    {
+                        patternTableBaseAddress = 0x1000;
 
-            //2 fake nametable lookups on Visible and Pre-Render scanlines
-            if (scanlineCycles == 338 || scanlineCycles == 340)
-            {
-                //Retrieve Nametable Byte
-                byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) << 5) + v_reg.coarseX;
-                unsigned char dummy = mapper->PPURead(byteAddress);
-            }
+                        dummy = mapper->PPURead(patternTableBaseAddress + 0xFE0);
+                    }
 
-            //Reload vertical v_reg.  Actually happens from 280-304 of the pre-render scanline but we can just do this
-            if (scanline == 261 && scanlineCycles >= 280 && scanlineCycles <= 304 && (PPUMask & 0x18))
-            {
-                v_reg.coarseY = t_reg.coarseY;
-                v_reg.fineY = t_reg.fineY;
-                v_reg.nametable = (v_reg.nametable & 0x1) | (t_reg.nametable & 0x2);
+                    foundSprites++;
+                    processingSprite++;
+                }
             }
         }
-        //VBlank Start, show frame
-        if (scanline == 241 && scanlineCycles == 1 && skipVBlank == false)
+
+        //2 fake nametable lookups on Visible and Pre-Render scanlines
+        if (scanlineCycles == 338 || scanlineCycles == 340)
+        {
+            //Retrieve Nametable Byte
+            byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) << 5) + v_reg.coarseX;
+            unsigned char dummy = mapper->PPURead(byteAddress);
+        }
+
+        //Reload vertical v_reg.  Happens from 280-304 of the pre-render scanline
+        if (scanline == 261 && scanlineCycles >= 280 && scanlineCycles <= 304 && (PPUMask & 0x18))
+        {
+            v_reg.coarseY = t_reg.coarseY;
+            v_reg.fineY = t_reg.fineY;
+            v_reg.nametable = (v_reg.nametable & 0x1) | (t_reg.nametable & 0x2);
+        }
+    } else
+     //VBlank Start, show frame
+    if (scanline == 241 && scanlineCycles == 1)
+    {
+        if (skipVBlank == false)
         {
             PPUStatus |= 0x80;
             isVBlank = true;
@@ -1238,30 +1202,35 @@ void PPULoop()
                 }
 
                 NMITriggered = true; //NMIRequested = true;
-                if(dotCycles + 2 < nextCpuCycle)
-                    NMITriggerCycle = cpuCycles+1;
+                if (dotCycles + 2 < nextCpuCycle)
+                    NMITriggerCycle = cpuCycles + 1;
                 else
-                    NMITriggerCycle = cpuCycles+2;
+                    NMITriggerCycle = cpuCycles + 2;
             }
-            handleInput();
-            StartDrawing();
-            if(MenuShowPatternTables)
+            if (MenuShowPatternTables)
                 DrawPatternTables();
-            DrawScreen();
-            EndDrawing();
         }
+        checkInputs = true;
+        EndDrawing();
     }
+    else if(scanline == 0 && scanlineCycles == 0)
+        StartDrawing();
     //Update PPU clocks
     scanlineCycles++;
     dotCycles++;
 
-    if (scanline == 261 && scanlineCycles == 339 && oddFrame && backgroundRenderedThisFrame)
+    if (oddFrame && scanline == 261 && scanlineCycles == 339 && backgroundRenderedThisFrame)
     {
         scanlineCycles = 340;
     }
     //We've reached the end of the scanline
     if (scanlineCycles == 341)
     {
+        if (scanline == 0)
+        {
+            UpdateFPSCounter();
+        }
+
         if (scanline == 261)
         {
             scanline = 0;
@@ -1270,16 +1239,15 @@ void PPULoop()
         }
         else
         {
+            //It's possible for the background to be disabled when it goes to the next frame
+            //but the background be used, so maybe it shouldn't skip the first cycle?
+            if (PPUMask & 0x8)
+                backgroundRenderedThisFrame = true;
             //CPU_LOG("Next Scanline\n");
             scanline++;
         }
 
         scanlineCycles = 0;
-    }
-
-    if (scanline == 0 && scanlineCycles == 340)
-    {
-        UpdateFPSCounter();
     }
 }
 
