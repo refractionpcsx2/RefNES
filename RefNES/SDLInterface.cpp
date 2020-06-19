@@ -80,10 +80,7 @@ void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
         return;
     unsigned int pitchDivider = (pitch / sizeof(unsigned int));
     unsigned int position = ypos * pitchDivider + xpos;
-    if (pixels != nullptr)
-        pixels[position] = pixel;
-    else
-        CPU_LOG("What the hell\n");
+    pixels[position] = pixel;
     //ScreenBuffer[xpos][ypos] = pixel;
 }
 
