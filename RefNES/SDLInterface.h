@@ -13,6 +13,5 @@ void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel);
 void StartDrawing();
 void EndDrawing();
 void DrawScreen();
-void ZeroBuffer();
 
 #endif

@@ -98,7 +98,6 @@ void PPUReset() {
     memset(spriteX, 0, sizeof(spriteX));
     memset(spriteY, 0, sizeof(spriteY));
     memset(isSpriteZero, 0, sizeof(isSpriteZero));
-    ZeroBuffer();
 }
 
 unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting = false)

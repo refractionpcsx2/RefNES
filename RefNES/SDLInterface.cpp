@@ -9,7 +9,6 @@ SDL_Window *screen = NULL;
 
 extern HWND hwndSDL;
 extern char MenuVSync;
-unsigned int ScreenBuffer[256][240];
 Uint32* pixels = nullptr;
 int pitch = 0;
 LARGE_INTEGER nStartTime;
@@ -70,10 +69,6 @@ void InitDisplay(int width, int height, HWND hWnd)
     QueryPerformanceCounter(&nStartTime);*/
 }
 
-void ZeroBuffer() {
-    memset(ScreenBuffer, 0, sizeof(ScreenBuffer));
-}
-
 void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
 {
     if (ypos < 1)
@@ -81,7 +76,6 @@ void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
     unsigned int pitchDivider = (pitch / sizeof(unsigned int));
     unsigned int position = ypos * pitchDivider + xpos;
     pixels[position] = pixel;
-    //ScreenBuffer[xpos][ypos] = pixel;
 }
 
 void EndDrawing()
