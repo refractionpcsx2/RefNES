@@ -863,7 +863,7 @@ void PPULoop()
         unsigned short byteAddress;
         unsigned short patternTableBaseAddress;
 
-        //End of VBlank and clear sprite overflow, execute Pre-Render line            
+        //End of VBlank and clear sprite overflow, execute Pre-Render line
         if(scanlineCycles == 1)
         {
             if (scanline == 261)
@@ -895,9 +895,9 @@ void PPULoop()
         //Load background and shifters
         if (scanlineCycles <= 257 || (scanlineCycles >= 322 && scanlineCycles <= 337))
         {
-            if (scanlineCycles <= 257)
+            if (scanline < 240)
             {
-                if (scanline < 240)
+                if (scanlineCycles <= 257)
                 {
                     ProcessPixel();
                     if (currentXPos == 255)
@@ -909,21 +909,6 @@ void PPULoop()
                     else
                         currentXPos++;
                 }
-
-                if (scanlineCycles == 65)
-                {
-                    if (PPUMask & 0x18)
-                        spriteEvaluationEnabled = true;
-                    else
-                        spriteEvaluationEnabled = false;
-                }
-
-                //At cycle 257 reload v_reg horizontal
-                if (scanlineCycles == 257 && (PPUMask & 0x18))
-                {
-                    v_reg.coarseX = t_reg.coarseX;
-                    v_reg.nametable = (v_reg.nametable & 0x2) | (t_reg.nametable & 0x1);
-                }
             }
 
             AdvanceShifters();
@@ -932,6 +917,20 @@ void PPULoop()
             {
                 case 1:
                 {
+                    //At cycle 257 reload v_reg horizontal
+                    if (scanlineCycles == 257 && (PPUMask & 0x18))
+                    {
+                        v_reg.coarseX = t_reg.coarseX;
+                        v_reg.nametable = (v_reg.nametable & 0x2) | (t_reg.nametable & 0x1);
+                    }
+
+                    if (scanlineCycles == 65)
+                    {
+                        if (PPUMask & 0x18)
+                            spriteEvaluationEnabled = true;
+                        else
+                            spriteEvaluationEnabled = false;
+                    }
                     //Update shifters and refil lower 8
                     UpdateNextShifterTile();
                 }
@@ -1035,11 +1034,19 @@ void PPULoop()
                     break;
             }
         }
+        else 
+        //2 fake nametable lookups on Visible and Pre-Render scanlines
+        if (scanlineCycles == 338 || scanlineCycles == 340)
+        {
+            //Retrieve Nametable Byte
+            byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) << 5) + v_reg.coarseX;
+            unsigned char dummy = mapper->PPURead(byteAddress);
+        }
 
         //Sprite Evaluation, at this point sprites are moved in to the Secondary OAM
-        if (spriteEvaluationEnabled && scanline < 240)
+        if (spriteEvaluationEnabled)
         {
-            if (scanlineCycles >= 65 && scanlineCycles <= 256)
+            if (scanlineCycles >= 65 && scanlineCycles <= 256 && scanline < 240)
             {
                 if (spriteEvaluationPos < 0x100)
                 {
@@ -1167,14 +1174,6 @@ void PPULoop()
             }
         }
 
-        //2 fake nametable lookups on Visible and Pre-Render scanlines
-        if (scanlineCycles == 338 || scanlineCycles == 340)
-        {
-            //Retrieve Nametable Byte
-            byteAddress = 0x2000 + (v_reg.nametable * 0x400) + ((v_reg.coarseY) << 5) + v_reg.coarseX;
-            unsigned char dummy = mapper->PPURead(byteAddress);
-        }
-
         //Reload vertical v_reg.  Happens from 280-304 of the pre-render scanline
         if (scanline == 261 && scanlineCycles >= 280 && scanlineCycles <= 304 && (PPUMask & 0x18))
         {
@@ -1214,39 +1213,43 @@ void PPULoop()
     }
     else if(scanline == 0 && scanlineCycles == 0)
         StartDrawing();
+
     //Update PPU clocks
     scanlineCycles++;
     dotCycles++;
 
-    if (oddFrame && scanline == 261 && scanlineCycles == 339 && backgroundRenderedThisFrame)
+    if (scanlineCycles >= 339)
     {
-        scanlineCycles = 340;
-    }
-    //We've reached the end of the scanline
-    if (scanlineCycles == 341)
-    {
-        if (scanline == 0)
+        if (oddFrame && scanline == 261 && scanlineCycles == 339 && backgroundRenderedThisFrame)
         {
-            UpdateFPSCounter();
+            scanlineCycles = 340;
         }
+        //We've reached the end of the scanline
+        if (scanlineCycles == 341)
+        {
+            if (scanline == 0)
+            {
+                UpdateFPSCounter();
+            }
 
-        if (scanline == 261)
-        {
-            scanline = 0;
-            oddFrame = !oddFrame;
-            backgroundRenderedThisFrame = false;
-        }
-        else
-        {
-            //It's possible for the background to be disabled when it goes to the next frame
-            //but the background be used, so maybe it shouldn't skip the first cycle?
-            if (PPUMask & 0x8)
-                backgroundRenderedThisFrame = true;
-            //CPU_LOG("Next Scanline\n");
-            scanline++;
-        }
+            if (scanline == 261)
+            {
+                scanline = 0;
+                oddFrame = !oddFrame;
+                backgroundRenderedThisFrame = false;
+            }
+            else
+            {
+                //It's possible for the background to be disabled when it goes to the next frame
+                //but the background be used, so maybe it shouldn't skip the first cycle?
+                if (PPUMask & 0x8)
+                    backgroundRenderedThisFrame = true;
+                //CPU_LOG("Next Scanline\n");
+                scanline++;
+            }
 
-        scanlineCycles = 0;
+            scanlineCycles = 0;
+        }
     }
 }
 
