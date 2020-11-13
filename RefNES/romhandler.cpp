@@ -112,7 +112,7 @@ int LoadRom(const char *Filename) {
             ines_flags10 = ROMHeader[10];
             iNESMapper = ((ROMHeader[6] >> 4) & 0xF) | (ROMHeader[7] & 0xF0);
             fourScreen = (ROMHeader[6] >> 3) & 0x1;
-            memset(CartridgeSRAM, 0, sizeof(CartridgeSRAM));
+            //memset(CartridgeSRAM, 0, sizeof(CartridgeSRAM));
             CPU_LOG("prgsize=%d, chrsize=%d, flags6=%x, flags8=%x, flags10=%x mapper=%d\n", prg_count, chrsize, ines_flags6, ROMHeader[8],  ines_flags10, iNESMapper);
             fseek(pFile, 16, SEEK_SET); //Point it past the header
             LoadRomToMemory(pFile, lSize);

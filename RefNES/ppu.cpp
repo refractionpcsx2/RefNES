@@ -116,7 +116,7 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
 
         lastA12bit = address;*/
 
-        if (iNESMapper == 9 && isWriting == false) {
+        /*if (iNESMapper == 9 && isWriting == false) {
             if ((address & 0x1FF8) == 0x0FD8)
                 MMC2SetLatch(0, 0xFD);
 
@@ -128,23 +128,23 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
 
             if ((address & 0x1FF8) == 0x1FE8)
                 MMC2SetLatch(1, 0xFE);
-        }
+        }*/
 
         if (chrsize == 0) //CHR-RAM, can swap banks over
         {
             if ((address & 0x1000) == 0x0000)
             {
-                if (LowerCHRRAMBank == 1)
+                //if (LowerCHRRAMBank == 1)
                     calculatedAddress = address | 0x1000;
-                else
-                    calculatedAddress = address;
+                /*else
+                    calculatedAddress = address;*/
             }
             else
             {
-                if (UpperCHRRAMBank == 0)
+               // if (UpperCHRRAMBank == 0)
                     calculatedAddress = address & ~0x1000;
-                else
-                    calculatedAddress = address;
+                /*else
+                    calculatedAddress = address;*/
             }
         }
         else
@@ -156,7 +156,7 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
     //In horizontal mirroring, Nametable 1 & 2 match (0x2000), 3 & 4 match (0x2800)
     if (address >= 0x2000 && address < 0x3F00)
     {
-        if (iNESMapper == 5) //MMC5
+        /*if (iNESMapper == 5) //MMC5
         {
             unsigned short nametableSelector = (address & 0x0C00) >> 10;
             unsigned char nametableOption = (MMC5NametableMap >> (nametableSelector * 2)) & 0x3;
@@ -178,7 +178,7 @@ unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting 
                     break;
             }
         }
-        else if (iNESMapper == 1 && singlescreen > 0)
+        else*/ if (iNESMapper == 1 && singlescreen > 0)
         {
             if (singlescreen == 2)
             {
@@ -1190,14 +1190,14 @@ void PPULoop()
             PPUStatus |= 0x80;
             isVBlank = true;
             //CPU_LOG("VBLANK Start at %d cpu cycles\n", cpuCycles);
-            MMC5ScanlineIRQStatus &= ~0x40;
+            //MMC5ScanlineIRQStatus &= ~0x40;
 
             if ((PPUCtrl & 0x80))
             {
-                if (MMC5ScanlineIRQStatus & 0x80)
+                /*if (MMC5ScanlineIRQStatus & 0x80)
                 {
                     CPUInterruptTriggered = false;
-                }
+                }*/
 
                 NMITriggered = true; //NMIRequested = true;
                 if (dotCycles + 2 < nextCpuCycle)
