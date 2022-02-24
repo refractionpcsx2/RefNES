@@ -65,8 +65,8 @@ void InitDisplay(int width, int height, HWND hWnd)
 
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
 
-    /*QueryPerformanceFrequency(&nFrequency);
-    QueryPerformanceCounter(&nStartTime);*/
+    QueryPerformanceFrequency(&nFrequency);
+    QueryPerformanceCounter(&nStartTime);
 }
 
 void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
