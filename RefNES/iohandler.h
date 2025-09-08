@@ -5,7 +5,7 @@ void IOReset();
 int ioRegRead(unsigned short address);
 void ioRegWrite(unsigned short address, unsigned char value);
 void handleInput();
-void updateAPU(unsigned int cpu_cycles);
+void updateAPU(unsigned long long cpu_cycles);
 
-extern unsigned int last_apu_cpucycle;
+extern unsigned long long last_apu_cpucycle;
 #endif

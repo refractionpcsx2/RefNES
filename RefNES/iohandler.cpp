@@ -15,8 +15,8 @@ unsigned short noise_period;
 unsigned short noise_length;
 unsigned short sq1_wave, sq2_wave;
 unsigned char apu_status_channels, apu_status_interrupts, apu_frame_counter;
-unsigned int apu_cycles;
-unsigned int last_apu_cpucycle, apu_cyclelimit;
+unsigned long long apu_cycles;
+unsigned long long last_apu_cpucycle, apu_cyclelimit;
 unsigned int next_counter_clock;
 unsigned int next_linear_clock;
 unsigned int linear_stage;
@@ -326,11 +326,11 @@ void handleInput() {
     }
 }
 
-void updateAPU(unsigned int cpu_cycles)
+void updateAPU(unsigned long long cpu_cycles)
 {
     bool updatelength = false;
     bool updatelinear = false;
-    unsigned int newcycles = (cpu_cycles - last_apu_cpucycle);
+    unsigned long long newcycles = (cpu_cycles - last_apu_cpucycle);
     apu_cycles += newcycles;
     last_apu_cpucycle += newcycles;
 

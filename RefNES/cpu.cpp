@@ -11,11 +11,11 @@ unsigned char Y;
 unsigned char A;
 unsigned char P;
 unsigned char Opcode;
-unsigned int cpuCycles = 0;
-unsigned int nextCpuCycle = 0;
-unsigned int dotCycles = 0; //PPU clock
+unsigned long long cpuCycles = 0ULL;
+unsigned long long nextCpuCycle = 0ULL;
+unsigned long long dotCycles = 0ULL; //PPU clock
 bool NMITriggered = false;
-unsigned int NMITriggerCycle = 0;
+unsigned long long NMITriggerCycle = 0;
 bool NMIRequested = false;
 bool CPUInterruptTriggered = false;
 bool checkInputs = false;
@@ -29,12 +29,13 @@ void CPUIncrementCycles(int cycles, bool is_ppu)
     nextCpuCycle = (cpuCycles * 3) + 3;
 
     updateAPU(cpuCycles);
+
     // End of scanline routines start at cycle 249, need to be careful of mappers.
     // Also tighten the timing around vsync to make sure it triggers in the right spot.
     if (scanline > 240 || is_ppu || CPUInterruptTriggered || NMITriggered ||
-        (static_cast<int>(249 - (scanlineCycles + static_cast<int>(nextCpuCycle - dotCycles)))) < 0)
+        (static_cast<long>(249 - (scanlineCycles + static_cast<long>(nextCpuCycle - dotCycles)))) < 0)
     {
-        while (static_cast<int>(nextCpuCycle - dotCycles) > 0)
+        while (static_cast<long>(nextCpuCycle - dotCycles) > 0)
             PPULoop();
     }
 }
@@ -1771,7 +1772,8 @@ void CPUFireNMI()
 {
     CPU_LOG("Executing NMI\n");
     CPUIncrementCycles(7, true);
-    P |= BREAK_FLAG | (1 << 5);
+    P &= ~BREAK_FLAG;
+    P |= (1 << 5);
     CPUPushAllStack();
     P |= INTERRUPT_DISABLE_FLAG;
     PC = memReadPC(0xFFFA);

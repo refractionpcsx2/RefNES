@@ -63,10 +63,9 @@ HWND hWnd;
 
 void CleanupRoutine()
 {
-    //Clean up XAudio2
+    CleanUpROMMem();
     if(mapper = NULL)
         delete mapper;
-    CleanUpROMMem();
     DestroyDisplay();
     if (LoggingEnable)
         fclose(LogFile);
@@ -289,14 +288,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         else
         {
-            if (dotCycles >= INT_MAX)
+            if (dotCycles >= LLONG_MAX)
             {
-                const unsigned int cpuCyclesReset = INT_MAX / 3;
-                cpuCycles -= 900000;
-                dotCycles -= INT_MAX;
-                nextCpuCycle -= INT_MAX;
-                last_apu_cpucycle -= 900000;
-                NMITriggerCycle -= 900000;
+                const unsigned int cpuCyclesReset = LLONG_MAX / 3;
+                cpuCycles -= cpuCyclesReset;
+                dotCycles -= LLONG_MAX;
+                nextCpuCycle -= LLONG_MAX;
+                last_apu_cpucycle -= cpuCyclesReset;
+                NMITriggerCycle -= cpuCyclesReset;
             }
 
             if (checkInputs)
