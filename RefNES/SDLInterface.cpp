@@ -71,8 +71,8 @@ void InitDisplay(int width, int height, HWND hWnd)
 
 void DrawPixelBuffer(int ypos, int xpos, unsigned int pixel)
 {
-    unsigned int pitchDivider = (pitch / sizeof(unsigned int));
-    unsigned int position = ypos * pitchDivider + xpos;
+    const unsigned int pitchDivider = (pitch >> 2);
+    const unsigned int position = ypos * pitchDivider + xpos;
     pixels[position] = pixel;
 }
 

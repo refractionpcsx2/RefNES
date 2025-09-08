@@ -23,14 +23,20 @@ bool checkInputs = false;
 
 typedef void(*JumpTable)(void);
 
-void CPUIncrementCycles(int cycles)
+void CPUIncrementCycles(int cycles, bool is_ppu)
 {
     cpuCycles += cycles;
-    nextCpuCycle = (cpuCycles * 3) + 30;
+    nextCpuCycle = (cpuCycles * 3) + 3;
 
     updateAPU(cpuCycles);
-    while(dotCycles < nextCpuCycle)
-        PPULoop();
+    // End of scanline routines start at cycle 249, need to be careful of mappers.
+    // Also tighten the timing around vsync to make sure it triggers in the right spot.
+    if (scanline > 240 || is_ppu || CPUInterruptTriggered || NMITriggered ||
+        (static_cast<int>(249 - (scanlineCycles + static_cast<int>(nextCpuCycle - dotCycles)))) < 0)
+    {
+        while (static_cast<int>(nextCpuCycle - dotCycles) > 0)
+            PPULoop();
+    }
 }
 
 void CPUReset() {
@@ -112,10 +118,10 @@ void cpuBCC() {
 
     if (!(P & CARRY_FLAG)) {
         if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-            CPUIncrementCycles(2);
+            CPUIncrementCycles(2, true);
         }
         else {
-            CPUIncrementCycles(1);
+            CPUIncrementCycles(1, true);
         }
         PC = newPC;
     }
@@ -131,10 +137,10 @@ void cpuBCS() {
 
     if ((P & CARRY_FLAG)) {
         if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-            CPUIncrementCycles(2);
+            CPUIncrementCycles(2, true);
         }
         else {
-            CPUIncrementCycles(1);
+            CPUIncrementCycles(1, true);
         }
         PC = newPC;
     }
@@ -150,10 +156,10 @@ void cpuBEQ() {
 
     if ((P & ZERO_FLAG)) {
         if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-            CPUIncrementCycles(2);
+            CPUIncrementCycles(2, true);
         }
         else {
-            CPUIncrementCycles(1);
+            CPUIncrementCycles(1, true);
         }
         PC = newPC;
     }
@@ -170,10 +176,10 @@ void cpuBMI() {
 
     if ((P & NEGATIVE_FLAG)) {
         if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-            CPUIncrementCycles(2);
+            CPUIncrementCycles(2, true);
         }
         else {
-            CPUIncrementCycles(1);
+            CPUIncrementCycles(1, true);
         }
         PC = newPC;
     }
@@ -189,10 +195,10 @@ void cpuBNE() {
 
     if (!(P & ZERO_FLAG)) {
         if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-            CPUIncrementCycles(2);
+            CPUIncrementCycles(2, true);
         }
         else {
-            CPUIncrementCycles(1);
+            CPUIncrementCycles(1, true);
         }
         PC = newPC;
     }
@@ -208,10 +214,10 @@ void cpuBPL() {
 
     if (!(P & NEGATIVE_FLAG)) {
         if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-            CPUIncrementCycles(2);
+            CPUIncrementCycles(2, true);
         }
         else {
-            CPUIncrementCycles(1);
+            CPUIncrementCycles(1, true);
         }
         PC = newPC;
     }
@@ -248,7 +254,7 @@ void cpuBRK() {
     P |= BREAK_FLAG | (1<<5);
     CPUPushAllStack();
     P |= INTERRUPT_DISABLE_FLAG;
-    CPUIncrementCycles(5);
+    CPUIncrementCycles(5, false);
     
     PC = memReadPC(0xFFFE);
 }
@@ -260,10 +266,10 @@ void cpuBVC() {
 
     if (!(P & OVERFLOW_FLAG)) {
         if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-            CPUIncrementCycles(2);
+            CPUIncrementCycles(2, true);
         }
         else {
-            CPUIncrementCycles(1);
+            CPUIncrementCycles(1, true);
         }
         PC = newPC;
     }
@@ -279,10 +285,10 @@ void cpuBVS() {
 
     if ((P & OVERFLOW_FLAG)) {
         if ((newPC & 0xff00) != ((PC + 2) & 0xff00)) {
-            CPUIncrementCycles(2);
+            CPUIncrementCycles(2, true);
         }
         else {
-            CPUIncrementCycles(1);
+            CPUIncrementCycles(1, true);
         }
         PC = newPC;
     }
@@ -448,23 +454,23 @@ void cpuINY() {
 
 }
 void cpuJMP() {
-        
+    const unsigned short oldPC = PC;
     if (Opcode == 0x6c) {    
         PC = memReadPCIndirect();
 #ifdef CPU_LOGGING
         CPU_LOG("JMP Indirect to %x\n", PC);
 #endif
-        CPUIncrementCycles(3);
+        CPUIncrementCycles(3, true);
     }
     else {
         PC = memReadPC(PC + 1);
 #ifdef CPU_LOGGING
         CPU_LOG("JMP Absolute to %x\n", PC);
 #endif
-        CPUIncrementCycles(1);
+        CPUIncrementCycles(1, true);
     }
-    
 }
+
 void cpuJSR() {
     unsigned short newPC = memReadPC(PC + 1);
     PC += 2;
@@ -473,7 +479,7 @@ void cpuJSR() {
 #endif   
     CPUPushPCStack();
     PC = newPC;
-    CPUIncrementCycles(4);
+    CPUIncrementCycles(4, true);
 }
 void cpuLDY() {
     Y = memRead();
@@ -499,7 +505,7 @@ void cpuPHA() {
     CPU_LOG("PHA\n");
 #endif
     PC += PCInc;
-    CPUIncrementCycles(1);
+    CPUIncrementCycles(1, false);
 }
 void cpuPHP() {
     P |= BREAK_FLAG | (1 << 5);
@@ -508,7 +514,7 @@ void cpuPHP() {
     CPU_LOG("PHP\n");
 #endif
     PC += PCInc;
-    CPUIncrementCycles(1);
+    CPUIncrementCycles(1, false);
 }
 void cpuPLA() {
     A = CPUPopSingleStack();
@@ -526,7 +532,7 @@ void cpuPLA() {
     CPU_LOG("PLA\n");
 #endif
     PC += PCInc;
-    CPUIncrementCycles(2);
+    CPUIncrementCycles(2, false);
 }
 void cpuPLP() {
     P = CPUPopSingleStack();
@@ -535,11 +541,11 @@ void cpuPLP() {
     CPU_LOG("PLP\n");
 #endif
     PC += PCInc;
-    CPUIncrementCycles(2);
+    CPUIncrementCycles(2, false);
 }
 void cpuRTI() {
     CPUPopAllStack();
-    CPUIncrementCycles(4);
+    CPUIncrementCycles(4, false);
 #ifdef CPU_LOGGING
     CPU_LOG("RTI PC=%x Flags=%x\n", PC, P);
 #endif
@@ -547,7 +553,7 @@ void cpuRTI() {
 void cpuRTS() {
     CPUPopPCStack();
     PC += 1;
-    CPUIncrementCycles(4);
+    CPUIncrementCycles(4, false);
 #ifdef CPU_LOGGING
     CPU_LOG("RTS PC=%x Flags=%x\n", PC, P);
 #endif
@@ -1382,9 +1388,9 @@ void cpuDCP() {
         P &= ~NEGATIVE_FLAG;
     }
     if(Opcode == 0xC3)
-        CPUIncrementCycles(-2);
+        CPUIncrementCycles(-2, false);
     if (Opcode == 0xD3)
-        CPUIncrementCycles(-1);
+        CPUIncrementCycles(-1, false);
     //CPU_LOG("Undocumented DCP\n");
     PC += PCInc;
 }
@@ -1427,9 +1433,9 @@ void cpuISC() {
 #endif
     A = (unsigned char)temp;
     if (Opcode == 0xE3)
-        CPUIncrementCycles(-2);
+        CPUIncrementCycles(-2, false);
     if (Opcode == 0xF3)
-        CPUIncrementCycles(-1);
+        CPUIncrementCycles(-1, false);
     PC += PCInc;
 }
 
@@ -1506,9 +1512,9 @@ void cpuRLA() {
     P |= A & 0x80;
     //CPU_LOG("Undocumented RLA\n");
     if (Opcode == 0x23)
-        CPUIncrementCycles(-2);
+        CPUIncrementCycles(-2, false);
     if (Opcode == 0x33)
-        CPUIncrementCycles(-1);
+        CPUIncrementCycles(-1, false);
     PC += PCInc;
 }
 
@@ -1571,9 +1577,9 @@ void cpuRRA() {
 
     //CPU_LOG("Undocumented RRA\n");
     if (Opcode == 0x63)
-        CPUIncrementCycles(-2);
+        CPUIncrementCycles(-2, false);
     if (Opcode == 0x73)
-        CPUIncrementCycles(-1);
+        CPUIncrementCycles(-1, false);
 
     PC += PCInc;
 }
@@ -1620,9 +1626,9 @@ void cpuSLO() {
     P |= A & 0x80;
     //CPU_LOG("UNDOCUMENTED SLO Result=%x Flags=%x\n", source, P);
     if (Opcode == 0x03)
-        CPUIncrementCycles(-2);
+        CPUIncrementCycles(-2, false);
     if (Opcode == 0x13)
-        CPUIncrementCycles(-1);
+        CPUIncrementCycles(-1, false);
     PC += PCInc;
 }
 
@@ -1660,15 +1666,15 @@ void cpuSRE() {
 
     //CPU_LOG("Undocumented SRE\n");
     if (Opcode == 0x43)
-        CPUIncrementCycles(-2);
+        CPUIncrementCycles(-2, false);
     if (Opcode == 0x53)
-        CPUIncrementCycles(-1);
+        CPUIncrementCycles(-1, false);
     PC += PCInc;
 }
 
 void cpuTAS() {
     memRead(false);
-    CPUIncrementCycles(1);
+    CPUIncrementCycles(1, false);
     PC += PCInc;
 }
 
@@ -1764,7 +1770,7 @@ JumpTable CPUUnofficial[64] = { cpuSLO, cpuSLO, cpuANC, cpuSLO, cpuSLO, cpuSLO, 
 void CPUFireNMI()
 {
     CPU_LOG("Executing NMI\n");
-    CPUIncrementCycles(7);
+    CPUIncrementCycles(7, true);
     P |= BREAK_FLAG | (1 << 5);
     CPUPushAllStack();
     P |= INTERRUPT_DISABLE_FLAG;
@@ -1777,7 +1783,7 @@ void CPULoop() {
     Opcode = memReadValue(PC);
     //CPU_LOG("Addr: %04x Opcode %04x A:%02x X:%02x Y:%02x P:%02x SP:%02x PPU:%3d,%3d CYC:%d\n", PC, Opcode, A, X, Y, P, SP, scanlineCycles, scanline, cpuCycles);
     PCInc = 1;
-    CPUIncrementCycles(1);
+    CPUIncrementCycles(1, false);
     //CPU_LOG("Running Opcode %x PC = %x\n", Opcode, PC);
     switch (Opcode & 0x3) {
         case 0x0: //Control Instructions
@@ -1796,7 +1802,7 @@ void CPULoop() {
             //TODO undocumented opcodes
             break;
     }
-    CPUIncrementCycles(1);
+    CPUIncrementCycles(1, false);
 
     
 }

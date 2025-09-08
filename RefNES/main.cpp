@@ -289,13 +289,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         else
         {
-            if (cpuCycles >= 1000000)
+            if (dotCycles >= INT_MAX)
             {
+                const unsigned int cpuCyclesReset = INT_MAX / 3;
                 cpuCycles -= 900000;
-                dotCycles -= 2700000;
-                nextCpuCycle -= 2700000;
+                dotCycles -= INT_MAX;
+                nextCpuCycle -= INT_MAX;
                 last_apu_cpucycle -= 900000;
-
+                NMITriggerCycle -= 900000;
             }
 
             if (checkInputs)
@@ -304,7 +305,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 handleInput();
             }
 
-            if (NMITriggered && cpuCycles >= NMITriggerCycle)
+            if (NMITriggered && static_cast<int>(NMITriggerCycle - cpuCycles) <= 0)
             {
                 CPUFireNMI();
             }
@@ -315,7 +316,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 if (!(P & INTERRUPT_DISABLE_FLAG))
                 {
                     CPUInterruptTriggered = false;
-                    CPUIncrementCycles(7);
+                    CPUIncrementCycles(7, true);
                     P &= ~BREAK_FLAG;
                     P |= (1 << 5);
                     CPUPushAllStack();

@@ -8,5 +8,4 @@ void handleInput();
 void updateAPU(unsigned int cpu_cycles);
 
 extern unsigned int last_apu_cpucycle;
-extern bool APUInterruptTriggered;
 #endif

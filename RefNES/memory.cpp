@@ -73,11 +73,11 @@ unsigned short MemAddrAbsolute(bool iswrite, bool writeonly)
     CPU_LOG("Absolute Mem %x PC = %x \n", fulladdress, PC);
 #endif
     PCInc = 3;
-
+    const bool is_ppu = (fulladdress >= 0x2000 && fulladdress < 0x4000) || (iswrite && fulladdress >= 0x8000);
     if (iswrite == false)
-        CPUIncrementCycles(2);
+        CPUIncrementCycles(2, is_ppu);
     else
-        CPUIncrementCycles(2);
+        CPUIncrementCycles(2, is_ppu);
 
     return fulladdress;
 
@@ -86,8 +86,9 @@ unsigned short MemAddrAbsolute(bool iswrite, bool writeonly)
 unsigned short MemAddrAbsoluteY(bool iswrite, bool haspenalty, bool writeonly)
 {
     unsigned short fulladdress = (((unsigned short)GetMemoryValue(PC + 2) << 8) | GetMemoryValue(PC + 1));
+    const bool is_ppu = (fulladdress >= 0x2000 && fulladdress < 0x4000) || (iswrite && fulladdress >= 0x8000);
     if (((fulladdress & 0xFF00) != ((fulladdress + Y) & 0xFF00) && haspenalty) || iswrite)
-        CPUIncrementCycles(1);
+        CPUIncrementCycles(1, is_ppu);
 
     fulladdress += Y;
 #ifdef MEM_LOGGING
@@ -95,17 +96,18 @@ unsigned short MemAddrAbsoluteY(bool iswrite, bool haspenalty, bool writeonly)
 #endif
     PCInc = 3;
     if (iswrite == false)
-        CPUIncrementCycles(2);
+        CPUIncrementCycles(2, is_ppu);
     else
-        CPUIncrementCycles(2);
+        CPUIncrementCycles(2, is_ppu);
     return fulladdress;
 }
 
 unsigned short MemAddrAbsoluteX(bool iswrite, bool haspenalty, bool writeonly)
 {
     unsigned short fulladdress = (((unsigned short)GetMemoryValue(PC + 2) << 8) | GetMemoryValue(PC + 1));
+    const bool is_ppu = (fulladdress >= 0x2000 && fulladdress < 0x4000) || (iswrite && fulladdress >= 0x8000);
     if (((fulladdress & 0xFF00) != ((fulladdress + X) & 0xFF00) && haspenalty) || iswrite)
-        CPUIncrementCycles(1);
+        CPUIncrementCycles(1, is_ppu);
 
     fulladdress += X;
 #ifdef MEM_LOGGING
@@ -113,9 +115,9 @@ unsigned short MemAddrAbsoluteX(bool iswrite, bool haspenalty, bool writeonly)
 #endif
     PCInc = 3;
     if (iswrite == false)
-        CPUIncrementCycles(2);
+        CPUIncrementCycles(2, is_ppu);
     else
-        CPUIncrementCycles(2);
+        CPUIncrementCycles(2, is_ppu);
 
     return fulladdress;
 }
@@ -126,11 +128,12 @@ unsigned short MemAddrPreIndexed(bool iswrite, bool writeonly)
     unsigned short address = (unsigned short)GetMemoryValue(PC + 1) + X;
 
     fulladdress = ((unsigned short)GetMemoryValue((address + 1) & 0xFF) << 8) | GetMemoryValue(address & 0xFF);
+    const bool is_ppu = (fulladdress >= 0x2000 && fulladdress < 0x4000) || (iswrite && fulladdress >= 0x8000);
 #ifdef MEM_LOGGING
     CPU_LOG("Pre Indexed Mem %x PC = %x \n", fulladdress, PC);
 #endif
     PCInc = 2;
-    CPUIncrementCycles(4);
+    CPUIncrementCycles(4, is_ppu);
 
     return fulladdress;
 }
@@ -141,15 +144,16 @@ unsigned short MemAddrPostIndexed(bool iswrite, bool haspenalty, bool writeonly)
     unsigned short address = GetMemoryValue(PC + 1);
 
     fulladdress = (((unsigned short)GetMemoryValue((address + 1) & 0xFF) << 8) | GetMemoryValue(address & 0xFF));
+    const bool is_ppu = (fulladdress >= 0x2000 && fulladdress < 0x4000) || (iswrite && fulladdress >= 0x8000);
     if(((fulladdress & 0xFF00) != ((fulladdress + Y) & 0xFF00) && haspenalty) || iswrite)
-        CPUIncrementCycles(1);
+        CPUIncrementCycles(1, is_ppu);
 
     fulladdress += Y;
 #ifdef MEM_LOGGING
     CPU_LOG("Post Indexed Mem %x PC = %x \n", fulladdress, PC);
 #endif
     PCInc = 2;
-    CPUIncrementCycles(3);
+    CPUIncrementCycles(3, is_ppu);
 
     return fulladdress;
 }
@@ -169,14 +173,15 @@ unsigned short MemAddrImmediate(bool iswrite)
 unsigned short MemAddrZeroPage(bool iswrite, bool writeonly)
 {
     unsigned short fulladdress = GetMemoryValue(PC + 1);
+    const bool is_ppu = (fulladdress >= 0x2000 && fulladdress < 0x4000) || (iswrite && fulladdress >= 0x8000);
 #ifdef MEM_LOGGING
     CPU_LOG("Zero Page %x PC = %x \n", fulladdress, PC);
 #endif
     PCInc = 2;
     if (iswrite == false || writeonly)
-        CPUIncrementCycles(1);
+        CPUIncrementCycles(1, is_ppu);
     else
-        CPUIncrementCycles(2);
+        CPUIncrementCycles(2, is_ppu);
     return fulladdress;
 }
 
@@ -194,11 +199,12 @@ unsigned short MemAddrZeroPageIndexed(bool iswrite, bool writeonly)
     {
         fulladdress = (GetMemoryValue(PC + 1) + X) & 0xFF;
     }
+    const bool is_ppu = (fulladdress >= 0x2000 && fulladdress < 0x4000) || (iswrite && fulladdress >= 0x8000);
 #ifdef MEM_LOGGING
     CPU_LOG("Zero Page Indexed %x PC = %x \n", fulladdress, PC);
 #endif
     PCInc = 2;
-    CPUIncrementCycles(2);
+    CPUIncrementCycles(2, is_ppu);
     return fulladdress;
 }
 
@@ -267,6 +273,7 @@ unsigned short memGetAddr(bool iswrite, bool haspenalty, bool writeonly = false)
 unsigned char memRead(bool haspenalty)
 {
     unsigned short address = memGetAddr(false, haspenalty);
+
     //CPU_LOG("Reading from address %x, value %x\n", address, CPUMemory[address]);
     if (address >= 0x4020)
     {

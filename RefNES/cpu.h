@@ -18,6 +18,7 @@ extern unsigned int cpuClock;
 extern unsigned int ppuClock;
 extern unsigned int NMITriggerCycle;
 extern bool NMITriggered;
+extern bool isVBlank;
 extern bool NMIRequested;
 extern bool CPUInterruptTriggered;
 extern bool checkInputs;
@@ -35,6 +36,7 @@ unsigned char CPUPopSingleStack();
 void CPULoop();
 void CPUPushAllStack();
 void CPUFireNMI();
-void CPUIncrementCycles(int cycles);
+void CPUIncrementCycles(int cycles, bool is_ppu);
+void WaitUntilVBlank();
 
 #endif

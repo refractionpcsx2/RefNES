@@ -24,9 +24,9 @@ unsigned int length_triggers[2];
 unsigned int linear_triggers[4];
 unsigned int apu_irq_set = 0;
 
-struct pulse_vol
+union pulse_vol
 {
-    union
+    struct
     {
         unsigned char vol : 4;
         unsigned char constant_vol : 1;
@@ -88,8 +88,8 @@ void SPRTransfer(unsigned char memvalue)
     }
 
     if (cpuCycles & 0x1)
-        CPUIncrementCycles(1);
-    CPUIncrementCycles((transferamt * 2) + 1);
+        CPUIncrementCycles(1, true);
+    CPUIncrementCycles((transferamt * 2) + 1, true);
 
 
 }

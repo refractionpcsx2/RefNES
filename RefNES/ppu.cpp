@@ -695,7 +695,7 @@ __inline void ProcessPixel()
         selectedBGPalette = (selectedBGPatternUpper << 1) | selectedBGPatternLower;
         //Grab the top bits of the attribute (depending on the fineX scroll) and move them over so they're the lower bits
         //Each attribute is 2 bits, so fineX needs to be multiplied by 2
-        selectedBGAttr = (attributeShifter >> (14 - (fineX * 2))) & 0x3;
+        selectedBGAttr = (attributeShifter >> (14 - (fineX << 1))) & 0x3;
         
         //CPU_LOG("Processing Background Pixel pattern %d, attr %d from position %d\n", selectedBGPattern, selectedBGAttr, (7 - fineX));
         BGPixel = ProcessBackgroundPixel(selectedBGPalette, selectedBGAttr);
@@ -704,10 +704,7 @@ __inline void ProcessPixel()
     //Sprite Processing
     if (renderSprites)
     {
-        unsigned int selectedSPRPatternUpper, selectedSPRPatternLower, selectedSPRPalette;
-        unsigned int selectedSPRAttr;
         bool prioritySpriteRead = false;
-        bool horizFlip = false;
 
         for (unsigned int i = 0; i < spriteToDraw; i++)
         {
@@ -716,22 +713,24 @@ __inline void ProcessPixel()
             if (spriteX[i] <= 0 && spriteX[i] > -8 )
             {
                 //Process Pixel
-                selectedSPRAttr = spriteAttribute[i];
+                unsigned int selectedSPRPatternUpper, selectedSPRPatternLower;
 
-                horizFlip = (selectedSPRAttr & 0x40) == 0x40;
+                const unsigned int selectedSPRAttr = spriteAttribute[i];
+                const bool horizFlip = (selectedSPRAttr & 0x40) == 0x40;
+                const int spriteXShift = horizFlip ? abs(spriteX[i]) : (7 - abs(spriteX[i]));
 
                 if (!horizFlip)
                 {
-                    selectedSPRPatternUpper = (spritePatternUpper[i] >> (7 - abs(spriteX[i]))) & 0x1;
-                    selectedSPRPatternLower = (spritePatternLower[i] >> (7 - abs(spriteX[i]))) & 0x1;
+                    selectedSPRPatternUpper = (spritePatternUpper[i] >> spriteXShift) & 0x1;
+                    selectedSPRPatternLower = (spritePatternLower[i] >> spriteXShift) & 0x1;
                 }
                 else
                 {
-                    selectedSPRPatternUpper = (spritePatternUpper[i] >> abs(spriteX[i])) & 0x1;
-                    selectedSPRPatternLower = (spritePatternLower[i] >> abs(spriteX[i])) & 0x1;
+                    selectedSPRPatternUpper = (spritePatternUpper[i] >> spriteXShift) & 0x1;
+                    selectedSPRPatternLower = (spritePatternLower[i] >> spriteXShift) & 0x1;
                 }
 
-                selectedSPRPalette = (selectedSPRPatternUpper << 1) | selectedSPRPatternLower;
+                const unsigned int selectedSPRPalette = (selectedSPRPatternUpper << 1) | selectedSPRPatternLower;
 
                 //CPU_LOG("DEBUG Processing Pixel Pattern %d isZero %d BGPattern %d\n", selectedSPRPattern, isSpriteZero[i], selectedBGPattern);
                 if (selectedSPRPalette) //Don't process transparent pixels
@@ -844,21 +843,21 @@ __inline void AdvanceShifters()
     //CPU_LOG("Advance Shifters\n");
     //Shift the shifters along one
     attributeShifter <<= 2;
-    attributeShifter |= nextTileInfo.attributeByte;
-
     patternShifter[0] <<= 1;
-    patternShifter[0] |= (nextTileInfo.patternLowerByte >> 7) & 0x1;
-    nextTileInfo.patternLowerByte <<= 1;
-
     patternShifter[1] <<= 1;
+
+    attributeShifter |= nextTileInfo.attributeByte;
+    patternShifter[0] |= (nextTileInfo.patternLowerByte >> 7) & 0x1;
     patternShifter[1] |= (nextTileInfo.patternUpperByte >> 7) & 0x1;
+
+    nextTileInfo.patternLowerByte <<= 1;
     nextTileInfo.patternUpperByte <<= 1;
 }
 
 void PPULoop()
 {
     //Visible scanlines and Pre-Render line
-    if ((scanline < 240 || scanline == 261) && scanlineCycles != 0)
+    if (scanlineCycles != 0 && (scanline < 240 || scanline == 261))
     {
         unsigned short byteAddress;
         unsigned short patternTableBaseAddress;
@@ -1116,10 +1115,10 @@ void PPULoop()
                 //Clear the last used sprites at this point
                 if (scanlineCycles == 261)
                 {
-                    memset(spritePatternLower, 0, sizeof(spritePatternLower));
+                    /*memset(spritePatternLower, 0, sizeof(spritePatternLower));
                     memset(spritePatternUpper, 0, sizeof(spritePatternUpper));
                     memset(spriteAttribute, 0, sizeof(spriteAttribute));
-                    memset(spriteX, 0, sizeof(spriteX));
+                    memset(spriteX, 0, sizeof(spriteX));*/
                     memset(isSpriteZero, 0, sizeof(isSpriteZero));
                     spriteToDraw = foundSprites;
                 }
@@ -1149,7 +1148,7 @@ void PPULoop()
                         break;
                     }
                 }
-                else if (processingSprite <= foundSprites && foundSprites < 8 && (scanlineCycles & 0x7) == 0 && (PPUMask & 0x18)) //If less than 8 sprites are fetched, a dummy fetch to Tile FF (0x1FF0-0x1FFF) is made
+                else if (foundSprites < 8 && processingSprite <= foundSprites && (scanlineCycles & 0x7) == 0 && (PPUMask & 0x18)) //If less than 8 sprites are fetched, a dummy fetch to Tile FF (0x1FF0-0x1FFF) is made
                 {
                     unsigned char dummy;
                     if (!(PPUCtrl & 0x20))
