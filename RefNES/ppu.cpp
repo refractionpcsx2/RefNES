@@ -8,6 +8,7 @@ unsigned char MMC5CHRBankA[0x2000];
 unsigned char MMC5CHRBankB[0x2000];
 unsigned char SPRMemory[0x100]; //256byte memory for Sprite RAM
 unsigned char TempSPR[0x20];
+unsigned char paletteBuffer[0x20];
 unsigned short SPRRamAddress; //0x2003
 unsigned short VRAMRamAddress; //0x2006
 unsigned char PPUCtrl; //0x2000
@@ -51,10 +52,11 @@ unsigned short lastA12bit = 0;
 bool oddFrame = false;
 bool backgroundRenderedThisFrame = false;
 bool skipVBlank;
+bool paletteUpdated = false;
 PPU_INTERNAL_REG t_reg;
 PPU_INTERNAL_REG v_reg;
 
-unsigned const int masterPalette[64] = {  0xFF525252, 0xFF011A51, 0xFF0F0F65, 0xFF230663, 0xFF36034B, 0xFF400426, 0xFF3F0904, 0xFF321300, 0xFF1F2000, 0xFF0B2A00, 0xFF002F00, 0xFF002E0A, 0xFF00262D, 0xFF000000, 0xFF000000, 0xFF000000,
+unsigned constexpr int masterPalette[64] = {  0xFF525252, 0xFF011A51, 0xFF0F0F65, 0xFF230663, 0xFF36034B, 0xFF400426, 0xFF3F0904, 0xFF321300, 0xFF1F2000, 0xFF0B2A00, 0xFF002F00, 0xFF002E0A, 0xFF00262D, 0xFF000000, 0xFF000000, 0xFF000000,
                                     0xFFA0A0A0, 0xFF1E4A9D, 0xFF3837BC, 0xFF5828B8, 0xFF752194, 0xFF84235C, 0xFF822E24, 0xFF6F3F00, 0xFF515200, 0xFF316300, 0xFF1A6B05, 0xFF0E692E, 0xFF105C68, 0xFF000000, 0xFF000000, 0xFF000000,
                                     0xFFFEFFFF, 0xFF699EFC, 0xFF8987FF, 0xFFAE76FF, 0xFFCE6DF1, 0xFFE070B2, 0xFFDE7C70, 0xFFC8913E, 0xFFA6A725, 0xFF81BA28, 0xFF63C446, 0xFF54C17D, 0xFF56B3C0, 0xFF3C3C3C, 0xFF000000, 0xFF000000,
                                     0xFFFEFFFF, 0xFFBED6FD, 0xFFCCCCFF, 0xFFDDC4FF, 0xFFEAC0F9, 0xFFF2C1DF, 0xFFF1C7C2, 0xFFE8D0AA, 0xFFD9DA9D, 0xFFC9E29E, 0xFFBCE6AE, 0xFFB4E5C7, 0xFFB5DFE4, 0xFFA9A9A9, 0xFF000000, 0xFF000000 };
@@ -98,156 +100,6 @@ void PPUReset() {
     memset(spriteX, 0, sizeof(spriteX));
     memset(spriteY, 0, sizeof(spriteY));
     memset(isSpriteZero, 0, sizeof(isSpriteZero));
-}
-
-unsigned short CalculatePPUMemoryAddress(unsigned short address, bool isWriting = false)
-{
-    unsigned short calculatedAddress;
-
-    //Addresses above 0x3FFF are mirrored to 0x0000-0x3FFF
-    if (address > 0x3FFF)
-        address &= 0x3FFF;
-
-    //Pattern Table Area
-    if (address < 0x2000)
-    {
-        /*if ((lastA12bit & 0x1000) != 0x1000 && (address & 0x1000) == 0x1000)
-            MMC3IRQCountdown();
-
-        lastA12bit = address;*/
-
-        /*if (iNESMapper == 9 && isWriting == false) {
-            if ((address & 0x1FF8) == 0x0FD8)
-                MMC2SetLatch(0, 0xFD);
-
-            if ((address & 0x1FF8) == 0x0FE8)
-                MMC2SetLatch(0, 0xFE);
-
-            if ((address & 0x1FF8) == 0x1FD8)
-                MMC2SetLatch(1, 0xFD);
-
-            if ((address & 0x1FF8) == 0x1FE8)
-                MMC2SetLatch(1, 0xFE);
-        }*/
-
-        if (chrsize == 0) //CHR-RAM, can swap banks over
-        {
-            if ((address & 0x1000) == 0x0000)
-            {
-                //if (LowerCHRRAMBank == 1)
-                    calculatedAddress = address | 0x1000;
-                /*else
-                    calculatedAddress = address;*/
-            }
-            else
-            {
-               // if (UpperCHRRAMBank == 0)
-                    calculatedAddress = address & ~0x1000;
-                /*else
-                    calculatedAddress = address;*/
-            }
-        }
-        else
-            calculatedAddress = address;
-    }
-    else
-    //Nametable area (0x3000 - 0x3EFF is a mirror of the nametable area)
-    //In vertical mirroring, Nametable 1 & 3 match (0x2000), 2 & 4 match (0x2400)
-    //In horizontal mirroring, Nametable 1 & 2 match (0x2000), 3 & 4 match (0x2800)
-    if (address >= 0x2000 && address < 0x3F00)
-    {
-        /*if (iNESMapper == 5) //MMC5
-        {
-            unsigned short nametableSelector = (address & 0x0C00) >> 10;
-            unsigned char nametableOption = (MMC5NametableMap >> (nametableSelector * 2)) & 0x3;
-            switch (nametableOption)
-            {
-                case 0:
-                    calculatedAddress = 0x2000 | (address & 0x3FF);
-                    break;
-                case 1:
-                    calculatedAddress = 0x2400 | (address & 0x3FF);
-                    break;
-                case 2:
-                    //Not really in the 0x8000 range, just easier to tell when reading nametables
-                    calculatedAddress = 0x8000 | (address & 0x3FF);
-                    break;
-                case 3:
-                    //Not really in the 0x9000 range, just easier to tell when reading nametables
-                    calculatedAddress = 0x9000 | (address & 0x3FF);
-                    break;
-            }
-        }
-        else*/ if (iNESMapper == 1 && singlescreen > 0)
-        {
-            if (singlescreen == 2)
-            {
-                calculatedAddress = 0x2400 | (address & 0x3FF);
-            }
-            else
-            {
-                calculatedAddress = 0x2000 | (address & 0x3FF);
-            }
-        }
-        else if (iNESMapper == 7)
-        {
-            if (singlescreen)
-            {
-                calculatedAddress = 0x2400 | (address & 0x3FF);
-            }
-            else
-            {
-                calculatedAddress = 0x2000 | (address & 0x3FF);
-            }
-        }
-        else if (!(ines_flags6 & 0x8)) //2 table mirroring
-        {
-            if ((address & 0x2C00) == 0x2000 || singlescreen) { //Nametable 1 is always the same and single screen games only use the first nametable
-                calculatedAddress = 0x2000 | (address & 0x3FF);
-            }
-            else if ((address & 0x2C00) == 0x2400) { //Nametable 2, this is 0x2400 in vertical mirroring, 0x2000 in horizontal
-                if ((ines_flags6 & 0x1))
-                    calculatedAddress = 0x2400 | (address & 0x3FF);
-                else
-                    calculatedAddress = 0x2000 | (address & 0x3FF);
-            }
-            else if ((address & 0x2C00) == 0x2800) { //Nametable 3, this is 0x2000 in vertical mirroring, 0x2400 in horizontal
-                if ((ines_flags6 & 0x1))
-                    calculatedAddress = 0x2000 | (address & 0x3FF);
-                else
-                    calculatedAddress = 0x2400 | (address & 0x3FF);
-            }
-            else if ((address & 0x2C00) == 0x2C00) { //Nametable 4, this is 0x2400 in vertical mirroring, 0x2400 in horizontal
-                if ((ines_flags6 & 0x1))
-                    calculatedAddress = 0x2400 | (address & 0x3FF);
-                else
-                    calculatedAddress = 0x2400 | (address & 0x3FF);
-            }
-        }
-        else // 4 tables available
-        {
-            calculatedAddress = 0x2000 | (address & 0xFFF);
-        }
-    }
-    else
-    //Pallete Memory and its mirrors
-    if (address >= 0x3F00 && address < 0x4000)
-    {
-        if (address >= 0x3F20 && address < 0x4000) {
-            address = address & 0x3F1F;
-        }
-        
-
-        if (address == 0x3f10 || address == 0x3f14 || address == 0x3f18 || address == 0x3f1c) {
-            calculatedAddress = address & 0x3f0f;
-        }
-        else
-        {
-            calculatedAddress = address;
-        }
-    }
-
-    return calculatedAddress;
 }
 
 void PPUWriteReg(unsigned short address, unsigned char value) {
@@ -357,6 +209,7 @@ void PPUWriteReg(unsigned short address, unsigned char value) {
                 else
                     MMC5FillColour = value;
             }*/
+            paletteUpdated |= ((v_reg.reg & 0x3F00) == 0x3F00) && (value != mapper->PPURead(v_reg.reg));
             mapper->PPUWrite(v_reg.reg, value);
 
             //MMC2SwitchCHR();
@@ -564,16 +417,32 @@ unsigned char PPUReadReg(unsigned short address) {
     return value;
 }
 
+__inline char GetPaletteEntry(unsigned int paletteLocation)
+{
+    if (paletteUpdated)
+    {
+        for (int i = 0; i < 0x20; i++)
+            paletteBuffer[i] = mapper->PPURead(0x3F00 + i);
+
+        paletteUpdated = false;
+    }
+
+    return paletteBuffer[paletteLocation & 0x1f];
+}
+
 __inline void DrawPixel(unsigned int pixel)
 {
-    unsigned char xPos;
-
-    if (MenuShowPatternTables)
-        xPos = 128 + (currentXPos / 2);
-    else
-        xPos = currentXPos;
     if (currentXPos < 256 && currentYPos < 240)
+    {
+        unsigned char xPos;
+
+        if (MenuShowPatternTables)
+            xPos = 128 + (currentXPos / 2);
+        else
+            xPos = currentXPos;
+
         DrawPixelBuffer(currentYPos, xPos, pixel);
+    }
 }
 
 __inline unsigned int ProcessBackgroundPixel(unsigned int selectedBGPalette, unsigned int selectedBGAttr)
@@ -581,14 +450,14 @@ __inline unsigned int ProcessBackgroundPixel(unsigned int selectedBGPalette, uns
     unsigned char colourIdx;
 
     if (selectedBGPalette == 0) //It looks like this is the unversal background colour for every palette? Breaks SMB1 otherwise
-        colourIdx = mapper->PPURead(0x3F00);
+        colourIdx = GetPaletteEntry(0);
     else
     {
         unsigned short paletteAddr;
         //Get the Palette
-        paletteAddr = 0x3F00 + (selectedBGAttr << 2) | selectedBGPalette;
+        paletteAddr = (selectedBGAttr << 2) | selectedBGPalette;
 
-        colourIdx = mapper->PPURead(paletteAddr);
+        colourIdx = GetPaletteEntry(paletteAddr);
     }
 
     return masterPalette[colourIdx & 0x3F];
@@ -615,7 +484,7 @@ void DrawPatternTables()
             patternBottom = (mapper->PPURead(patternTableAddress + (currentTile * 16) + (j / 8)) >> (7- (j % 8))) & 0x1;
             patternTop = (mapper->PPURead(patternTableAddress + (currentTile * 16) + 8 + (j / 8)) >> (7 - (j % 8))) & 0x1;
             patternTop <<= 1;
-            colourIdx = mapper->PPURead(0x3F00 + (patternTop | patternBottom));
+            colourIdx = GetPaletteEntry(patternTop | patternBottom);
             DrawPixelBuffer(currentY, currentX, masterPalette[colourIdx & 0x3F]);
 
             currentX++;
@@ -643,8 +512,8 @@ __inline unsigned int ProcessSpritePixel(unsigned int selectedSPRPattern, unsign
     unsigned int colourIdx;
 
     paletteSelect = 0x10 | ((selectedSPRAttr & 0x3) <<2) | selectedSPRPattern;
-    paletteAddr = 0x3F00 + paletteSelect;
-    colourIdx = mapper->PPURead(paletteAddr);
+    paletteAddr = paletteSelect;
+    colourIdx = GetPaletteEntry(paletteAddr);
 
     SPRPixel = masterPalette[colourIdx & 0x3F];
 
@@ -683,20 +552,20 @@ __inline void ProcessPixel()
     {
         renderSprites = false;
     }
-
     //Background Processing
     if(renderBackground)
     {
-        unsigned int selectedBGPatternUpper, selectedBGPatternLower;
-        unsigned int selectedBGAttr;
+        const int shift = 7 - fineX;
         //Grab the top bit of the pattern tile (depending on the fineX scroll) and move them over so they're the lower bits
-        selectedBGPatternLower = (patternShifter[0] >> (7 - fineX)) & 0x1;
-        selectedBGPatternUpper = (patternShifter[1] >> (7 - fineX)) & 0x1;
-        selectedBGPalette = (selectedBGPatternUpper << 1) | selectedBGPatternLower;
+        const int selectedBGPatternLower = (patternShifter[0] >> shift) & 0x1;
+        const int selectedBGPatternUpper = (patternShifter[1] >> shift) & 0x1;
+
         //Grab the top bits of the attribute (depending on the fineX scroll) and move them over so they're the lower bits
         //Each attribute is 2 bits, so fineX needs to be multiplied by 2
-        selectedBGAttr = (attributeShifter >> (14 - (fineX << 1))) & 0x3;
-        
+        const int selectedBGAttr = (attributeShifter >> (shift << 1)) & 0x3;
+
+        selectedBGPalette = (selectedBGPatternUpper << 1) | selectedBGPatternLower;
+
         //CPU_LOG("Processing Background Pixel pattern %d, attr %d from position %d\n", selectedBGPattern, selectedBGAttr, (7 - fineX));
         BGPixel = ProcessBackgroundPixel(selectedBGPalette, selectedBGAttr);
     }
@@ -712,23 +581,12 @@ __inline void ProcessPixel()
             //CPU_LOG("DEBUG Evaluating Sprite %d X = %d screenXPos = %d\n", i, spriteX[i], currentXPos);
             if (spriteX[i] <= 0 && spriteX[i] > -8 )
             {
-                //Process Pixel
-                unsigned int selectedSPRPatternUpper, selectedSPRPatternLower;
-
                 const unsigned int selectedSPRAttr = spriteAttribute[i];
                 const bool horizFlip = (selectedSPRAttr & 0x40) == 0x40;
                 const int spriteXShift = horizFlip ? abs(spriteX[i]) : (7 - abs(spriteX[i]));
 
-                if (!horizFlip)
-                {
-                    selectedSPRPatternUpper = (spritePatternUpper[i] >> spriteXShift) & 0x1;
-                    selectedSPRPatternLower = (spritePatternLower[i] >> spriteXShift) & 0x1;
-                }
-                else
-                {
-                    selectedSPRPatternUpper = (spritePatternUpper[i] >> spriteXShift) & 0x1;
-                    selectedSPRPatternLower = (spritePatternLower[i] >> spriteXShift) & 0x1;
-                }
+                const int selectedSPRPatternUpper = (spritePatternUpper[i] >> spriteXShift) & 0x1;
+                const int selectedSPRPatternLower = (spritePatternLower[i] >> spriteXShift) & 0x1;
 
                 const unsigned int selectedSPRPalette = (selectedSPRPatternUpper << 1) | selectedSPRPatternLower;
 
