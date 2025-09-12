@@ -290,7 +290,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         {
             if (dotCycles >= LLONG_MAX)
             {
-                const unsigned int cpuCyclesReset = LLONG_MAX / 3;
+                const unsigned long long cpuCyclesReset = LLONG_MAX / 3;
                 cpuCycles -= cpuCyclesReset;
                 dotCycles -= LLONG_MAX;
                 nextCpuCycle -= LLONG_MAX;
